@@ -25,7 +25,7 @@
                               continue-operator
                               bar-operator
 
-                              opener closer
+                              opener block-opener closer
                               comma-operator
                               semicolon-operator
                               EOF))
@@ -92,7 +92,8 @@
         (:? (:: #\.
                 (:* (char-range #\0 #\9)))))
     (token number (string->number lexeme))]
-   [(:or #\( #\[ #\{) (token opener lexeme)]
+   [(:or #\( #\[) (token opener lexeme)]
+   [(:or #\{) (token block-opener lexeme)]
    [(:or #\) #\] #\}) (token closer lexeme)]
    [(:or #\,) (token comma-operator (string->symbol lexeme))]
    [(:or #\;) (token semicolon-operator (string->symbol lexeme))]

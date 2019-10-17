@@ -141,7 +141,8 @@
               (define-values (g rest-l group-end-line) 
                 (parse-block l
                              #:closer (add1 column)
-                             #:bar-closes? #t))
+                             #:bar-closes? #t
+                             #:preceding-bar-operator t))
               (define-values (gs rest-rest-l end-line)
                 (parse-groups rest-l (struct-copy group-state sg
                                                   [column (if same-line?
@@ -239,7 +240,7 @@
              [(pair? next-l)
               (define next-t (car next-l))
               (case (token-name next-t)
-                [(colon-operator semicolon-operator)
+                [(comma-operator semicolon-operator)
                  (continue-done)]
                 [else
                  (define next-line (token-line next-t))
@@ -251,7 +252,9 @@
                                                      [last-line prev-line]))])])]
              [else (continue-done)])]
           [(block-operator)
-           (parse-block l #:closer (add1 (state-column s)))]
+           (parse-block l
+                        #:closer (add1 (state-column s))
+                        #:preceding-block-operator t)]
           [(bar-operator)
            (cond
              [(state-bar-closes? s)
@@ -268,7 +271,8 @@
                      (define-values (g rest-l end-line)
                        (parse-block l
                                     #:closer (add1 (token-column t))
-                                    #:bar-closes? #t))
+                                    #:bar-closes? #t
+                                    #:preceding-bar-operator t))
                      (values (list 'group (cons 'bar g))
                              rest-l
                              end-line)]
@@ -308,7 +312,7 @@
                                           (token-column next-t)))
                             (loop accum rest-l)])]
                         [else (done-bar-block)])])]))])]
-          [(opener)
+          [(opener block-opener)
            (define-values (closer tag paren-immed?)
              (case (token-e t)
                [("(") (values ")" 'parens #t)]
@@ -343,7 +347,9 @@
 
 (define (parse-block l
                      #:closer closer
-                     #:bar-closes? [bar-closes? #f])
+                     #:bar-closes? [bar-closes? #f]
+                     #:preceding-block-operator [preceding-block-operator #f]
+                     #:preceding-bar-operator [preceding-bar-operator #f])
   (define t (car l))
   (define line (token-line t))
   (define-values (next-l prev-line) (next-of (cdr l) line))
@@ -366,10 +372,30 @@
                    (list (cons 'block indent-gs)))
                rest-l
                end-line))
+     (define (maybe-fail-redundant/after why)
+       (when preceding-block-operator
+         (fail (format "redundant `:` at line ~a column ~a due to ~a after"
+                       (token-line preceding-block-operator)
+                       (token-column preceding-block-operator)
+                       why))))
      (cond
        [(= next-line line)
+        ;; Continue on same line
+        (case (token-name next-t)
+          [(block-operator)
+           (maybe-fail-redundant/after "`:`")
+           (when preceding-bar-operator
+             (fail (format "redundant `:` at line ~a column ~a after `|`"
+                           (token-line next-t)
+                           (token-column next-t))))]
+          [(block-operator bar-operator block-opener)
+           (maybe-fail-redundant/after (format "`~a`" (token-e next-t)))]
+          [else (void)])
         (block-at)]
        [(= next-line (add1 prev-line))
+        ;; On next line, maybe indented
+        (when ((token-column next-t) . >= . closer)
+          (maybe-fail-redundant/after "indentation"))
         (block-at)]
        [else
         (block-empty)])]

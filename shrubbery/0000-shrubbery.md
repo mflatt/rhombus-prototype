@@ -101,7 +101,7 @@ and indentation:
 
 Parentheses, square brackets, and curly braces are used to form groups
 in the obvious way. A `;` or `,` acts as a group separator, even
-within a single line. A `:` or `|`treats remaining item on the same
+within a single line. A `:` or `|` treats remaining items on the same
 line like a new indented line, which forms a subgroup. A `\` continues a
 group across a line break.
 
@@ -231,37 +231,28 @@ hello: world
        universe
 ```
 
-As a special rule, if the block that would be created by `:` has one
-group that is itself a block, then `:` does not create a new block.
-This rule is consistent with the effect of `:` at the end of a line
-before an indented block (since inserting a blank line has no effect),
-but it generalizes by allowing an optional `:` before an explicit `{`.
-In fact, any number of optional `:`s can appear. All of the following
-groups are the same:
+A `:` is not allowed to create a block that has just one group that is
+itself a block. Consequently, a `:` is not allowed just before `{`,
+just before another `:`, or at the end of a line that is followed by
+an indented line.
 
 ```
-hello
-  world
-  universe
-
+// Not allowed
 hello:
   world
   universe
 
+// Not allowed
 hello: {world; universe}
 
-hello: : : : : world
-               universe
+// Not allowed
+hello:: world universe
 ```
 
 This special rule for `:` means that you don't have to worry about
 whether a `:` is redundant or whether it creates some subtle or
-important extra layer of blocking.
-
-There's one additional special rule for `:`. If a `:` appears at the
-end of a group, then it forces an empty block. This extra rule ensures
-that a `:` doesn't just disappear if there's no content after it. For
-example `(void:)` is the same as `(void {})`, not `(void)`.
+important extra layer of blocking. It's either needed or explicitly
+disallowed.
 
 The correspondence among blocks created `:`, indentation, and `{}`
 means that a programmer can choose between single-line forms using
@@ -270,19 +261,14 @@ means that a programmer can choose between single-line forms using
 ## Grouping by `|`
 
 A `|` is implicitly followed by a `:` that conceptually occupies same
-column as the `|`. A `|` that is not at the start of a group is also
-implicitly *preceded* by a `:`. Note that the implicit `:` following a
-`|` is subject to the special rules for `:`, which is that it doesn't
-create a new block if one is already created (by indentation or `{`),
-and it can force an empty block.
+column as the `|`, unless the `|` is followed by a block-starting `{`
+or indentation. A `|` that is not at the start of a group is also
+implicitly *preceded* by a `:`.
 
 ```
 hello
   | world
   | universe
-
-hello: | world
-       | universe
 
 hello | world
       | universe
@@ -299,9 +285,18 @@ hello { | { world }
         | { universe } }
 ```
 
-A `|` has its own special rule: if a `|` appears on the same line as a
-`|` and would start a block immediately within that `|`'s block, then
-`|` instead terminates the previous `|`'s block and continues its
+Since a `|` that is not at the start of the group is implicitly
+preceded by a `:`, a `:` is not allowed to preceded a `|`.
+
+```
+// Not allowed
+hello: | world
+       | universe
+```
+
+A `|` has a special rule: if a `|` appears on the same line as a `|`
+and would start a block immediately within that `|`'s block, then `|`
+instead terminates the previous `|`'s block and continues its
 enclosing group sequence with a new `|` group that is *not* implicitly
 preceded by a `:`. The intent and consequence of this rule is that
 multiple `|`s can be used on a single line as an alternative to
@@ -310,8 +305,6 @@ same as the above groups:
 
 ```
 hello | world | universe
-
-hello: | world | universe
 
 hello
   | world | universe
@@ -406,7 +399,7 @@ define curried
         list(x, y, z)
 
 let (x = 1,
-     y = 2):
+     y = 2)
   printf("About to add")
   x+y
 
@@ -418,7 +411,7 @@ define show_zip(l, l2)
     print(x2)
     newline()
 
-define show_combos(l, l2):
+define show_combos(l, l2)
   for (x = in_list(l))
    then (x2 = in_list(l2))
      print(x)
