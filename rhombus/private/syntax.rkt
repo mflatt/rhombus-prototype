@@ -69,7 +69,6 @@
 
   (define-syntax-class :operator-definition-group
     #:datum-literals (op group)
-    #:literals (|'|)
     (pattern (group (op $) _ _::operator-or-identifier . _))
     (pattern (group ::operator-or-identifier . _)))
 
@@ -138,11 +137,10 @@
     parsed-right-options)
 
   (define-splicing-syntax-class :operator-syntax-quote
-    #:datum-literals (op parens group)
-    #:literals ($ |'|)
-    (pattern (~seq (op |'|) (parens (~and g (group (op $) _ _::operator-or-identifier . _)))))
-    (pattern (~seq (op |'|) (parens (~and g (group ::operator-or-identifier . _)))))
-    (pattern (~seq (op |'|) g::operator-or-identifier)))
+    #:datum-literals (op parens group quotes)
+    (pattern (~seq (quotes (~and g (group (op $) _ _::operator-or-identifier . _)))))
+    (pattern (~seq (quotes (~and g (group ::operator-or-identifier . _)))))
+    (pattern (~seq (quotes (group g::operator-or-identifier)))))
 
   (define (convert-prec prec)
     #`(list #,@(for/list ([p (in-list (syntax->list prec))])
@@ -164,8 +162,8 @@
     (define (macro-clause self-id left-ids tail-pattern rhs)
       (define-values (pattern idrs can-be-empty?)
         (if (eq? kind 'rule)
-            (convert-pattern #`(parens (group #,@tail-pattern (op $) tail (op ......))))
-            (convert-pattern #`(parens (group . #,tail-pattern)) #:as-tail? #t)))
+            (convert-pattern #`(group #,@tail-pattern (op $) tail (op ......)))
+            (convert-pattern #`(group . #,tail-pattern)) #:as-tail? #t))
       (with-syntax ([((id id-ref) ...) idrs]
                     [(left-id ...) left-ids])
         (define body
@@ -178,18 +176,16 @@
              #,body)]))
     (define (convert-rule-template block ids)
       (syntax-parse block
-        #:datum-literals (block group op)
-        #:literals (|'|)
-        [(block (group (op (~and t-op |'|)) template))
+        #:datum-literals (block group quotes op)
+        [(block (group (quotes (group template))))
          (convert-template #'template
                            #:rhombus-expression #'rhombus-expression
                            #:check-escape (lambda (e)
                                             (unless (and (identifier? e)
                                                          (for/or ([id (in-list ids)])
                                                            (free-identifier=? e id)))
-                                              (raise-syntax-error #f
+                                              (raise-syntax-error 'template
                                                                   "expected an identifier bound by the pattern"
-                                                                  #'t-op
                                                                   e))))]))
     (define (extract-pattern-id tail-pattern)
       (syntax-parse tail-pattern
@@ -385,7 +381,7 @@
     #:datum-literals (group op)
     #:literals ($ rhombus...)
     [(group id:identifier . tail-pattern)
-     (define-values (pattern idrs can-be-empty?) (convert-pattern #`(parens (group . tail-pattern)) #:as-tail? #t))
+     (define-values (pattern idrs can-be-empty?) (convert-pattern #`(group . tail-pattern) #:as-tail? #t))
      (with-syntax ([((p-id id-ref) ...) idrs])
        #`(define-syntax #,(in-space #'id)
            (#,make-transformer-id
@@ -428,7 +424,7 @@
                                             #:wrap-for-tail
                                             (lambda (body)
                                               (define-values (pattern idrs can-be-empty?)
-                                                (convert-pattern #`(parens (group (block . q.gs)))))
+                                                (convert-pattern #`(group (block . q.gs))))
                                               (with-syntax ([((p-id id-ref) ...) idrs])
                                                 #`(syntax-parse tail-id
                                                     [#,pattern

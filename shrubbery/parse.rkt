@@ -112,6 +112,8 @@
 (define parens-tag (syntax-raw-property (datum->syntax #f 'parens) '()))
 (define brackets-tag (syntax-raw-property (datum->syntax #f 'brackets) '()))
 
+(define within-parens-str "within parentheses, brackets, braces, or quotes")
+
 ;; ----------------------------------------
 
 ;; In the parsed representation of a shrubbery, source locations are
@@ -267,7 +269,7 @@
                 (fail t (format "misplaced comma~a"
                                 (if (group-state-paren-immed? sg)
                                     ""
-                                    " (not immediately within parentheses, brackets, or braces)"))))
+                                    (string-append " (not immediately " within-parens-str ")")))))
               (define-values (rest-l last-line delta raw)
                 (next-of (cdr l) (token-line t) (group-state-delta sg) (cons t (group-state-raw sg))
                          (group-state-count? sg)))
@@ -309,8 +311,7 @@
                                                             #:raw splice-raw)))
                  (when (group-state-paren-immed? sg)
                    (unless (= 1 (length gs))
-                     (fail t (format "multi-group splice not allowed (~a)"
-                                     "immediately within parentheses, brackets, or braces"))))
+                     (fail t (format "multi-group splice not allowed (immediately ~a)" within-parens-str))))
                  (define-values (more-gs more-l more-line more-delta more-end-t more-tail-commenting more-tail-raw)
                    (parse-groups close-l (struct-copy group-state sg
                                                       [comma-time? (group-state-paren-immed? sg)]
@@ -328,8 +329,7 @@
                 
                 [else
                  (when (group-state-paren-immed? sg)
-                   (fail t (format "misplaced semicolon (~a)"
-                                   "immediately within parentheses, brackets, or braces")))
+                   (fail t (format "misplaced semicolon (immediately ~a)" within-parens-str)))
                  (parse-groups rest-l (struct-copy group-state sg
                                                    [check-column? (next-line?* rest-l last-line)]
                                                    [column (or (group-state-column sg) column)]
@@ -341,8 +341,7 @@
                                                    [raw raw]))])])]
           [else
            (when (group-state-comma-time? sg)
-             (fail t (format "missing comma before new group (~a)"
-                             "within parentheses, brackets, or braces")))
+             (fail t (format "missing comma before new group (~a)" within-parens-str)))
            (case (and (not (eq? (group-state-block-mode sg) 'start))
                       (token-name t))
              [(bar-operator)
@@ -625,6 +624,7 @@
                [("(") (values ")" 'parens)]
                [("{") (values "}" 'braces)]
                [("[") (values "]" 'brackets)]
+               [("'") (values "'" 'quotes)]
                [("«") (if (state-at-mode s)
                           (values "»" 'at)
                           (fail t "misplaced `«`"))]
@@ -709,13 +709,13 @@
               (case (token-name next-t)
                 [(opener)
                  (case (token-e next-t)
-                   [("(" "«")
+                   [("(" "«" "'")
                     (parse-group (cdr l) (struct-copy state s
                                                       [raw (cons t (state-raw s))]
                                                       [at-mode 'initial]))]
                    [("[")
                     (keep (state-delta s) #:at-mode 'no-initial #:suffix? #f)]
-                   [else (error "unexpected" (token-name next-t))])]
+                   [else (error "unexpected" (token-name next-t)  (token-e next-t))])]
                 [(identifier number literal operator opener)
                  (parse-group (cdr l) (struct-copy state s
                                                    [raw (cons t (state-raw s))]

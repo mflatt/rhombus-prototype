@@ -1863,21 +1863,21 @@ INPUT
        hello
        (block
         (group val x (block (group f (parens (group 1) (group 2 (op +) 3)))))
-        (group match x (alts (block (group 1 (block (group (op |'|) one (op |'|))))) (block (group 2 (block (group (op |'|) two (op |'|)))))))))))
+        (group match x (alts (block (group 1 (block (group (quotes (group one)))))) (block (group 2 (block (group (quotes (group two))))))))))))
     (group
      (braces
       (group
        hello
        (block
         (group val x (block (group f (parens (group 1) (group 2 (op +) 3)))))
-        (group match x (alts (block (group 1 (block (group (op |'|) one (op |'|))))) (block (group 2 (block (group (op |'|) two (op |'|)))))))))))
+        (group match x (alts (block (group 1 (block (group (quotes (group one)))))) (block (group 2 (block (group (quotes (group two))))))))))))
     (group
      (braces
       (group
        hello
        (block
         (group val x (block (group f (parens (group 1) (group 2 (op +) 3)))))
-        (group match x (alts (block (group 1 (block (group (op |'|) one (op |'|))))) (block (group 2 (block (group (op |'|) two (op |'|)))))))))))))
+        (group match x (alts (block (group 1 (block (group (quotes (group one)))))) (block (group 2 (block (group (quotes (group two))))))))))))))
 
 (define input5
 #<<INPUT

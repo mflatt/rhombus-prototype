@@ -101,10 +101,16 @@
       [(syntax? v)
        (define s (syntax->datum v))
        (display "'" op)
-       (when (and (pair? s)
-                  (eq? 'op (car s)))
-         (display " " op))
-       (write-shrubbery s op)]
+       (cond
+         [(and (pair? s) (eq? 'parens (car s)))
+          (unless (null? (cdr s))
+            (for/fold ([first? #t]) ([e (in-list (cdadr s))])
+              (unless first? (display " " op))
+              (write-shrubbery e op)
+              #f))]
+         [else
+          (write-shrubbery s op)])
+       (display "'" op)]
       [(procedure? v)
        (define name (object-name v))
        (cond
