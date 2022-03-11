@@ -318,9 +318,13 @@
                              #,body)]))]))
   (wrap-bindings idrs #`(#,(quote-syntax quasisyntax) #,template)))
 
-(define-for-syntax (call-with-quoted-expression stx k)
+(define-for-syntax (call-with-quoted-expression stx k literal-k)
   (syntax-parse stx
-    #:datum-literals (quotes)
+    #:datum-literals (quotes group op)
+    #:literals (rhombus...)
+    [(_ (quotes (group (~and dots (op rhombus...)))) . tail)
+     (values (literal-k #'dots)
+             #'tail)]
     [(_ ((~and tag quotes) . args) . tail)
      (values (k #`(#,(syntax/loc #'tag multi) . args))
              #'tail)]))
@@ -343,9 +347,23 @@
    '((default . stronger))
    'macro
    (lambda (stx)
-     (call-with-quoted-expression stx convert-template))
+     (call-with-quoted-expression stx convert-template
+                                  (lambda (e) #`(quote-syntax #,e))))
    (lambda (stx)
-     (call-with-quoted-expression stx convert-pattern/generate-match))))
+     (call-with-quoted-expression stx convert-pattern/generate-match
+                                  (lambda (e) (binding-form
+                                               #'syntax-infoer
+                                               #`(#,(string-append "'" (shrubbery-syntax->string e) "'")
+                                                  ((~datum multi)
+                                                   ((~datum group)
+                                                    #,(let loop ([e e])
+                                                        (syntax-parse e
+                                                          [(~datum op) #`(~datum op)]
+                                                          [id:identifier #`(~literal id)]
+                                                          [(a ...) (map loop (syntax->list e))]))))
+                                                  ()
+                                                  ()
+                                                  ())))))))
 
 (define-syntax syntax_term
   (make-expression+binding-prefix-operator

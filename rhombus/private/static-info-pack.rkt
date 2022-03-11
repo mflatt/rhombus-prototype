@@ -8,11 +8,11 @@
 (define (unpack-static-infos v)
   (syntax-parse v
     [((key val) ...)
-     #'(parens (parens (group key) (group val)) ...)]))
+     #'(parens (group (parens (group key) (group val))) ...)]))
 
 (define (pack-static-infos v who)
   (syntax-parse v
     #:datum-literals (parens group)
-    [(parens (parens (group key) (group val)) ...)
+    [(parens (group (parens (group key) (group val))) ...)
      #'((key val) ...)]))
 

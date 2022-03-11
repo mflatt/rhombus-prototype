@@ -70,10 +70,10 @@
      #:with (unpacked-static-infos ...) (map (lambda (v) (unpack-static-infos v))
                                              (syntax->list #'((b.bind-static-info ...) ...)))
      (pack-term
-      #'(parens (group b.annotation-str)
+      #`(parens (group b.annotation-str)
                 (group b.name-id)
                 (group #,(unpack-static-infos #'b.static-infos))
-                (group #,(pack-tail #`((parens (group b.bind-id) (group unpacked-static-infos)) ...)))
+                (group (parens (group (parens (group b.bind-id) (group unpacked-static-infos))) ...))
                 (group chain-to-matcher)
                 (group chain-to-binder)
                 (group (parsed (b.matcher-id b.binder-id b.data)))))]))
@@ -99,7 +99,7 @@
              (group matcher-id:identifier)
              (group binder-id:identifier)
              (group data))
-     #:with (parens (group (parens (group bind-id) (group bind-static-infos))) ...) #'bind-ids
+     #:with (parens (group (parens (group bind-id) (group bind-static-infos)) ...)) #'bind-ids
      #:with (packed-bind-static-infos ...) (map (lambda (v) (pack-static-infos v 'bind_ct.pack))
                                                 (syntax->list #'(bind-static-infos ...)))
      (binding-info #'name-str
@@ -117,15 +117,13 @@
   (pack-term #`(parsed #,(pack-info stx))))
 
 (define-for-syntax (get_info stx unpacked-static-infos)
-  (syntax-parse stx
+  (syntax-parse (unpack-term stx 'bind_ct.get_info)
     #:datum-literals (parsed group)
     [(parsed b::binding-form)
-     (define static-infos (pack-static-infos unpacked-static-infos 'bind_ct.get_info))
+     (define static-infos (pack-static-infos (unpack-term unpacked-static-infos 'bind_ct.get_info)
+                                             'bind_ct.get_info))
      (syntax-parse #`(b.infoer-id #,static-infos b.data)
        [impl::binding-impl #'(parsed impl.info)])]
-    ;; accomodate a group syntax object
-    [(group e)
-     (get_info #'e unpacked-static-infos)]
     [else
      (raise-argument-error 'bind_ct.get_info
                            "binding-form?"

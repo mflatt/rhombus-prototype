@@ -8,6 +8,7 @@
          "definition.rkt"
          (submod "annotation.rkt" for-class)
          "syntax.rkt"
+         "wrap-expression.rkt"
          "name-root.rkt"
          (for-syntax "name-root.rkt")
          "parse.rkt")
@@ -66,5 +67,6 @@
                                proc))))
   
 (define-for-syntax (pack_predicate predicate [static-infos #'(parens)])
-  #`(parsed #,(annotation-form #`(rhombus-expression (group #,predicate))
-                               (pack-static-infos static-infos 'annotation.pack_predicate))))
+  #`(parsed #,(annotation-form (wrap-expression predicate)
+                               (pack-static-infos (unpack-term static-infos 'annotation.pack_predicate)
+                                                  'annotation.pack_predicate))))

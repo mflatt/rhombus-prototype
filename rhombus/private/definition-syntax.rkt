@@ -49,10 +49,11 @@
    (lambda (stx tail)
      (define-values (defns new-tail)
        (syntax-parse stx
-         [(head . h-tail) (proc (pack-tail #'h-tail) (pack-block-tail tail) #'head)]))
+         [(head . h-tail) (proc (pack-tail #'h-tail) (pack-groups tail) #'head)]))
      (values (unpack-definitions defns proc)
-             (unpack-block-tail new-tail proc)))))
+             (unpack-groups new-tail proc)))))
 
+#;
 (begin-for-syntax
   (define block-with-raw (syntax-property
                           (syntax-property (datum->syntax #f 'block) 'raw "{ ")

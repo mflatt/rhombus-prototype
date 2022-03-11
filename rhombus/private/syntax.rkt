@@ -370,8 +370,8 @@
   
   (define-splicing-syntax-class :identifier-sequence-syntax-quote
     #:datum-literals (op block quotes group)
-    (pattern (quotes (group (block g::identifier-definition-group
-                                   . gs))))))
+    (pattern (quotes g::identifier-definition-group
+                     . gs))))
 
 (define-for-syntax (parse-transformer-definition g self-id rhs
                                                  in-space make-transformer-id
@@ -424,7 +424,7 @@
                                             #:wrap-for-tail
                                             (lambda (body)
                                               (define-values (pattern idrs can-be-empty?)
-                                                (convert-pattern #`(multi (group (block . q.gs)))))
+                                                (convert-pattern #`(multi . q.gs)))
                                               (with-syntax ([((p-id id-ref) ...) idrs])
                                                 #`(syntax-parse tail-id
                                                     [#,pattern

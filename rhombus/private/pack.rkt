@@ -9,6 +9,8 @@
          unpack-term
          pack-group
          unpack-group
+         pack-groups
+         unpack-groups
          
          pack-term*
          unpack-term*
@@ -109,6 +111,16 @@
     [(or (null? r) (pair? r)) (cannot-coerce-list who r)]
     [else #`(#,group-blank #,r)]))
 
+(define (pack-groups r)
+  #`(#,multi-blank . #,r))
+
+(define (unpack-groups r who)
+  (cond
+    [(multi-syntax? r) (cdr (syntax->list r))]
+    [(group-syntax? r) (list r)]
+    [(or (null? r) (pair? r)) (cannot-coerce-list who r)]
+    [else (list (list group-blank r))]))
+
 ;; ----------------------------------------
 
 (define (pack* stx depth wrap)
@@ -157,18 +169,14 @@
            (lambda (r)
              (cons
               block-blank
-              (cond
-                [(multi-syntax? r) (cdr (syntax->list r))]
-                [(group-syntax? r) (list r)]
-                [(or (null? r) (pair? r)) (cannot-coerce-list qs r)]
-                [else (list (list group-blank r))])))))
+              (unpack-groups r qs)))))
 
 (define (pack-tail* stxes depth)
   (pack* stxes depth pack-tail))
 
 (define (unpack-tail* qs r depth)
   (pack* r depth (lambda (r)
-                   (unpack-tail r (syntax-e qs)))))
+                   (unpack-tail r (if (symbol? qs) qs (syntax-e qs))))))
 
 ;; normalize for pattern matching:
 (define (repack-group-or-term r)
