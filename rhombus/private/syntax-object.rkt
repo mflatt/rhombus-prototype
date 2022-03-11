@@ -5,7 +5,7 @@
          racket/syntax-srcloc
          shrubbery/property
          "expression.rkt"
-         "syntax-list.rkt"
+         "pack.rkt"
          "realm.rkt")
 
 (provide literal_syntax
@@ -48,12 +48,8 @@
   (cond
     [(not (syntax? v))
      (raise-argument-error* 'unwrap_syntax rhombus-realm "Syntax" v)]
-    [(convert-single-term-group v)
-     => (lambda (v) (syntax-e v))]
     [else
-     (raise-arguments-error* 'unwrap_syntax rhombus-realm
-                             "cannot unwrap a multi-term group syntax object"
-                             "syntax object" v)]))
+     (syntax-e (unpack-term v 'unwrap_syntax))]))
 
 (define (relocate_syntax stx ctx-stx-in)
   (unless (syntax? stx) (raise-argument-error* 'relocate_syntax rhombus-realm "Syntax" stx))

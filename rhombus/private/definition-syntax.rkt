@@ -4,7 +4,7 @@
                      syntax/boundmap
                      enforest/proc-name
                      "srcloc.rkt"
-                     "tail.rkt")
+                     "pack.rkt")
          "name-root.rkt"
          "definition.rkt"
          "syntax.rkt"
@@ -31,9 +31,9 @@
 
 (define-for-syntax (unpack-definitions form proc)
   (syntax-parse form
-    #:datum-literals (parens block group)
-    [(parens (group (block (group d ...) ...)))
-     #`((rhombus-definition (group d ...))
+    #:datum-literals (multi group)
+    [(multi g ...)
+     #`((rhombus-definition g)
         ...)]
     [_ (raise-result-error (proc-name proc) "definition-list?" form)]))
 

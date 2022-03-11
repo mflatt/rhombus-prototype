@@ -4,7 +4,7 @@
                      enforest/proc-name
                      enforest/transformer-result
                      "srcloc.rkt"
-                     "tail.rkt"
+                     "pack.rkt"
                      "static-info-pack.rkt")
          "name-root.rkt"
          "definition.rkt"
@@ -59,40 +59,38 @@
     #:property prop:binding-infix-operator (lambda (self) (prefix+infix-infix self))))
 
 (define-for-syntax (unpack stx)
-  (syntax-parse stx
+  (syntax-parse (unpack-term stx 'bind_ct.unpack)
     [((~datum parsed) b::binding-form)
-     #`(parens (group chain-to-infoer)
-               (group (parsed (b.infoer-id b.data))))]))
+     (pack-term #'(parens (group chain-to-infoer)
+                          (group (parsed (b.infoer-id b.data)))))]))
 
 (define-for-syntax (unpack_info stx)
-  (syntax-parse stx
+  (syntax-parse (unpack-term stx 'bind_ct.unpack_info)
     [((~datum parsed) b::binding-info)
      #:with (unpacked-static-infos ...) (map (lambda (v) (unpack-static-infos v))
                                              (syntax->list #'((b.bind-static-info ...) ...)))
-     #`(parens (group b.annotation-str)
-               (group b.name-id)
-               (group #,(unpack-static-infos #'b.static-infos))
-               (group #,(pack-tail #`((parens (group b.bind-id) (group unpacked-static-infos)) ...)))
-               (group chain-to-matcher)
-               (group chain-to-binder)
-               (group (parsed (b.matcher-id b.binder-id b.data))))]
-    ;; accomodate a group syntax object
-    [((~datum group) e) (unpack_info #'e)]))
+     (pack-term
+      #'(parens (group b.annotation-str)
+                (group b.name-id)
+                (group #,(unpack-static-infos #'b.static-infos))
+                (group #,(pack-tail #`((parens (group b.bind-id) (group unpacked-static-infos)) ...)))
+                (group chain-to-matcher)
+                (group chain-to-binder)
+                (group (parsed (b.matcher-id b.binder-id b.data)))))]))
 
 (define-for-syntax (pack stx)
-  #`(parsed
-     #,(syntax-parse stx
-         #:datum-literals (parens group)
-         [(parens (group infoer-id:identifier)
-                  (group data))
-          (binding-form #'infoer-id
-                        #'data)]
-         [_ (raise-syntax-error 'binding.pack
-                                "ill-formed unpacked binding"
-                                stx)])))
+  (syntax-parse (unpack-term stx 'bind_ct.pack)
+    #:datum-literals (parens group)
+    [(parens (group infoer-id:identifier)
+             (group data))
+     (pack-term #`(parsed #,(binding-form #'infoer-id
+                                          #'data)))]
+    [_ (raise-syntax-error 'bind_ct.pack
+                           "ill-formed unpacked binding"
+                           stx)]))
 
 (define-for-syntax (pack-info stx)
-  (syntax-parse stx
+  (syntax-parse (unpack-term stx 'bind_ct.pack_info)
     #:datum-literals (parens group)
     [(parens (group name-str:string)
              (group name-id:identifier)
@@ -101,35 +99,35 @@
              (group matcher-id:identifier)
              (group binder-id:identifier)
              (group data))
-     #:with ((parens (group bind-id) (group bind-static-infos)) ...) (unpack-tail #'bind-ids 'binding.pack)
-     #:with (packed-bind-static-infos ...) (map (lambda (v) (pack-static-infos v 'binding.pack))
+     #:with (parens (group (parens (group bind-id) (group bind-static-infos))) ...) #'bind-ids
+     #:with (packed-bind-static-infos ...) (map (lambda (v) (pack-static-infos v 'bind_ct.pack))
                                                 (syntax->list #'(bind-static-infos ...)))
      (binding-info #'name-str
                    #'name-id
-                   (pack-static-infos #'static-infos 'binding.pack)
+                   (pack-static-infos #'static-infos 'bind_ct.pack)
                    #'((bind-id . packed-bind-static-infos) ...)
                    #'matcher-id
                    #'binder-id
                    #'data)]
-    [_ (raise-syntax-error 'binding.pack
+    [_ (raise-syntax-error 'bind_ct.pack_info
                            "ill-formed unpacked binding info"
                            stx)]))
 
 (define-for-syntax (pack_info stx)
-  #`(parsed #,(pack-info stx)))
+  (pack-term #`(parsed #,(pack-info stx))))
 
 (define-for-syntax (get_info stx unpacked-static-infos)
   (syntax-parse stx
     #:datum-literals (parsed group)
     [(parsed b::binding-form)
-     (define static-infos (pack-static-infos unpacked-static-infos 'binding.get_info))
+     (define static-infos (pack-static-infos unpacked-static-infos 'bind_ct.get_info))
      (syntax-parse #`(b.infoer-id #,static-infos b.data)
        [impl::binding-impl #'(parsed impl.info)])]
     ;; accomodate a group syntax object
     [(group e)
      (get_info #'e unpacked-static-infos)]
     [else
-     (raise-argument-error 'binding.get_info
+     (raise-argument-error 'bind_ct.get_info
                            "binding-form?"
                            stx)]))
 
@@ -277,15 +275,17 @@
 
 (define-for-syntax (unwrap-block stx)
   (syntax-parse stx
-    #:datum-literals (group parens block)
-    [(parens (group (block g ...)))
+    #:datum-literals (multi)
+    [(multi g ...)
      #'(rhombus-body-sequence g ...)]))
 
 (define-for-syntax (wrap-parsed stx)
   #`(parsed #,stx))
 
 (define-for-syntax (extract-binding form proc)
-  (syntax-parse (if (syntax? form) #`(group #,form) #'#f)
+  (syntax-parse (if (syntax? form)
+                    (unpack-group form proc)
+                    #'#f)
     [b::binding #'b.parsed]
     [_ (raise-result-error (proc-name proc) "binding?" form)]))
 

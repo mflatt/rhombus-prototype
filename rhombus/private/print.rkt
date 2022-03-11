@@ -102,12 +102,8 @@
        (define s (syntax->datum v))
        (display "'" op)
        (cond
-         [(and (pair? s) (eq? 'parens (car s)))
-          (unless (null? (cdr s))
-            (for/fold ([first? #t]) ([e (in-list (cdadr s))])
-              (unless first? (display " " op))
-              (write-shrubbery e op)
-              #f))]
+         [(and (pair? s) (eq? 'multi (car s)))
+          (write-shrubbery (cons 'top (cdr s)) op)]
          [else
           (write-shrubbery s op)])
        (display "'" op)]

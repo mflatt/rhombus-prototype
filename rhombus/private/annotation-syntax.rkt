@@ -3,7 +3,7 @@
                      syntax/parse
                      enforest/transformer-result
                      enforest/proc-name
-                     "tail.rkt"
+                     "pack.rkt"
                      "static-info-pack.rkt")
          "definition.rkt"
          (submod "annotation.rkt" for-class)
@@ -37,7 +37,7 @@
 (define-for-syntax (parse-annotation-macro-result form proc)
   (unless (syntax? form)
     (raise-result-error (proc-name proc) "syntax?" form))
-  (syntax-parse #`(group #,form)
+  (syntax-parse (unpack-group form proc)
     [c::annotation #'c.parsed]))
 
 (define-for-syntax (make-annotation-infix-operator name prec protocol proc assc)

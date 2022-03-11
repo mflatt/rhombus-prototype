@@ -1,7 +1,7 @@
 #lang racket/base
 (require (for-syntax racket/base
                      syntax/parse
-                     "tail.rkt")
+                     "pack.rkt")
          "name-root.rkt"
          (for-syntax "name-root.rkt")
          (submod "dot.rkt" for-dot-provider)

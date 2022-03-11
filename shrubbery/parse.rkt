@@ -112,7 +112,7 @@
 (define parens-tag (syntax-raw-property (datum->syntax #f 'parens) '()))
 (define brackets-tag (syntax-raw-property (datum->syntax #f 'brackets) '()))
 
-(define within-parens-str "within parentheses, brackets, braces, or quotes")
+(define within-parens-str "within parentheses, brackets, or braces")
 
 ;; ----------------------------------------
 
@@ -619,14 +619,14 @@
            (parse-alts-block t l)]
           [(opener)
            (check-block-mode)
-           (define-values (closer tag)
+           (define-values (closer tag paren-immed?)
              (case (token-e t)
-               [("(") (values ")" 'parens)]
-               [("{") (values "}" 'braces)]
-               [("[") (values "]" 'brackets)]
-               [("'") (values "'" 'quotes)]
+               [("(") (values ")" 'parens #t)]
+               [("{") (values "}" 'braces #t)]
+               [("[") (values "]" 'brackets #t)]
+               [("'") (values "'" 'quotes #f)]
                [("«") (if (state-at-mode s)
-                          (values "»" 'at)
+                          (values "»" 'at #t)
                           (fail t "misplaced `«`"))]
                [else (error "unknown opener" t)]))
            (define pre-raw (state-raw s))
@@ -639,7 +639,7 @@
            (define-values (gs rest-l close-line close-delta end-t never-tail-commenting group-tail-raw)
              (parse-groups next-l (make-group-state #:count? (state-count? s)
                                                     #:closer (make-closer-expected closer t)
-                                                    #:paren-immed? #t
+                                                    #:paren-immed? paren-immed?
                                                     #:block-mode (if (eq? tag 'at) 'no 'start)
                                                     #:column sub-column
                                                     #:last-line last-line

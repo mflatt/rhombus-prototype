@@ -9,8 +9,7 @@
          "expression.rkt"
          "binding.rkt"
          "expression+binding.rkt"
-         "tail.rkt"
-         "syntax-list.rkt"
+         "pack.rkt"
          "empty-group.rkt"
          "syntax-class.rkt"
          "operator-parse.rkt"
@@ -19,8 +18,7 @@
                   [_ rhombus-_])
          ;; because `expr.macro` uses the result of `convert-pattern`
          ;; as a compile-time pattern, for example:
-         (for-syntax "tail.rkt"
-                     "syntax-list.rkt"
+         (for-syntax "pack.rkt"
                      "empty-group.rkt"))
 
 (provide #%quote
@@ -71,7 +69,7 @@
        #:do [(define-values (p new-idrs) (handle-block-escape  #'$-id #'esc e))]
        #:when p
        (values p new-idrs #f)]
-      [((~and tag (~or parens brackets braces quotes block))
+      [((~and tag (~or parens brackets braces quotes multi block))
         (~and g (group . _)))
        ;; Special case: for a single group with (), [], {}, '', or block, if the group
        ;; can be empty, allow a match/construction with zero groups
@@ -81,13 +79,10 @@
            (values (quasisyntax/loc e (#,(make-datum #'tag) #,p))
                    new-idrs 
                    #f))]
-      [((~and tag (~or parens brackets braces quotes block alts group))
+      [((~and tag (~or parens brackets braces quotes multi block alts group))
         g ...)
        (let loop ([gs #'(g ...)] [pend-idrs #f] [idrs '()] [ps '()] [can-be-empty? #t] [tail #f]
-                                 [depth (if (and (eq? (syntax-e #'tag) 'quotes)
-                                                 (free-identifier=? #'#%quote (datum->syntax #'tag '#%quote)))
-                                            (add1 depth)
-                                            depth)])
+                                 [depth (if (nested-quotes? #'tag) (add1 depth) depth)])
          (define (simple gs a-depth)
            (syntax-parse gs
              [(g . gs)
@@ -217,7 +212,7 @@
                   ;; handle-tail-escape:
                   (lambda (name e in-e)
                     (if (identifier? e)
-                        (values e (list #`[#,e (pack-list* (pack-tail (syntax #,e)) 0)]))
+                        (values e (list #`[#,e (pack-tail* (syntax #,e) 0)]))
                         (raise-syntax-error #f
                                             (format "expected an identifier for use with ~a"
                                                     (syntax-e name))
@@ -277,15 +272,15 @@
                     ;; deepen-escape
                     (lambda (idr)
                       (syntax-parse idr
-                        #:literals (unpack-term* unpack-group* unpack-block* unpack-list*)
-                        [(id-pat ((~and unpack (~or unpack-term* unpack-group* unpack-block* unpack-list*)) q e depth))
+                        #:literals (unpack-term* unpack-group* unpack-block* unpack-tail*)
+                        [(id-pat ((~and unpack (~or unpack-term* unpack-group* unpack-block* unpack-tail*)) q e depth))
                          #`[(id-pat (... ...)) (unpack q e #,(add1 (syntax-e #'depth)))]]
                         [(id-pat (converter depth (qs t) . args))
                          #`[(id-pat (... ...)) (converter #,(add1 (syntax-e #'depth)) (qs (t (... ...)))) . args]]))
                     ;; handle-tail-escape:
                     (lambda (name e in-e)
                       (define id (car (generate-temporaries (list e))))
-                      (values id (list #`[#,id (unpack-list* #f (unpack-tail (#,rhombus-expression (group #,e)) '#,name) 0)])))
+                      (values id (list #`[#,id (unpack-tail* '#,name (#,rhombus-expression (group #,e)) 0)])))
                     ;; handle-maybe-empty-sole-group
                     (lambda (tag template idrs)
                       ;; if `template` generates `(group)`, then instead of `(tag (group))`,
@@ -326,16 +321,9 @@
 (define-for-syntax (call-with-quoted-expression stx k)
   (syntax-parse stx
     #:datum-literals (quotes)
-    [(_ (~and head (quotes . args)) . tail)
-     (let ([args (syntax->list #'args)])
-       (cond
-         [(null? args)
-          ;; 0 groups represents an empty sequence
-          (values (k #'head #'tail))]
-         [(pair? (cdr args))
-          (raise-syntax-error #f "too many quoted groups" #'head)]
-         [else
-          (values (k #'head #'tail))]))]))
+    [(_ ((~and tag quotes) . args) . tail)
+     (values (k #`(#,(syntax/loc #'tag multi) . args))
+             #'tail)]))
 
 (define-for-syntax (convert-pattern/generate-match e)
   (define-values (pattern idrs can-be-empty?) (convert-pattern e))
@@ -394,7 +382,7 @@
      #'(IF (syntax? arg-id)
            (begin
              (define-values (match? tmp-id ...)
-               (syntax-parse (unpack-single-term-group arg-id)
+               (syntax-parse (repack-group-or-term arg-id)
                  [pattern (values #t id-ref ...)]
                  [_ (values #f 'id ...)]))
              (IF match?
@@ -439,3 +427,7 @@
         (raise-syntax-error #f
                             "misuse outside of a pattern"
                             #'op.name)]))))
+
+(define-for-syntax (nested-quotes? tag)
+  (and (eq? (syntax-e tag) 'quotes)
+       (free-identifier=? #'#%quote (datum->syntax tag '#%quote))))

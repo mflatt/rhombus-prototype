@@ -2,7 +2,7 @@
 (require (for-syntax racket/base
                      syntax/parse
                      enforest/name-parse
-                     "tail.rkt"
+                     "pack.rkt"
                      "static-info-pack.rkt")
          "definition.rkt"
          "name-root.rkt"
