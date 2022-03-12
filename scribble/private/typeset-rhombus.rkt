@@ -4,6 +4,7 @@
          scribble/racket
          syntax/parse
          racket/list
+         racket/syntax-srcloc
          shrubbery/property
          (only-in scribble/core
                   element

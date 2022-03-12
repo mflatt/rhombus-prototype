@@ -41,7 +41,6 @@ for_meta:
         | 'literal_syntax($tail ......)':
             'literal_syntax($head ... $tail ......)'
 
-  import: racket/base
   def literal_rebuilt_nested(tss, gs, stxs):
     def new_gs: map2(fun (ts, orig_g):
                        match ts
@@ -72,7 +71,7 @@ for_meta:
     | 'as_seq(relocate_group($ts, literal_syntax($(relocate_syntax('#false', g)))))'
 
   def nested(gs, builder, stxs):
-    val tss: map(fun(g): escape('$g'), gs)
+    val tss: map(escape, gs)
     if andmap(is_literal, tss)
     | literal_rebuilt_nested(tss, gs, stxs)
     | val new_gs: map2(build_relocate_group, tss, gs)
@@ -195,7 +194,7 @@ expr.macro 'rhombusblock $tail ...':
   ~op_stx: me
   fun finish(option, fin_tail):
     match '$fin_tail ...'
-    | ': $content ...; ...':
+    | ': $_':
         values('#{typeset-rhombusblock}($option, ..., $(escape('$fin_tail ...')))', '')
     | ~else: raise_syntax_error("expected a block", '$me $tail ...')
   fun check_options(options):

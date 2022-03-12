@@ -1,6 +1,9 @@
 #lang racket/base
 (require syntax/stx
+         syntax/parse
+         racket/syntax-srcloc
          enforest/proc-name
+         shrubbery/property
          "realm.rkt")
 
 ;; We represent Rhombus syntax objects as a syntax object with one of
@@ -42,7 +45,9 @@
          pack-tail*
          unpack-tail*
          
-         repack-group-or-term)
+         repack-group-or-term
+
+         any-blank)
 
 (define multi-blank (syntax-property (datum->syntax #f 'multi) 'raw ""))
 (define group-blank (syntax-property (datum->syntax #f 'group) 'raw ""))
@@ -134,7 +139,7 @@
     [(or (null? r) (pair? r)) (cannot-coerce-list who r)]
     [else (datum->syntax #f (list group-blank r))]))
 
-;; `r` is a terms like `(parens ...)` or `(block ...)`
+;; `r` is a term like `(parens ....)` or `(block ....)`
 (define (pack-multi r)
   (datum->syntax #f (cons multi-blank r)))
 
@@ -190,11 +195,10 @@
            (lambda (r)
              (unpack-group r (syntax-e qs)))))
 
-;; Packs to a `multi` form, the the inner `stxes`s have a head ter like
+;; Packs to a `multi` form, the the inner `stxes`s have a head identifier like
 ;; `parens` or `block`
 (define (pack-multi* stxes depth)
-  (pack* stxes depth (lambda (stxes)
-                       (datum->syntax #f (cons multi-blank stxes)))))
+  (pack* stxes depth pack-multi))
 
 ;; Unpacks to a list of groups, which is asymmetric to `pack-multi*`
 (define (unpack-multi* qs r depth)
