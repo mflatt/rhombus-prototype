@@ -1,6 +1,7 @@
 #lang racket/base
 (require (for-syntax racket/base
-                     syntax/parse)
+                     syntax/parse
+                     "pack.rkt")
          syntax/parse
          racket/syntax-srcloc
          shrubbery/property
@@ -9,7 +10,6 @@
          "realm.rkt")
 
 (provide literal_syntax
-         literal_syntax_term
          to_syntax
          unwrap_syntax
          relocate_syntax
@@ -20,24 +20,21 @@
    #'literal_syntax
    (lambda (stx)
      (syntax-parse stx
-       [(_ form . tail)
-        (values #'(quote-syntax form) #'tail)]))))
-
-(define-syntax literal_syntax_term
-  (expression-transformer
-   #'literal_syntax
-   (lambda (stx)
-     (syntax-parse stx
-       #:datum-literals (parens group)
-       [(_ (parens (group term)) . tail)
-        (values #'(quote-syntax term) #'tail)]))))
+       #:datum-literals (parens quotes group)
+       [(_ ((~or parens quotes) (group term)) . tail)
+        ;; Note: discarding group properties in this case
+        (values #'(quote-syntax term) #'tail)]
+       [(_ (~and ((~or parens quotes) . _) gs) . tail)
+        (values #`(quote-syntax #,(pack-multi #'gs)) #'tail)]))))
 
 ;; ----------------------------------------
 
 (define (relevant-source-syntax ctx-stx-in)
   (syntax-parse ctx-stx-in
-    #:datum-literals (group block alts parens brackets braces op)
-    [((~and head (~or group block alts parens brackets braces)) . _) #'head]
+    #:datum-literals (multi group block alts parens brackets quotes braces op)
+    [(multi head (group t)) #'head]
+    [(group t) (relevant-source-syntax #'t)]
+    [((~and head (~or block alts parens brackets quotes braces)) . _) #'head]
     [(op o) #'o]
     [_ ctx-stx-in]))
 
@@ -53,15 +50,28 @@
 
 (define (relocate_syntax stx ctx-stx-in)
   (unless (syntax? stx) (raise-argument-error* 'relocate_syntax rhombus-realm "Syntax" stx))
-  (define ctx-stx (relevant-source-syntax ctx-stx-in))
   (syntax-parse stx
-    #:datum-literals (group block alts parens brackets braces op)
-    [((~and head (~or group block alts parens brackets braces)) . rest)
-     #`(#,(datum->syntax #'head (syntax-e #'head) ctx-stx ctx-stx) . rest)]
-    [(op o)
-     #`(op #,(datum->syntax #'o (syntax-e #'o) ctx-stx ctx-stx) . rest)]
-    [_
-     (datum->syntax stx (syntax-e stx) ctx-stx ctx-stx)]))
+    #:datum-literals (group)
+    [((~and head group) . rest)
+     ;; transfer group context to group context?
+     (syntax-parse ctx-stx-in
+       #:datum-literals (group)
+       [((~and group g) . _)
+        (datum->syntax (cons (datum->syntax #'head (syntax-e #'head) #'g #'g) #'rest))]
+       [else
+        (error 'relocate_syntax "cannot transfer non-group context to group syntax object")])]
+    [else
+     (define ctx-stx (relevant-source-syntax ctx-stx-in))
+     (syntax-parse stx
+       #:datum-literals (multi block alts parens brackets braces quotes op)
+       [((~and m multi) head . rest)
+        (datum->syntax #f (list* #'m (datum->syntax #'head (syntax-e #'head) ctx-stx ctx-stx) #'rest))]
+       [((~and head (~or block alts parens brackets braces quotes)) . rest)
+        (datum->syntax (cons (datum->syntax #'head (syntax-e #'head) ctx-stx ctx-stx) #'rest))]
+       [((~and head op) o)
+        (datum->syntax #f (list #'head (datum->syntax #'o (syntax-e #'o) ctx-stx ctx-stx)))]
+       [_
+        (datum->syntax stx (syntax-e stx) ctx-stx ctx-stx)])]))
 
 (define (relocate_span_syntax stx ctx-stxes-in
                               #:keep_raw_interior [keep-raw-interior? #f])

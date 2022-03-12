@@ -272,10 +272,7 @@
                          (rhombus-body-at block-tag body ...)))])]))))]))))
 
 (define-for-syntax (unwrap-block stx)
-  (syntax-parse stx
-    #:datum-literals (multi)
-    [(multi g ...)
-     #'(rhombus-body-sequence g ...)]))
+  #`(rhombus-body-sequence #,@(unpack-multi stx 'bin.binder)))
 
 (define-for-syntax (wrap-parsed stx)
   #`(parsed #,stx))

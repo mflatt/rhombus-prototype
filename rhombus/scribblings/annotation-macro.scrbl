@@ -10,22 +10,23 @@ macro can use lower-level machinery to explicitly produce static
 information or manipulate static information produced by subannotation
 forms.
 
-The @rhombus[annotation.macro] form defines an annotation. In the simplest case,
-the expansion of an annotation can be another annotation:
+The @rhombus[annotation.rule] or @rhombus[annotation.macro] form
+defines an annotation. In the simplest case, the expansion of an
+annotation can be another annotation:
 
 @(rhombusblock:
-    annotation.macro 'AlsoPosn: 'Posn
+    annotation.rule 'AlsoPosn': 'Posn'
 
     Posn(1, 2) :: AlsoPosn  // prints Posn(1, 2)
   )
 
-Note that @rhombus[annotation.macro] defines only an annotation. To make
+Note that @rhombus[annotation.rule] defines only an annotation. To make
 @rhombus[AlsoPosn] also a binding operator, use @rhombus[bind.macro],
 and so on:
 
 @(rhombusblock:
-    bind.macro '(AlsoPosn ($x, $y) $tail ......):
-      values('(Posn($x, $y)), tail)
+    bind.macro 'AlsoPosn ($x, $y) $tail ......':
+      values('(Posn($x, $y))', tail)
 
     def AlsoPosn(x, y): Posn(1, 2)
     x  // prints 1
@@ -39,8 +40,8 @@ implementation if @rhombus[IsPosn] creates a new predicate that uses
 binding form or constructor:
 
 @(rhombusblock:
-    annotation.macro 'IsPosn:
-      annotation_ct.pack_predicate('(fun (x): x is_a Posn))
+    annotation.rule 'IsPosn':
+      annotation_ct.pack_predicate('fun (x): x is_a Posn')
 
     fun get_x(p :: IsPosn): Posn.x(p)
     get_x(Posn(1, 2)) // prints 1
@@ -62,9 +63,9 @@ the ``fields'' are @rhombus[angle] and @rhombus[magnitude] instead of
 refers to a @rhombus[vector_dot_provider] that we will define:
 
 @(rhombusblock:
-    annotation.macro 'Vector:
-      annotation_ct.pack_predicate('(fun (x): x is_a Posn),
-                                   '(($(dot_ct.provider_key), vector_dot_provider)))
+    annotation.macro 'Vector':
+      annotation_ct.pack_predicate('fun (x): x is_a Posn',
+                                   '(($(dot_ct.provider_key), vector_dot_provider))')
   )
 
 A dot-provider transformer is defined using @rhombus[dot.macro]. A

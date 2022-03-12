@@ -26,14 +26,7 @@
          [(null? v)
           (error 'write-shubbery "unexpected ~s" v)]
          [(eq? 'op (car v))
-          (cond
-            [(and (not sole?)
-                  (memq (cadr v) '(... ¿)) )
-             (display "¿(? " op)
-             (display (cadr v) op)
-             (display ")" op)]
-            [else
-             (display (cadr v) op)])]
+          (display (cadr v) op)]
          [(eq? 'alts (car v))
           (display "" op)
           (for/fold ([first? #t]) ([v (in-list (cdr v))])

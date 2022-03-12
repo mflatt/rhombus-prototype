@@ -117,7 +117,8 @@
 ;; ----------------------------------------
 
 ;; In the parsed representation of a shrubbery, source locations are
-;; not associated with sequences tagged `group` or `top`. For terms
+;; not associated with sequences tagged `group` or `top` (but they may
+;; have 'raw-prefix and/or 'raw-tail, as described below). For terms
 ;; tagged with `parens`, `braces`, `block`, `alts`, and `op`, the same
 ;; source location is associated with the tag and the parentheses that
 ;; group the tag with its members, and that location spans the content

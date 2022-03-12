@@ -12,7 +12,7 @@ export:
 expr.macro 'examples $parens $tail ......':
   ~op_stx: me
   match parens
-  | '$_; ...':
+  | '($_)':
       values(parsed(['#{typeset-examples}', parens]),
              tail)
   | ~else:

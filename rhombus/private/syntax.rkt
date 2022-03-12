@@ -163,8 +163,8 @@
     (define (macro-clause self-id left-ids tail-pattern rhs)
       (define-values (pattern idrs can-be-empty?)
         (if (eq? kind 'rule)
-            (convert-pattern #`(multi (group #,@tail-pattern (op $) tail (op ......))))
-            (convert-pattern #`(multi (group . #,tail-pattern)) #:as-tail? #t)))
+            (convert-pattern #`(MULTI (group #,@tail-pattern (op $) tail (op ......))))
+            (convert-pattern #`(MULTI (group . #,tail-pattern)) #:as-tail? #t)))
       (with-syntax ([((id id-ref) ...) idrs]
                     [(left-id ...) left-ids])
         (define body
@@ -179,7 +179,7 @@
       (syntax-parse block
         #:datum-literals (block group quotes op)
         [(block (group (quotes template)))
-         (convert-template #'(multi template)
+         (convert-template #'template
                            #:rhombus-expression #'rhombus-expression
                            #:check-escape (lambda (e)
                                             (unless (and (identifier? e)
@@ -381,7 +381,7 @@
     #:datum-literals (group op)
     #:literals ($ rhombus...)
     [(group id:identifier . tail-pattern)
-     (define-values (pattern idrs can-be-empty?) (convert-pattern #`(multi (group . tail-pattern)) #:as-tail? #t))
+     (define-values (pattern idrs can-be-empty?) (convert-pattern #`(MULTI (group . tail-pattern)) #:as-tail? #t))
      (with-syntax ([((p-id id-ref) ...) idrs])
        #`(define-syntax #,(in-space #'id)
            (#,make-transformer-id
@@ -424,7 +424,7 @@
                                             #:wrap-for-tail
                                             (lambda (body)
                                               (define-values (pattern idrs can-be-empty?)
-                                                (convert-pattern #`(multi . q.gs)))
+                                                (convert-pattern #`(MULTI . q.gs)))
                                               (with-syntax ([((p-id id-ref) ...) idrs])
                                                 #`(syntax-parse tail-id
                                                     [#,pattern

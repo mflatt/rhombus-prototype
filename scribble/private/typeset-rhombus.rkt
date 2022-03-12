@@ -28,110 +28,107 @@
   ;; "pretty" prints to a single line, currently assuming that the input was
   ;; originally on a single line
   (define (id-space-name* id) (id-space-name id space-name))
-  (syntax-parse stx
-    #:datum-literals (parens)
-    [(parens g)
-     (let loop ([stx #'g])
-       (define (seq open elems-stx close)
-         (list (element paren-color open)
-               (add-between (map loop (syntax->list elems-stx))
-                            tt-comma)
-               (element paren-color close)))
-       (define (group elems-stx)
-         (let g-loop ([elems (syntax->list elems-stx)] [pre-space? #f] [check-prefix? #f])
-           (cond
-             [(null? elems) null]
-             [(initial-name-ref elems space-name) ; detect `root.field` paths
-              => (lambda (new-elems)
-                   (g-loop new-elems pre-space? check-prefix?))]
-             [else
-              (define elem (car elems))
-              (define alt-elem (syntax-parse elem
-                                 #:datum-literals (op)
-                                 [(op x) #'x]
-                                 [_ #f]))
-              (define (prefixed? stx)
-                (and check-prefix?
-                     (not (null? (or (syntax-raw-prefix-property stx) '())))))
-              (define (ends p)
-                (cond
-                  [(null? p) 'empty]
-                  [(pair? p)
-                   (define de (ends (cdr p)))
-                   (if (eq? de 'empty)
-                       (ends (car p))
-                       de)]
-                  [(string? p)
-                   (cond
-                     [(string=? p "") 'empty]
-                     [(char-whitespace? (string-ref p (sub1 (string-length p)))) 'space]
-                     [else 'nonspace])]
-                  [else 'empty]))
-              (define (suffixed? stx)
-                (not (null? (or (eq? 'space (ends (syntax-raw-suffix-property stx)))
-                                (syntax-case stx ()
-                                  [(head . _) (eq? 'space (ends (syntax-raw-tail-property #'head)))]
-                                  [_ #f])
-                                '()))))
-              (define add-space?
-                (or pre-space? (prefixed? elem) (and alt-elem (prefixed? alt-elem))))
-              (define e (loop (car elems)))
-              (cons (cond
-                      [add-space? (list tt-space e)]
-                      [else e])
-                    (g-loop (cdr elems)
-                            (or (suffixed? elem) (and alt-elem (suffixed? alt-elem)))
-                            #t))])))
-       (cond
-         [(element*? (syntax-e stx)) (syntax-e stx)]
-         [else
-          (syntax-parse stx
-            #:datum-literals (group parens brackets braces block alts op)
-            [(group elem ... (block g ...))
-             (list (group #'(elem ...))
-                   (element tt-style ": ")
-                   (add-between (map loop (syntax->list #'(g ...)))
-                                (element tt-style "; ")))]
-            [(group elem ... (alts (block g ...) ...+))
-             (list (group #'(elem ...))
-                   (element tt-style " | ")
-                   (add-between
-                    (for/list ([gs (in-list (syntax->list #'((g ...) ...)))])
-                      (add-between (map loop (syntax->list gs))
-                                   (element tt-style "; ")))
-                    (element tt-style " | ")))]
-            [(group elem ...)
-             (group #'(elem ...))]
-            [(parens elem ...) (seq "(" #'(elem ...) ")")]
-            [(brackets elem ...) (seq "[" #'(elem ...) "]")]
-            [(braces elem ...) (seq "{" #'(elem ...) "}")]
-            [(op id)
-             (define str (shrubbery-syntax->string stx))
-             (define space-name (id-space-name* #'id))
-             (if (identifier-binding (add-space #'id space-name) #f)
-                 (element tt-style (make-id-element (add-space #'id space-name) str #f
-                                                    #:space space-name
-                                                    #:unlinked-ok? #t))
-                 (element tt-style str))]
-            [id:identifier
-             (define str (shrubbery-syntax->string stx))
-             (define space-name (id-space-name* #'id))
+  (let loop ([stx stx])
+    (define (seq open elems-stx close)
+      (list (element paren-color open)
+            (add-between (map loop (syntax->list elems-stx))
+                         tt-comma)
+            (element paren-color close)))
+    (define (group elems-stx)
+      (let g-loop ([elems (syntax->list elems-stx)] [pre-space? #f] [check-prefix? #f])
+        (cond
+          [(null? elems) null]
+          [(initial-name-ref elems space-name) ; detect `root.field` paths
+           => (lambda (new-elems)
+                (g-loop new-elems pre-space? check-prefix?))]
+          [else
+           (define elem (car elems))
+           (define alt-elem (syntax-parse elem
+                              #:datum-literals (op)
+                              [(op x) #'x]
+                              [_ #f]))
+           (define (prefixed? stx)
+             (and check-prefix?
+                  (not (null? (or (syntax-raw-prefix-property stx) '())))))
+           (define (ends p)
              (cond
-               [(eq? space-name 'var)
-                (element variable-color str)]
-               [(identifier-binding (add-space stx space-name) #f)
-                (element tt-style (make-id-element (add-space stx space-name) str #f
-                                                   #:space space-name
-                                                   #:unlinked-ok? #t))]
-               [else
-                (element symbol-color str)])]
-            [_
-             (define d (syntax->datum stx))
-             (element (cond
-                        [(symbol? d) symbol-color]
-                        [(keyword? d) paren-color]
-                        [else value-color])
-               (shrubbery-syntax->string stx))])]))]))
+               [(null? p) 'empty]
+               [(pair? p)
+                (define de (ends (cdr p)))
+                (if (eq? de 'empty)
+                    (ends (car p))
+                    de)]
+               [(string? p)
+                (cond
+                  [(string=? p "") 'empty]
+                  [(char-whitespace? (string-ref p (sub1 (string-length p)))) 'space]
+                  [else 'nonspace])]
+               [else 'empty]))
+           (define (suffixed? stx)
+             (not (null? (or (eq? 'space (ends (syntax-raw-suffix-property stx)))
+                             (syntax-case stx ()
+                               [(head . _) (eq? 'space (ends (syntax-raw-tail-property #'head)))]
+                               [_ #f])
+                             '()))))
+           (define add-space?
+             (or pre-space? (prefixed? elem) (and alt-elem (prefixed? alt-elem))))
+           (define e (loop (car elems)))
+           (cons (cond
+                   [add-space? (list tt-space e)]
+                   [else e])
+                 (g-loop (cdr elems)
+                         (or (suffixed? elem) (and alt-elem (suffixed? alt-elem)))
+                         #t))])))
+    (cond
+      [(element*? (syntax-e stx)) (syntax-e stx)]
+      [else
+       (syntax-parse stx
+         #:datum-literals (group parens brackets braces block alts op)
+         [(group elem ... (block g ...))
+          (list (group #'(elem ...))
+                (element tt-style ": ")
+                (add-between (map loop (syntax->list #'(g ...)))
+                             (element tt-style "; ")))]
+         [(group elem ... (alts (block g ...) ...+))
+          (list (group #'(elem ...))
+                (element tt-style " | ")
+                (add-between
+                 (for/list ([gs (in-list (syntax->list #'((g ...) ...)))])
+                   (add-between (map loop (syntax->list gs))
+                                (element tt-style "; ")))
+                 (element tt-style " | ")))]
+         [(group elem ...)
+          (group #'(elem ...))]
+         [(parens elem ...) (seq "(" #'(elem ...) ")")]
+         [(brackets elem ...) (seq "[" #'(elem ...) "]")]
+         [(braces elem ...) (seq "{" #'(elem ...) "}")]
+         [(op id)
+          (define str (shrubbery-syntax->string stx))
+          (define space-name (id-space-name* #'id))
+          (if (identifier-binding (add-space #'id space-name) #f)
+              (element tt-style (make-id-element (add-space #'id space-name) str #f
+                                                 #:space space-name
+                                                 #:unlinked-ok? #t))
+              (element tt-style str))]
+         [id:identifier
+          (define str (shrubbery-syntax->string stx))
+          (define space-name (id-space-name* #'id))
+          (cond
+            [(eq? space-name 'var)
+             (element variable-color str)]
+            [(identifier-binding (add-space stx space-name) #f)
+             (element tt-style (make-id-element (add-space stx space-name) str #f
+                                                #:space space-name
+                                                #:unlinked-ok? #t))]
+            [else
+             (element symbol-color str)])]
+         [_
+          (define d (syntax->datum stx))
+          (element (cond
+                     [(symbol? d) symbol-color]
+                     [(keyword? d) paren-color]
+                     [else value-color])
+            (shrubbery-syntax->string stx))])])))
 
 (define (typeset-rhombusblock stx
                               #:inset [inset? #t]
@@ -141,12 +138,7 @@
   ;; colorer. Why didn't we use a string to start with?
   ;; Because having `rhm` work on implicitly quoted syntax
   ;; means that you get nice editor support.
-  (define block-stx
-    (syntax-case stx ()
-      [(_ (_ block)) #'block]))
-  (define tag-stx
-    (syntax-case stx ()
-      [(_ (_ self)) #'self]))
+  (define block-stx stx)
   (define stx-ranges (make-hasheq))
   (define str (block-string->content-string (shrubbery-syntax->string (replace-name-refs block-stx)
                                                                       #:use-raw? #t

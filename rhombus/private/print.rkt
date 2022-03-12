@@ -99,7 +99,6 @@
          #f)
        (display "}" op)]
       [(syntax? v)
-       (log-error ">> ~s" v)
        (define s (syntax->datum v))
        (define maybe-nested? (let loop ([s s ])
                                (and (pair? s)
@@ -110,7 +109,7 @@
        (display (if maybe-nested? "'«" "'") op)
        (cond
          [(and (pair? s) (eq? 'multi (car s)))
-          (write-shrubbery (cons 'top (cdr s)) op)]
+          (write-shrubbery (cons 'top (cddr s)) op)]
          [(and (pair? s) (eq? 'group (car s)))
           (write-shrubbery (list 'top s) op)]
          [else

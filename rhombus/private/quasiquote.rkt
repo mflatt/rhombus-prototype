@@ -53,7 +53,7 @@
                                    #:as-tail? [as-tail? #f])
   (let convert ([e e] [empty-ok? #f] [depth 0] [as-tail? as-tail?])
     (syntax-parse e
-      #:datum-literals (parens brackets braces block group alts)
+      #:datum-literals (parens brackets braces quotes block group alts MULTI)
       [(group
         (op (~and (~literal $) $-id)) esc)
        #:when (and (zero? depth) (not as-tail?))
@@ -62,14 +62,14 @@
        #:do [(define-values (p new-idrs) (handle-group-escape #'$-id #'esc e))]
        #:when p
        (values p new-idrs #f)]
-      [((~and tag (~or parens brackets braces quotes multi block))
+      [((~and tag (~or parens brackets braces quotes block MULTI))
         (group (op (~and (~literal $) $-id)) esc))
        #:when (and (zero? depth) (not as-tail?))
        ;; Analogous special case, but for blocks (maybe within an `alts`), etc.
        #:do [(define-values (p new-idrs) (handle-multi-escape  #'$-id #'esc e))]
        #:when p
        (values p new-idrs #f)]
-      [((~and tag (~or parens brackets braces quotes multi block))
+      [((~and tag (~or parens brackets braces quotes block MULTI))
         (~and g (group . _)))
        ;; Special case: for a single group with (), [], {}, '', or block, if the group
        ;; can be empty, allow a match/construction with zero groups
@@ -79,7 +79,7 @@
            (values (quasisyntax/loc e (#,(make-datum #'tag) #,p))
                    new-idrs 
                    #f))]
-      [((~and tag (~or parens brackets braces quotes multi block alts group))
+      [((~and tag (~or parens brackets braces quotes block alts group MULTI))
         g ...)
        ;; Note: this is where `depth` woudl be incremented, when `tag` is `quotes`, if we wanted that
        (let loop ([gs #'(g ...)] [pend-idrs #f] [idrs '()] [ps '()] [can-be-empty? #t] [tail #f] [depth depth])
@@ -151,18 +151,15 @@
       #:literals (rhombus-_ $:)
       [rhombus-_ (values #'_ null)]
       [_:identifier
-       #:with (tag . _) in-e
-       (values (cons #'(~datum tag) e) (list #`[#,e (#,pack* (syntax #,e) 0)]))]
+       (values e (list #`[#,e (#,pack* (syntax #,e) 0)]))]
       [(parens (group id:identifier (op $:) stx-class:identifier))
        (define rsc (syntax-local-value (in-syntax-class-space #'stx-class) (lambda () #f)))
        (define (compat)
-         (with-syntax ([(tag . _) in-e])
-           (define sc (rhombus-syntax-class-class rsc))
-           (values (cons #'(~datum tag)
-                         (if sc
-                             #`(~var id #,sc)
-                             #'id))
-                   (list #`[id (#,pack* (syntax id) 0)]))))
+         (define sc (rhombus-syntax-class-class rsc))
+         (values (if sc
+                     #`(~var id #,sc)
+                     #'id)
+                 (list #`[id (#,pack* (syntax id) 0)])))
        (define (incompat)
          (raise-syntax-error #f
                              "unknown syntax class or incompatible with this context"
@@ -190,11 +187,24 @@
             [else (incompat)])]
          [else
           (error "unrecognized kind" kind)])]))
+  (define (handle-escape/match-head $-id e in-e pack* context-syntax-class kind)
+    (define-values (p idrs) (handle-escape $-id e in-e pack* context-syntax-class kind))
+    (if p
+        (values (syntax-parse in-e
+                  #:datum-literals (MULTI)
+                  [(MULTI . _) #`(_ . #,p)]
+                  [(tag . _) #`(~and ((~datum tag) . _) #,p)])
+                idrs)
+        (values #f #f)))
+  (define (make-datum d)
+    (if (eq? (syntax-e d) 'MULTI)
+        #'(~seq _ _)
+        #`(~datum #,d)))
   (convert-syntax e
                   #:as-tail? as-tail?
                   ;; make-datum
                   (lambda (d)
-                    #`(~datum #,d))
+                    (make-datum d))
                   ;; make-literal
                   (lambda (d)
                     #`(~literal #,d))
@@ -203,10 +213,10 @@
                     (handle-escape $-id e in-e #'pack-term* #'Term 'term))
                   ;; handle-group-escape:
                   (lambda ($-id e in-e)
-                    (handle-escape $-id e in-e #'pack-group* #'Group 'group))
+                    (handle-escape/match-head $-id e in-e #'pack-group* #'Group 'group))
                   ;; handle-multi-escape:
                   (lambda ($-id e in-e)
-                    (handle-escape $-id e in-e #'pack-multi* #'Block 'block))
+                    (handle-escape/match-head $-id e in-e #'pack-multi* #'Block 'block))
                   ;; deepen-escape
                   (lambda (idr)
                     (syntax-parse idr
@@ -225,11 +235,12 @@
                   (lambda (tag pat idrs)
                     ;; `pat` matches a `group` form that's supposed to be under `tag`,
                     ;; but if `pat` match `(group)`, then allow an overall match to `(tag)`
-                    (values #`(~or* ((~datum #,tag) #,pat)
-                                    (~and ((~datum #,tag))
-                                          ;; sets all pattern variables to nested empties:
-                                          (_ . #,(syntax-parse pat
-                                                   [(_ . tail) #'tail]))))
+                    (values #`(~or* (#,(make-datum tag) #,pat)
+                                    (#,(make-datum tag)
+                                     .
+                                     ;; sets all pattern variables to nested empties:
+                                     #,(syntax-parse pat
+                                         [(_ . tail) #'tail])))
                             idrs
                             #f))
                   ;; handle-maybe-empty-alts
@@ -329,8 +340,8 @@
     [(_ (quotes (group (~and dots (op rhombus...)))) . tail)
      (values (literal-k #'dots)
              #'tail)]
-    [(_ ((~and tag quotes) . args) . tail)
-     (values (k #`(#,(syntax/loc #'tag multi) . args))
+    [(_ (~and head (quotes . _)) . tail)
+     (values (k #'head)
              #'tail)]))
 
 (define-for-syntax (convert-pattern/generate-match e)
@@ -351,10 +362,14 @@
    '((default . stronger))
    'macro
    (lambda (stx)
-     (call-with-quoted-expression stx convert-template
+     (call-with-quoted-expression stx
+                                  (lambda (e) #`(pack-multi #,(convert-template e)))
                                   (lambda (e) #`(quote-syntax #,e))))
    (lambda (stx)
-     (call-with-quoted-expression stx convert-pattern/generate-match
+     (call-with-quoted-expression stx
+                                  (lambda (e) (convert-pattern/generate-match
+                                               (syntax-parse e
+                                                 [(q . args) #`(MULTI . args)])))
                                   (lambda (e) (binding-form
                                                #'syntax-infoer
                                                #`(#,(string-append "'" (shrubbery-syntax->string e) "'")
