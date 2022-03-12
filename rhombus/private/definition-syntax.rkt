@@ -49,9 +49,9 @@
    (lambda (stx tail)
      (define-values (defns new-tail)
        (syntax-parse stx
-         [(head . h-tail) (proc (pack-tail #'h-tail) (pack-groups tail) #'head)]))
+         [(head . h-tail) (proc (pack-tail #'h-tail) (pack-multi tail) #'head)]))
      (values (unpack-definitions defns proc)
-             (unpack-groups new-tail proc)))))
+             (unpack-multi new-tail proc)))))
 
 #;
 (begin-for-syntax

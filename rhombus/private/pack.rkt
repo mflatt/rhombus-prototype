@@ -3,21 +3,44 @@
          enforest/proc-name
          "realm.rkt")
 
+;; We represent Rhombus syntax objects as a syntax object with one of
+;; the following forms:
+;;   (multi (group term ...) ...) - as a general multi-group syntax object
+;;   (group term ...) - for a group syntax object
+;;   term - for a single-term syntax object
+;; Coercions among these happen automatically. So, the Rhombus expression
+;;   'x'
+;; could be represented for most purposes as #'(multi (group x)) or just #'x.
+
+;; "Pack" means going form the internal Racket-side representation to
+;; the Rhombus repesentation, such as when sending syntax to a
+;; Rhombus-implemented macro, and "unpack" means going back.
+
+;; "Tail" below refers to the argument to a macro for the rest of the
+;; enclosing sequence. We represent it using "multi" on the Rhombus
+;; side, but it's just a list on the Racket side, which means adding
+;; both `group` and them `multi` to get from here to there. On the way
+;; back, we coerce from any of the three possible shapes, containing
+;; `multi` to a single group.
+
+;; When we "unpack" here, group unpacking is asymmetric and is really
+;; just about coercsions, mot about removing a `group` wrapper.
+
 (provide pack-tail
          unpack-tail
          pack-term
          unpack-term
          pack-group
          unpack-group
-         pack-groups
-         unpack-groups
+         pack-multi
+         unpack-multi
          
          pack-term*
          unpack-term*
          pack-group*
          unpack-group*
-         pack-block*
-         unpack-block*
+         pack-multi*
+         unpack-multi*
          pack-tail*
          unpack-tail*
          
@@ -25,7 +48,6 @@
 
 (define multi-blank (syntax-property (datum->syntax #f 'multi) 'raw ""))
 (define group-blank (syntax-property (datum->syntax #f 'group) 'raw ""))
-(define block-blank (syntax-property (datum->syntax #f 'block) 'raw ""))
 
 (define (group-syntax? r)
   (and (syntax? r)
@@ -73,11 +95,8 @@
      [(or (null? r) (pair? r)) (cannot-coerce-list who r)]
      [else (list r)])))
 
-(define (pack-term stx)
-  stx
-  ;; This should work, too, and it can help make sure packing
-  ;; and unpacking is done consistently everywhere:
-  (datum->syntax #f `(,multi-blank (,group-blank ,stx))))
+;; `stx` is a single term
+(define (pack-term stx) stx)
 
 (define (unpack-term form who)
   (define (fail)
@@ -97,24 +116,34 @@
       [(list? r) (cannot-coerce-list who r)]
       [else r])))
 
+;; `r` is a list of syntax objects
 (define (pack-group r)
-  (datum->syntax #f (group-blank r)))
+  (lambda (r)
+    (datum->syntax #f (cons group-blank r))))
 
+;; "Unpacks" to a `(group term ...)` form, as opposed to just `(term ...)`,
+;; which makes is asymmetric with `pack-group` but more convenient for
+;; building patterns and templates. So, unpacking here is really about coercing
+;;; from different representations, as opposed to changing a `group`
+;;; representation.
 (define (unpack-group r who)
   (cond
     [(multi-syntax? r)
      (define l (syntax->list r))
-     (if (= 2 (length l))
-         (syntax-e (cadr l))
-         (raise-error who "multi-group syntax not allowed in group context" r))]
+     (cond
+       [(= 2 (length l)) (syntax-e (cadr l))]
+       [else (raise-error who "multi-group syntax not allowed in group context" r)])]
     [(group-syntax? r) r]
     [(or (null? r) (pair? r)) (cannot-coerce-list who r)]
     [else #`(#,group-blank #,r)]))
 
-(define (pack-groups r)
-  #`(#,multi-blank . #,r))
+;; `r` is a list of group syntax objects
+(define (pack-multi r)
+  (datum->syntax (cons multi-blank r)))
 
-(define (unpack-groups r who)
+;; `r` can be any of the allowed representations (multi-group, single-group, or single-term),
+;; and the result is a list of group syntax objects (symmetric to `pack-multi`)
+(define (unpack-multi r who)
   (cond
     [(multi-syntax? r) (cdr (syntax->list r))]
     [(group-syntax? r) (list r)]
@@ -122,6 +151,9 @@
     [else (list (list group-blank r))]))
 
 ;; ----------------------------------------
+
+;; The `pack*` and `unpack*` variants deal with repetition
+;; `depth` layers deep as needed for patterns and templates
 
 (define (pack* stx depth wrap)
   (cond
@@ -151,25 +183,27 @@
   (unpack* qs r depth
            (lambda (r) (unpack-term r (syntax-e qs)))))
 
-;; For syntax patterns, grou pwrapper applied externally:
+;; Packs to a `group` form
 (define (pack-group* stx depth)
-  (pack* stx depth (lambda (stx) stx)))
+  (pack* stx depth pack-group))
 
+;; "Unpacks" to a `group` form, which is really more about coercsions and
+;; is asymmetric to `pack-group*`
 (define (unpack-group* qs r depth)
   (unpack* qs r depth
            (lambda (r)
              (unpack-group r (syntax-e qs)))))
 
-(define (pack-block* stxes depth)
+;; Packs to a `multi` form, because that's the useful result from matching
+(define (pack-multi* stxes depth)
   (pack* stxes depth (lambda (stxes)
                        (datum->syntax #f (cons multi-blank stxes)))))
 
-(define (unpack-block* qs r depth)
+;; Unpacks to a list of groups, which is symmetric to `pack-multi*`
+(define (unpack-multi* qs r depth)
   (unpack* qs r depth
            (lambda (r)
-             (cons
-              block-blank
-              (unpack-groups r qs)))))
+             (unpack-multi r qs))))
 
 (define (pack-tail* stxes depth)
   (pack* stxes depth pack-tail))

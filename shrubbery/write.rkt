@@ -61,7 +61,7 @@
               [(parens) (values "(" ", " ")")]
               [(brackets) (values "[" ", " "]")]
               [(braces) (values "{" ", " "}")]
-              [(quotes) (values "'" ", " "'")]
+              [(quotes) (values "'«" ", " "»'")]
               [else (error 'write-shubbery "unexpected ~s" (car v))]))
           (display open op)
           (for/fold ([first? #t]) ([v (in-list (cdr v))])

@@ -630,15 +630,25 @@
                           (fail t "misplaced `«`"))]
                [else (error "unknown opener" t)]))
            (define pre-raw (state-raw s))
-           (define-values (group-commenting next-l last-line delta raw)
+           (define-values (group-commenting next-l0 last-line0 delta0 raw0)
              (next-of/commenting (cdr l) line (state-delta s) null (state-count? s)))
+           (define-values (next-l last-line delta raw use-closer quote-nested?)
+             (cond
+               [(and (eq? tag 'quotes) (pair? next-l0) (not group-commenting)
+                     (eq? 'opener (token-name (car next-l0)))
+                     (equal? "«" (token-e (car next-l0))))
+                (define-values (next-l last-line delta raw)
+                  (next-of (cdr next-l0) last-line0 delta0 (cons (car next-l0) raw0) (state-count? s)))
+                (values next-l last-line delta raw "»" #t)]
+               [else
+                (values next-l0 last-line0 delta0 raw0 closer #f)]))
            (define sub-column
              (if (pair? next-l)
                  (column+ (token-column (car next-l)) (cont-delta-column (state-delta s)))
                  (column-next (column+ (token-column t) (cont-delta-column (state-delta s))))))
-           (define-values (gs rest-l close-line close-delta end-t never-tail-commenting group-tail-raw)
+           (define-values (gs rest-l0 close-line0 close-delta0 end-t0 never-tail-commenting group-tail-raw0)
              (parse-groups next-l (make-group-state #:count? (state-count? s)
-                                                    #:closer (make-closer-expected closer t)
+                                                    #:closer (make-closer-expected use-closer t)
                                                     #:paren-immed? paren-immed?
                                                     #:block-mode (if (eq? tag 'at) 'no 'start)
                                                     #:column sub-column
@@ -647,6 +657,20 @@
                                                     #:commenting group-commenting
                                                     #:raw raw
                                                     #:sequence-mode (if (eq? tag 'at) 'one 'any))))
+           (define-values (rest-l close-line close-delta end-t group-tail-raw)
+             (cond
+               [quote-nested?
+                (define-values (next-l last-line delta raw)
+                  (next-of rest-l0 last-line0 delta0 group-tail-raw0 (state-count? s)))
+                (cond
+                  [(and (pair? next-l)
+                        (eq? 'closer (token-name (car next-l)))
+                        (equal? "'" (token-e (car next-l))))
+                   (values (cdr next-l) last-line delta (car next-l) (cons (car next-l) raw))]
+                  [else
+                   (fail end-t0 (format "expected closing \"'\" after closing \"»\""))
+                   (values next-l last-line delta end-t0 raw)])]
+               [else (values rest-l0 close-line0 close-delta0 end-t0 group-tail-raw0)]))
            (define-values (suffix-raw suffix-l suffix-line suffix-delta)
              (get-suffix-comments rest-l close-line close-delta))
            (define-values (at-adjust new-at-mode at-l at-line at-delta)

@@ -46,7 +46,7 @@
                    ((~datum block) ((~datum group) (op (~and name ......))))))))
 
 (define-for-syntax (convert-syntax e make-datum make-literal
-                                   handle-escape handle-group-escape handle-block-escape
+                                   handle-escape handle-group-escape handle-multi-escape
                                    deepen-escape handle-tail-escape
                                    handle-maybe-empty-sole-group
                                    handle-maybe-empty-alts handle-maybe-empty-group
@@ -59,14 +59,14 @@
        #:when (and (zero? depth) (not as-tail?))
        ;; Special case: a group whose content is an escape; the escape
        ;; defaults to "group" mode instead of "term" mode
-       #:do [(define-values (p new-idrs) (handle-group-escape  #'$-id #'esc e))]
+       #:do [(define-values (p new-idrs) (handle-group-escape #'$-id #'esc e))]
        #:when p
        (values p new-idrs #f)]
-      [(block
+      [((~and tag (~or parens brackets braces quotes multi block))
         (group (op (~and (~literal $) $-id)) esc))
        #:when (and (zero? depth) (not as-tail?))
-       ;; Analogous special case, but for blocks within an `alts`
-       #:do [(define-values (p new-idrs) (handle-block-escape  #'$-id #'esc e))]
+       ;; Analogous special case, but for blocks (maybe within an `alts`), etc.
+       #:do [(define-values (p new-idrs) (handle-multi-escape  #'$-id #'esc e))]
        #:when p
        (values p new-idrs #f)]
       [((~and tag (~or parens brackets braces quotes multi block))
@@ -81,8 +81,8 @@
                    #f))]
       [((~and tag (~or parens brackets braces quotes multi block alts group))
         g ...)
-       (let loop ([gs #'(g ...)] [pend-idrs #f] [idrs '()] [ps '()] [can-be-empty? #t] [tail #f]
-                                 [depth (if (nested-quotes? #'tag) (add1 depth) depth)])
+       ;; Note: this is where `depth` woudl be incremented, when `tag` is `quotes`, if we wanted that
+       (let loop ([gs #'(g ...)] [pend-idrs #f] [idrs '()] [ps '()] [can-be-empty? #t] [tail #f] [depth depth])
          (define (simple gs a-depth)
            (syntax-parse gs
              [(g . gs)
@@ -151,15 +151,18 @@
       #:literals (rhombus-_ $:)
       [rhombus-_ (values #'_ null)]
       [_:identifier
-       (values e (list #`[#,e (#,pack* (syntax #,e) 0)]))]
+       #:with (tag . _) in-e
+       (values (cons #'(~datum tag) e) (list #`[#,e (#,pack* (syntax #,e) 0)]))]
       [(parens (group id:identifier (op $:) stx-class:identifier))
        (define rsc (syntax-local-value (in-syntax-class-space #'stx-class) (lambda () #f)))
        (define (compat)
-         (define sc (rhombus-syntax-class-class rsc))
-         (values (if sc
-                     #`(~var id #,sc)
-                     #'id)
-                 (list #`[id (#,pack* (syntax id) 0)])))
+         (with-syntax ([(tag . _) in-e])
+           (define sc (rhombus-syntax-class-class rsc))
+           (values (cons #'(~datum tag)
+                         (if sc
+                             #`(~var id #,sc)
+                             #'id))
+                   (list #`[id (#,pack* (syntax id) 0)]))))
        (define (incompat)
          (raise-syntax-error #f
                              "unknown syntax class or incompatible with this context"
@@ -201,9 +204,9 @@
                   ;; handle-group-escape:
                   (lambda ($-id e in-e)
                     (handle-escape $-id e in-e #'pack-group* #'Group 'group))
-                  ;; handle-block-escape:
+                  ;; handle-multi-escape:
                   (lambda ($-id e in-e)
-                    (handle-escape $-id e in-e #'pack-block* #'Block 'block))
+                    (handle-escape $-id e in-e #'pack-multi* #'Block 'block))
                   ;; deepen-escape
                   (lambda (idr)
                     (syntax-parse idr
@@ -264,16 +267,17 @@
                       (check-escape e)
                       (define id (car (generate-temporaries (list e))))
                       (values id (list #`[#,id (unpack-group* (quote-syntax #,$-id) (#,rhombus-expression (group #,e)) 0)])))
-                    ;; handle-block-escape:
+                    ;; handle-multi-escape:
                     (lambda ($-id e in-e)
                       (check-escape e)
                       (define id (car (generate-temporaries (list e))))
-                      (values id (list #`[#,id (unpack-block* (quote-syntax #,$-id) (#,rhombus-expression (group #,e)) 0)])))
+                      (with-syntax ([(tag . _) in-e])
+                        (values #`(tag . #,id) (list #`[#,id (unpack-multi* (quote-syntax #,$-id) (#,rhombus-expression (group #,e)) 0)]))))
                     ;; deepen-escape
                     (lambda (idr)
                       (syntax-parse idr
-                        #:literals (unpack-term* unpack-group* unpack-block* unpack-tail*)
-                        [(id-pat ((~and unpack (~or unpack-term* unpack-group* unpack-block* unpack-tail*)) q e depth))
+                        #:literals (unpack-term* unpack-group* unpack-multi* unpack-tail*)
+                        [(id-pat ((~and unpack (~or unpack-term* unpack-group* unpack-multi* unpack-tail*)) q e depth))
                          #`[(id-pat (... ...)) (unpack q e #,(add1 (syntax-e #'depth)))]]
                         [(id-pat (converter depth (qs t) . args))
                          #`[(id-pat (... ...)) (converter #,(add1 (syntax-e #'depth)) (qs (t (... ...)))) . args]]))
@@ -445,7 +449,3 @@
         (raise-syntax-error #f
                             "misuse outside of a pattern"
                             #'op.name)]))))
-
-(define-for-syntax (nested-quotes? tag)
-  (and (eq? (syntax-e tag) 'quotes)
-       (free-identifier=? #'#%quote (datum->syntax tag '#%quote))))

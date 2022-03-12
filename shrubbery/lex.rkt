@@ -460,8 +460,8 @@
    [(:or ")" "]" "}" "»")
     (ret 'closer lexeme 'parenthesis (string->symbol lexeme) start-pos end-pos 'continuing)]
    ["'"
-    ;; called rewrites to 'opener or 'closer
-    (ret 'squote lexeme 'parenthesis (string->symbol lexeme) start-pos end-pos 'initial)]
+    ;; called rewrites to 'opener or 'closer and picks a parentheses representation
+    (ret 'squote lexeme 'parenthesis '? start-pos end-pos 'initial)]
    ["#{"
     (ret 's-exp lexeme 'parenthesis '|{| start-pos end-pos (s-exp-mode 0 #f #f))]
    [":"
@@ -522,7 +522,9 @@
     (cond
       [(eq? (token-name tok) 'squote)
        (define (finish name status)
-         (let ([tok (struct-copy token tok [name name])])
+         (let ([tok (struct-copy token tok [name name])]
+               [type (hash-set type 'rhombus-type name)]
+               [paren (if (eq? name 'opener) '|'(| '|)'|)])
            (values tok type paren start end backup status pending-backup)))
        (cond
          [(in-quotes? old-status)
@@ -544,7 +546,7 @@
        (cond
          [(s-exp-mode? status)
           (let ([old-status (struct-copy in-quotes old-status [status 'continuing])])
-            (values tok type paren start end backup (struct-copy s-exp-mode status [status old-status]) pending-backup))]
+            (values tok type paren start end backup (struct-copy s-exp-mode status [in-quotes old-status]) pending-backup))]
          [(in-at? status)
           (let ([old-status (struct-copy in-quotes old-status [status 'continuing])])
             (values tok type paren start end backup (struct-copy in-at status [shrubbery-status old-status]) pending-backup))]
