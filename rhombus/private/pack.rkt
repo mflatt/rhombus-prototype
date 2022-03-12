@@ -1,21 +1,16 @@
 #lang racket/base
 (require syntax/stx
-         syntax/parse
-         racket/syntax-srcloc
          enforest/proc-name
-         shrubbery/property
          "realm.rkt")
 
 ;; We represent Rhombus syntax objects as a syntax object with one of
 ;; the following forms:
-;;   (multi head (group term ...) ...) - as a general multi-group syntax object,
-;;                                       where `head` preserves properies
+;;   (multi (group term ...) ...) - as a general multi-group syntax object
 ;;   (group term ...) - for a group syntax object
 ;;   term - for a single-term syntax object
 ;; Coercions among these happen automatically. So, the Rhombus expression
 ;;   'x'
-;; could be represented for most purposes as #'(multi any (group x)) or
-;; just #'x.
+;; could be represented for most purposes as #'(multi (group x)) or just #'x.
 
 ;; "Pack" means going form the internal Racket-side representation to
 ;; the Rhombus repesentation, such as when sending syntax to a
@@ -28,10 +23,14 @@
 ;; back, we coerce from any of the three possible shapes, containing
 ;; `multi` to a single group.
 
+;; When we "unpack" here, group unpacking is asymmetric and is really
+;; just about coercsions, mot about removing a `group` wrapper.
+
 (provide pack-tail
          unpack-tail
          pack-term
          unpack-term
+         pack-group
          unpack-group
          pack-multi
          unpack-multi
@@ -45,15 +44,10 @@
          pack-tail*
          unpack-tail*
          
-         repack-group-or-term
-
-         any-blank)
+         repack-group-or-term)
 
 (define multi-blank (syntax-property (datum->syntax #f 'multi) 'raw ""))
 (define group-blank (syntax-property (datum->syntax #f 'group) 'raw ""))
-
-;; Used as a synthesized head for `multi`:
-(define any-blank (syntax-property (datum->syntax #f 'any) 'raw ""))
 
 (define (group-syntax? r)
   (and (syntax? r)
@@ -81,10 +75,9 @@
                                (and col (+ col (syntax-span after))))
                              (+ (syntax-position after) (syntax-span after))
                              0))
-         (datum->syntax #f (list multi-blank
-                                 (syntax-property (syntax/loc loc any) 'raw "")))]
-        [else (datum->syntax #f (list multi-blank any-blank))])
-      (datum->syntax #f (list multi-blank any-blank (cons group-blank tail)))))
+         (datum->syntax #f (list (syntax-property (syntax/loc loc multi) 'raw "")))]
+        [else (datum->syntax #f (list multi-blank))])
+      (datum->syntax #f (list multi-blank (cons group-blank tail)))))
 
 ;; assumes that `packed-tail` represents a shrubbery,
 ;; and unpacks by removing `multi` ... `group` wrapper
@@ -95,8 +88,8 @@
      [(multi-syntax? r)
       (define l (syntax->list r))
       (cond
-        [(null? (cddr l)) '()]
-        [(= 3 (length l)) (cdr (syntax-e (caddr l)))]
+        [(null? (cdr l)) '()]
+        [(= 2 (length l)) (cdr (syntax-e (cadr l)))]
         [else (raise-error who "multi-group syntax not allowed in group context" r)])]
      [(group-syntax? r) (cdr (syntax-e r))]
      [(or (null? r) (pair? r)) (cannot-coerce-list who r)]
@@ -112,8 +105,8 @@
     (cond
       [(multi-syntax? r)
        (define l (syntax->list r))
-       (if (= 3 (length l))
-           (loop (caddr l))
+       (if (= 2 (length l))
+           (loop (cadr l))
            (fail))]
       [(group-syntax? r)
        (define l (syntax->list r))
@@ -122,6 +115,9 @@
            (fail))]
       [(list? r) (cannot-coerce-list who r)]
       [else r])))
+
+;; "Packs" to a `group` form, but `r` starts with `group` already
+(define (pack-group r) r)
 
 ;; "Unpacks" to a `(group term ...)` form, as opposed to just `(term
 ;; ...)`, which makes is symmetric with `pack-group` and preserves
@@ -133,21 +129,21 @@
     [(multi-syntax? r)
      (define l (syntax->list r))
      (cond
-       [(= 3 (length l)) (syntax-e (caddr l))]
+       [(= 2 (length l)) (syntax-e (cadr l))]
        [else (raise-error who "multi-group syntax not allowed in group context" r)])]
     [(group-syntax? r) r]
     [(or (null? r) (pair? r)) (cannot-coerce-list who r)]
-    [else (datum->syntax #f (list group-blank r))]))
+    [else #`(#,group-blank #,r)]))
 
 ;; `r` is a term like `(parens ....)` or `(block ....)`
 (define (pack-multi r)
-  (datum->syntax #f (cons multi-blank r)))
+  (datum->syntax #f (cons multi-blank (stx-cdr r))))
 
 ;; `r` can be any of the allowed representations (multi-group, single-group, or single-term),
-;; and the result is a list of group syntax objects (asymmetric to `pack-multi`)
+;; and the result is a list of group syntax objects (symmetric to `pack-multi`)
 (define (unpack-multi r who)
   (cond
-    [(multi-syntax? r) (cddr (syntax->list r))]
+    [(multi-syntax? r) (cdr (syntax->list r))]
     [(group-syntax? r) (list r)]
     [(or (null? r) (pair? r)) (cannot-coerce-list who r)]
     [else (list (list group-blank r))]))
@@ -185,22 +181,22 @@
   (unpack* qs r depth
            (lambda (r) (unpack-term r (syntax-e qs)))))
 
-;; Packs to a `group` form, where the `stx`es start with `group` already
+;; Packs to a `group` form
 (define (pack-group* stx depth)
-  (pack* stx depth (lambda (stx) stx)))
+  (pack* stx depth pack-group))
 
-;; "Unpacks" to a `group` form, which is really more about coercsions
+;; "Unpacks" to a `group` form, which is really more about coercsions and
+;; is asymmetric to `pack-group*`
 (define (unpack-group* qs r depth)
   (unpack* qs r depth
            (lambda (r)
              (unpack-group r (syntax-e qs)))))
 
-;; Packs to a `multi` form, the the inner `stxes`s have a head identifier like
-;; `parens` or `block`
+;; Packs to a `multi` form, because that's the useful result from matching
 (define (pack-multi* stxes depth)
   (pack* stxes depth pack-multi))
 
-;; Unpacks to a list of groups, which is asymmetric to `pack-multi*`
+;; Unpacks to a list of groups, which is symmetric to `pack-multi*`
 (define (unpack-multi* qs r depth)
   (unpack* qs r depth
            (lambda (r)
@@ -213,12 +209,12 @@
   (pack* r depth (lambda (r)
                    (unpack-tail r (if (symbol? qs) qs (syntax-e qs))))))
 
-;; normalize as input for pattern matching:
+;; normalize for pattern matching:
 (define (repack-group-or-term r)
   (cond
-    [(group-syntax? r) (list multi-blank any-blank r)]
+    [(group-syntax? r) (list multi-blank r)]
     [(multi-syntax? r) r]
-    [else (list multi-blank any-blank (list group-blank r))]))
+    [else (list multi-blank (list group-blank r))]))
 
 (define (cannot-coerce-list who r)
   (raise-arguments-error* who rhombus-realm

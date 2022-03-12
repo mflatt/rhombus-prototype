@@ -1,7 +1,6 @@
 #lang racket/base
 (require (for-syntax racket/base
-                     syntax/parse
-                     "pack.rkt")
+                     syntax/parse)
          syntax/parse
          racket/syntax-srcloc
          shrubbery/property
@@ -10,6 +9,7 @@
          "realm.rkt")
 
 (provide literal_syntax
+         literal_syntax_term
          to_syntax
          unwrap_syntax
          relocate_syntax
@@ -20,28 +20,24 @@
    #'literal_syntax
    (lambda (stx)
      (syntax-parse stx
-       #:datum-literals (parens quotes group)
-       [(_ ((~or parens quotes) (group term)) . tail)
-        ;; Note: discarding group properties in this case
-        (values #'(quote-syntax term) #'tail)]
-       [(_ (~and ((~or parens quotes) . ts) gs) . tail)
-        (values #`(quote-syntax #,(pack-multi (cons any-blank #'ts))) #'tail)]))))
+       [(_ form . tail)
+        (values #'(quote-syntax form) #'tail)]))))
+
+(define-syntax literal_syntax_term
+  (expression-transformer
+   #'literal_syntax
+   (lambda (stx)
+     (syntax-parse stx
+       #:datum-literals (parens group)
+       [(_ (parens (group term)) . tail)
+        (values #'(quote-syntax term) #'tail)]))))
 
 ;; ----------------------------------------
 
 (define (relevant-source-syntax ctx-stx-in)
-  ;; In the case of `multi` or `group`, find the outermost with source information
   (syntax-parse ctx-stx-in
-    #:datum-literals (multi group block alts parens brackets quotes braces op)
-    [(multi head (g-head t)) (or (source-term #'head)
-                                 (source-term #'g-head)
-                                 #'t)]
-    [(multi head (g-head . _)) (or (source-term #'head)
-                                   #'g-head)]
-    [((~and g-head group) t) (or (source-term #'g-head)
-                                 #'t)]
-    [((~and g-head group) . _) #'g-head]
-    [((~and head (~or block alts parens brackets quotes braces)) . _) #'head]
+    #:datum-literals (group block alts parens brackets braces op)
+    [((~and head (~or group block alts parens brackets braces)) . _) #'head]
     [(op o) #'o]
     [_ ctx-stx-in]))
 
@@ -57,45 +53,15 @@
 
 (define (relocate_syntax stx ctx-stx-in)
   (unless (syntax? stx) (raise-argument-error* 'relocate_syntax rhombus-realm "Syntax" stx))
-  (unless (syntax? ctx-stx-in) (raise-argument-error* 'relocate_syntax rhombus-realm "Syntax" ctx-stx-in))
   (define ctx-stx (relevant-source-syntax ctx-stx-in))
-  (log-error "?? ~s" (syntax->datum stx))
-  (log-error "    @ ~s" (syntax->datum ctx-stx-in))
-  (log-error "    = ~s" (syntax->datum ctx-stx))
   (syntax-parse stx
-    #:datum-literals (multi parens)
-    [(multi (~and p parens) . _) (log-error "    ~s" #'p)]
-    [_ (void)])
-  (define (relocate stx)
-    (datum->syntax stx (syntax-e stx) ctx-stx ctx-stx))
-  (define (relocate-term stx)
-    (syntax-parse stx
-      #:datum-literals (block alts parens brackets braces quotes op)
-      [((~and head (~or block alts parens brackets braces quotes)) . rest)
-       (datum->syntax #f (cons (relocate #'head) #'rest))]
-      [((~and head op) o)
-       (datum->syntax #f (list #'head (relocate #'o)))]
-      [_
-       (datum->syntax stx (syntax-e stx) ctx-stx ctx-stx)]))
-  ;; Push information down to the innermost that doesn't have information
-  (syntax-parse stx
-    #:datum-literals (multi group)
-    [((~and m multi) head (~and g (g-head t)))
-     (cond
-       [(source-term #'head)
-        (datum->syntax #f (list #'m (relocate #'head) #'g))]
-       [(source-term #'g-head)
-        (datum->syntax #f (list #'m #'head (list (relocate #'g-head) #'t)))]
-       [else
-        (datum->syntax #f (list #'m #'head (list #'g-head (relocate-term #'t))))])]
-    [((~and m multi) head (~and g (g-head . rest)))
-     (cond
-       [(source-term #'head)
-        (datum->syntax #f (list #'m (relocate #'head) #'g))]
-       [else
-        (datum->syntax #f (list #'m #'head (cons (relocate #'g-head) #'rest)))])]
+    #:datum-literals (group block alts parens brackets braces op)
+    [((~and head (~or group block alts parens brackets braces)) . rest)
+     #`(#,(datum->syntax #'head (syntax-e #'head) ctx-stx ctx-stx) . rest)]
+    [(op o)
+     #`(op #,(datum->syntax #'o (syntax-e #'o) ctx-stx ctx-stx) . rest)]
     [_
-     (relocate-term stx)]))
+     (datum->syntax stx (syntax-e stx) ctx-stx ctx-stx)]))
 
 (define (relocate_span_syntax stx ctx-stxes-in
                               #:keep_raw_interior [keep-raw-interior? #f])
@@ -167,13 +133,3 @@
                            (or (syntax-raw-tail-suffix-property ctx) null)
                            (or (syntax-raw-suffix-property ctx) null))))])))
 
-
-;; ----------------------------------------
-
-(define (source-term e)
-  (and (or (syntax-srcloc e)
-           (syntax-raw-prefix-property e)
-           (syntax-raw-suffix-property e)
-           (syntax-raw-tail-property e)
-           (syntax-raw-tail-suffix-property e))
-       e))

@@ -109,7 +109,7 @@
        (display (if maybe-nested? "'«" "'") op)
        (cond
          [(and (pair? s) (eq? 'multi (car s)))
-          (write-shrubbery (cons 'top (cddr s)) op)]
+          (write-shrubbery (cons 'top (cdr s)) op)]
          [(and (pair? s) (eq? 'group (car s)))
           (write-shrubbery (list 'top s) op)]
          [else

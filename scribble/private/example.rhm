@@ -23,4 +23,3 @@ fun make_rhombus_eval():
 
 fun close_eval(e):
   #{close-eval}(e)
-  

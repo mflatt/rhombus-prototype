@@ -1,6 +1,5 @@
 #lang racket/base
 (require (for-syntax racket/base
-                     syntax/stx
                      syntax/parse
                      syntax/boundmap
                      enforest/proc-name
@@ -34,7 +33,8 @@
   (syntax-parse (unpack-multi form proc)
     [(g ...)
      #`((rhombus-definition g)
-        ...)]))
+        ...)]
+    [_ (raise-result-error (proc-name proc) "definition-list?" form)]))
 
 ;; ----------------------------------------
 
@@ -48,9 +48,9 @@
    (lambda (stx tail)
      (define-values (defns new-tail)
        (syntax-parse stx
-         [(head . h-tail) (proc (pack-tail #'h-tail) (pack-multi (cons 'any tail)) #'head)]))
+         [(head . h-tail) (proc (pack-tail #'h-tail) (pack-multi (cons 'fake tail)) #'head)]))
      (values (unpack-definitions defns proc)
-             (stx-cdr (unpack-multi new-tail proc))))))
+             (unpack-multi new-tail proc)))))
 
 #;
 (begin-for-syntax

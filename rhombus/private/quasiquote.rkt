@@ -53,7 +53,7 @@
                                    #:as-tail? [as-tail? #f])
   (let convert ([e e] [empty-ok? #f] [depth 0] [as-tail? as-tail?])
     (syntax-parse e
-      #:datum-literals (parens brackets braces quotes block group alts MULTI)
+      #:datum-literals (parens brackets braces block quotes multi group alts)
       [(group
         (op (~and (~literal $) $-id)) esc)
        #:when (and (zero? depth) (not as-tail?))
@@ -62,14 +62,14 @@
        #:do [(define-values (p new-idrs) (handle-group-escape #'$-id #'esc e))]
        #:when p
        (values p new-idrs #f)]
-      [((~and tag (~or parens brackets braces quotes block MULTI))
+      [((~and tag (~or parens brackets braces quotes multi block))
         (group (op (~and (~literal $) $-id)) esc))
        #:when (and (zero? depth) (not as-tail?))
        ;; Analogous special case, but for blocks (maybe within an `alts`), etc.
        #:do [(define-values (p new-idrs) (handle-multi-escape  #'$-id #'esc e))]
        #:when p
        (values p new-idrs #f)]
-      [((~and tag (~or parens brackets braces quotes block MULTI))
+      [((~and tag (~or parens brackets braces quotes multi block))
         (~and g (group . _)))
        ;; Special case: for a single group with (), [], {}, '', or block, if the group
        ;; can be empty, allow a match/construction with zero groups
@@ -79,9 +79,9 @@
            (values (quasisyntax/loc e (#,(make-datum #'tag) #,p))
                    new-idrs 
                    #f))]
-      [((~and tag (~or parens brackets braces quotes block alts group MULTI))
+      [((~and tag (~or parens brackets braces quotes multi block alts group))
         g ...)
-       ;; Note: this is where `depth` woudl be incremented, when `tag` is `quotes`, if we wanted that
+       ;; Note: this is where `depth` would be incremented, when `tag` is `quotes`, if we wanted that
        (let loop ([gs #'(g ...)] [pend-idrs #f] [idrs '()] [ps '()] [can-be-empty? #t] [tail #f] [depth depth])
          (define (simple gs a-depth)
            (syntax-parse gs
@@ -151,6 +151,7 @@
       #:literals (rhombus-_ $:)
       [rhombus-_ (values #'_ null)]
       [_:identifier
+       #:with (tag . _) in-e
        (values e (list #`[#,e (#,pack* (syntax #,e) 0)]))]
       [(parens (group id:identifier (op $:) stx-class:identifier))
        (define rsc (syntax-local-value (in-syntax-class-space #'stx-class) (lambda () #f)))
@@ -191,20 +192,14 @@
     (define-values (p idrs) (handle-escape $-id e in-e pack* context-syntax-class kind))
     (if p
         (values (syntax-parse in-e
-                  #:datum-literals (MULTI)
-                  [(MULTI . _) #`(_ . #,p)]
                   [(tag . _) #`(~and ((~datum tag) . _) #,p)])
                 idrs)
         (values #f #f)))
-  (define (make-datum d)
-    (if (eq? (syntax-e d) 'MULTI)
-        #'(~seq _ _)
-        #`(~datum #,d)))
   (convert-syntax e
                   #:as-tail? as-tail?
                   ;; make-datum
                   (lambda (d)
-                    (make-datum d))
+                    #`(~datum #,d))
                   ;; make-literal
                   (lambda (d)
                     #`(~literal #,d))
@@ -235,12 +230,11 @@
                   (lambda (tag pat idrs)
                     ;; `pat` matches a `group` form that's supposed to be under `tag`,
                     ;; but if `pat` match `(group)`, then allow an overall match to `(tag)`
-                    (values #`(~or* (#,(make-datum tag) #,pat)
-                                    (#,(make-datum tag)
-                                     .
-                                     ;; sets all pattern variables to nested empties:
-                                     #,(syntax-parse pat
-                                         [(_ . tail) #'tail])))
+                    (values #`(~or* ((~datum #,tag) #,pat)
+                                    (~and ((~datum #,tag))
+                                          ;; sets all pattern variables to nested empties:
+                                          (_ . #,(syntax-parse pat
+                                                   [(_ . tail) #'tail]))))
                             idrs
                             #f))
                   ;; handle-maybe-empty-alts
@@ -252,7 +246,7 @@
                                           (_ . #,ps)))
                             idrs
                             #t))
-                  ;; handle-maybe-empty-alts
+                  ;; handle-maybe-empty-group
                   (lambda (tag ps idrs)
                     ;; the `(tag . ps)` could match `(group)`, but it just never will,
                     ;; because that won't be an input
@@ -340,8 +334,8 @@
     [(_ (quotes (group (~and dots (op rhombus...)))) . tail)
      (values (literal-k #'dots)
              #'tail)]
-    [(_ (~and head (quotes . _)) . tail)
-     (values (k #'head)
+    [(_ ((~and tag quotes) . args) . tail)
+     (values (k #`(#,(syntax/loc #'tag multi) . args))
              #'tail)]))
 
 (define-for-syntax (convert-pattern/generate-match e)
@@ -362,14 +356,10 @@
    '((default . stronger))
    'macro
    (lambda (stx)
-     (call-with-quoted-expression stx
-                                  (lambda (e) #`(pack-multi #,(convert-template e)))
+     (call-with-quoted-expression stx convert-template
                                   (lambda (e) #`(quote-syntax #,e))))
    (lambda (stx)
-     (call-with-quoted-expression stx
-                                  (lambda (e) (convert-pattern/generate-match
-                                               (syntax-parse e
-                                                 [(q . args) #`(MULTI . args)])))
+     (call-with-quoted-expression stx convert-pattern/generate-match
                                   (lambda (e) (binding-form
                                                #'syntax-infoer
                                                #`(#,(string-append "'" (shrubbery-syntax->string e) "'")
