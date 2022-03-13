@@ -273,8 +273,8 @@
 
 (define-for-syntax (extract-term-metavariables t vars)
   (syntax-parse t
-    #:datum-literals (parens brackets braces block alts)
-    [((~or parens brackets braces block) g ...)
+    #:datum-literals (parens brackets braces block quotes alts)
+    [((~or parens brackets braces block quotes) g ...)
      (for/fold ([vars vars]) ([g (in-list (syntax->list #'(g ...)))])
        (extract-group-metavariables g vars))]
     [((~datum alts) b ...)
@@ -289,13 +289,13 @@
     [(group t ...)
      (for/fold ([vars vars] [after-$? #f] #:result vars) ([t (in-list (syntax->list #'(t ...)))])
        (syntax-parse t
-         #:datum-literals (op parens brackets braces block alts)
+         #:datum-literals (op parens brackets braces block quotes alts)
          #:literals ($)
          [(op $) (values vars #t)]
          [_:identifier (if after-$?
                            (values (extract-term-metavariables t vars) #f)
                            (values vars #f))]
-         [((~or parens brackets braces block) g ...)
+         [((~or parens brackets braces quotes block) g ...)
           (values (for/fold ([vars vars]) ([g (in-list (syntax->list #'(g ...)))])
                     (extract-pattern-metavariables g vars))
                   #f)]
@@ -343,7 +343,7 @@
     [(group (~and tag (~or def val fun)) id:identifier-target e ...)
      (rb #:at stx
          #`(group tag #,@(subst #'id.name) e ...))]
-    [(group (~and tag operator) ((~and p-tag parens) ((~and g-tag group) (op id) <arg)) e ...)
+    [(group (~and tag operator) ((~and p-tag parens) ((~and g-tag group) (op id) arg)) e ...)
      (rb #:at stx
          #`(group tag (p-tag (g-tag #,@(subst #'id) arg)) e ...))]
     [(group (~and tag operator) ((~and p-tag parens) ((~and g-tag group) arg0 (op id) arg1)) e ...)
@@ -387,7 +387,7 @@
            [(null? ts) null]
            [else
             (syntax-parse (car ts)
-              #:datum-literals (op parens brackets braces block alts)
+              #:datum-literals (op parens brackets braces quotes block alts)
               #:literals ($)
               [(op (~and esc $))
                #:when (pair? (cdr ts))
@@ -395,7 +395,7 @@
                (define t (cadr ts))
                (cons (append-consecutive-syntax-objects (syntax-e t) pre t)
                      (loop (cddr ts)))]
-              [((~and tag (~or parens brackets braces block)) g ...)
+              [((~and tag (~or parens brackets braces quotes block)) g ...)
                (cons #`(tag
                         #,@(for/list ([g (in-list (syntax->list #'(g ...)))])
                              (drop-pattern-escapes g)))

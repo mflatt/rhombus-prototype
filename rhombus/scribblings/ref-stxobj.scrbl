@@ -131,8 +131,8 @@ corresponding portion of a candidate syntax object. Ellipses, etc.
 
 
 @doc[
-  expr.macro '«literal_syntax 'term ...; ...'»',
-  expr.macro 'literal_syntax (term ..., ...)'
+  expr.macro '«literal_syntax '$term ...; ...'»',
+  expr.macro 'literal_syntax ($term ..., ...)'
 ]{
 
  Similar to a plain @rhombus[''] form, but @rhombus[$] escapes or
@@ -140,8 +140,10 @@ corresponding portion of a candidate syntax object. Ellipses, etc.
  in the @rhombus[term]s, so that the @rhombus[term]s are all treated as
  literal terms to be quoted.
 
- There's no difference between using @rhombus[''] or @rhombus[()] after
- @rhombus[literal_syntax].
+ There's no difference in result between using @rhombus[''] or
+ @rhombus[()] after @rhombus[literal_syntax]---only a difference in
+ notation used to describe the syntax object, such as using @litchar{;}
+ versus @litchar{,} to separate groups.
 
 @examples[
   literal_syntax 'x',

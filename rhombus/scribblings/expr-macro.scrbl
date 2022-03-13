@@ -30,7 +30,7 @@ wraps as a zero-argument function
     (thunk: 1 + 3)()   // prints 4
   )
 
-The @rhombus[expr.rule] form expects a @rhombus[''] create a pattern
+The @rhombus[expr.rule] form expects @rhombus[''] to create a pattern
 that matches a sequence of terms. Either the first or second term within
 the pattern is an @emph{unescaped} identifier or operator to be defined;
 conceptually, it’s unescaped because the macro matches a sequence of
@@ -72,10 +72,10 @@ this:
 The @rhombus[expr.rule] or @rhombus[def] form is a shorthand for a more
 general @rhombus[expr.macro] macro form. With @rhombus[expr.macro], the
 macro implementation after @rhombus[:] is compile-time code. Importing
-@rhombus[rhombus/macro] imports all of the same bindings as
+@rhombusmodname[rhombus/macro] imports all of the same bindings as
 @rhombus[rhombus] into the compile-time phase, in addition to making
 forms like @rhombus[expr.macro] available. Normally,
-@rhombus[rhombus/macro] should be imported without a prefix, otherwise a
+@rhombusmodname[rhombus/macro] should be imported without a prefix, otherwise a
 prefix would have to be used for all Rhombus forms in compile-time
 code—even for things like @rhombus[values] and @rhombus['']. In addition,
 a macro defined with @rhombus[expr.macro] receives all remaining terms

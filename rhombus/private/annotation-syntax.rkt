@@ -17,11 +17,19 @@
          (for-syntax annotation_ct))
 
 (define-simple-name-root annotation
+  rule
   macro)
 
 (begin-for-syntax
   (define-simple-name-root annotation_ct
     pack_predicate))
+
+(define-syntax rule
+  (make-operator-definition-transformer 'rule
+                                        in-annotation-space
+                                        #'make-annotation-prefix-operator
+                                        #'make-annotation-infix-operator
+                                        #'annotation-prefix+infix-operator))
 
 (define-syntax macro
   (make-operator-definition-transformer 'macro

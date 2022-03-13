@@ -142,7 +142,12 @@
   ;; colorer. Why didn't we use a string to start with?
   ;; Because having `rhm` work on implicitly quoted syntax
   ;; means that you get nice editor support.
-  (define block-stx stx)
+  (define block-stx
+    (syntax-parse stx
+      #:datum-literals (muti group block)
+      [(multi (group (~and b (block . _)))) #'b]
+      [(block . _) stx]
+      [else (error 'typeset-rhombusblock "not a block term: ~e" stx)]))
   (define stx-ranges (make-hasheq))
   (define str (block-string->content-string (shrubbery-syntax->string (replace-name-refs block-stx)
                                                                       #:use-raw? #t

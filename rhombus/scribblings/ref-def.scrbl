@@ -84,9 +84,8 @@
                  $body
                  ...»',
   grammar expr_pattern:
-    $identifier
-    ($identifier_or_operator $pattern ...)
-    ($ $identifier $identifier_or_operator $pattern ...),
+    $identifier_or_operator
+    $ $identifier $identifier_or_operator $pattern ...,
   grammar identifier_or_operator:
     $identifier
     $operator

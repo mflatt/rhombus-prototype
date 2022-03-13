@@ -33,11 +33,11 @@ itself remains quoted.
     '1 + $('$') 2'  // prints a shrubbery: 1 + $ 2
   )
 
-@aside{Nested @rhombus[''] does not increased the quoting level like
+@aside{Nested @rhombus[''] does not increase the quoting level like
  Racket quasiquote.}
 
 Like @rhombus[$], @rhombus[...] is treated specially within a @rhombus['']-quoted term (except,
-like @rhombus[$] when it’s the only thing in the term). When @rhombus[...] immediately
+like @rhombus[$], when it’s the only thing in the term). When @rhombus[...] immediately
 follows a term that includes at least one @rhombus[$], the value of the
 expression after that @rhombus[$] must produce a list of syntax objects. Then,
 instead of the parenthesized group in place of @rhombus[$], the term before
@@ -51,24 +51,18 @@ those items is used in one replication.
   )
 
 There’s a subtlety here: could @rhombus[seq] have zero elements? If so,
-replicating the @rhombus[hi] form zero times within a group would leave an
-empty group, but a shrubbery never has an empty group. To manage this
-gap, a parenthesized shrubbery form with zero groups is treated as
-equivalent for @rhombus[$] replication to a parenthesized form with an empty
-group. Similarly, when a @rhombus[''] form describes a single parenthesized
-group that turns out to be empty, it instead produces a parenthesized
-form with zero groups. Attempting to generate a group with no terms
-within a parenthesized form with multiple groups is an error.
+replicating the @rhombus[hi] form zero times within a group would leave
+an empty group, but a shrubbery never has an empty group. To manage this
+gap, a @rhombus[$] replication to a group with zero terms generates a
+multi-group syntax object with zero groups. Attempting to generate a group
+with no terms within a larger sequence with multiple groups is an error.
 
 @(rhombusblock:
     def seq: []
 
-    '(hi $seq) ...'           // prints a shrubbery: ()
-    // 'x, (hi $seq) ..., y'  // would be a run-time error
+    '(hi $seq) ...'           // prints an empty shrubbery
+    // 'x; (hi $seq) ...; y'  // would be a run-time error
   )
-
-Square-bracket forms and block forms have the same special cases to
-deal with an empty group as parenthesis forms.
 
 When @rhombus[...] is the only term in a group, and when that group follows
 another, then @rhombus[...] replicates the preceding group. For example,
@@ -152,6 +146,27 @@ with the @rhombus[Term, ~stxclass] syntax class using the @rhombus[$:] operator.
 
     // val '$(x $: Term)': '1 + 2' // would be an run-time error
   )
+
+If a @rhombus[$] escape is not only alone within its group, but the
+group is the only one in a sequence of groups, then the
+@rhombus[$]-escaped variable stands for a match to an entire sequence of
+groups. In a template, when a group-sequence context has a single group
+with only an escape in the group, then it can be filled with a
+multi-group syntax object. There is no contraint that the original and
+destination contexts have the same shape, so a match from a block-like
+context can be put into brackets context, for example.
+
+@(rhombusblock:
+    val '$x': '1 + 2 + 3
+               4 * 5 * 6'
+    '[$x]'     // prints a shrubbery: [1 + 2 + 3, 4 * 5 * 6]
+  )
+
+In the same way that a single-term syntax object can be used as a group
+syntax object, a single-group syntax object can be used as a multi-group
+syntax object, and a single-term syntax object can be used as a
+multi-term syntax object. Use the @rhombus[Group,~stxclass] syntax class
+to match a single group instead of a multi-group sequence.
 
 Meanwhile, @rhombus[..., ~bind] works the way you would expect in a
 pattern, matching any @rhombus[..., ~bind]-replicated pattern variables

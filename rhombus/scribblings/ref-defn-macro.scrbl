@@ -12,7 +12,7 @@
 @title{Definition Macros}
 
 @doc[
-  defn.macro '«defn.macro '($identifier_or_operator $pattern ...)':
+  defn.macro '«defn.macro '$identifier_or_operator $pattern ...':
                  body
                  ...»',
   grammar identifier_or_operator:

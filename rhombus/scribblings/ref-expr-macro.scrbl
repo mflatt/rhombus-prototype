@@ -19,7 +19,6 @@
                     '$template'
                 | ...»',
   grammar rule_pattern:
-    '$identifier'
     '$identifier_or_operator $pattern ...'
     '$ $term_pattern $identifier_or_operator $pattern ...',
   grammar identifier_or_operator:

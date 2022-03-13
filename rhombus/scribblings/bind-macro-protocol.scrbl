@@ -107,7 +107,7 @@ seven parts:
 
  @item{An identifier that is used as a name for the input value, at least
    to the degree that the input value uses an inferred name. For
-   example, @rhombus[proc] as a binding form should cause its rand-hand value
+   example, @rhombus[proc] as a binding form should cause its right-hand value
    to use the inferred name @rhombus[proc], if it can make any use of an
    inferred name.},
 
@@ -125,7 +125,7 @@ seven parts:
    static information.},
 
  @item{A list of invdidual names that are bound by the overall binding,
-   plus ``upward'' [static information](static-info.md) for each name.
+   plus ``upward'' static information for each name.
    For example, @rhombus[Posn(x, y)] as a binding pattern binds @rhombus[x] and @rhombus[y].
    The final transformer function described in the third bullet above
    is responsible for actually binding each name and associating

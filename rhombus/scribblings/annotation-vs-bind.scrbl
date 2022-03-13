@@ -17,13 +17,13 @@ a @rhombus[String] and @rhombus["location"] to a @rhombus[Posn]. The
 specialization, but the @rhombus[Map] binding pattern can.
 
 @(rhombusblock:
-    annotation.macro 'PersonList': 
-      'List.of(matching(Map(~name: (_ :: String),
-                            ~location: (_ :: Posn))))'
+    annotation.rule 'PersonList': 
+      'List.of(matching({"name": (_ :: String),
+                         "location": (_ :: Posn)}))'
 
     val players :: PersonList:
-      [Map(~name: "alice", ~location: Posn(1, 2)),
-       Map(~name: "bob", ~location: Posn(3, 4))]
+      [{"name": "alice", "location": Posn(1, 2)},
+       {"name": "bob", "location": Posn(3, 4)}]
   )
 
 As another example, here’s how a @rhombus[ListOf] annotation constructor
