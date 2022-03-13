@@ -327,18 +327,21 @@
                              #,body)]))]))
   (wrap-bindings idrs #`(#,(quote-syntax quasisyntax) #,template)))
 
-(define-for-syntax (call-with-quoted-expression stx k literal-k)
+(define-for-syntax (call-with-quoted-expression stx single-k multi-k literal-k)
   (syntax-parse stx
     #:datum-literals (quotes group op)
     #:literals (rhombus... $ ......)
     [(_ (quotes (group (~and special (op (~or rhombus... $ ......))))) . tail)
      (values (literal-k #'special)
              #'tail)]
+    [(_ (quotes (group t)) . tail)
+     (values (single-k #'t)
+             #'tail)]
     [(_ ((~and tag quotes) . args) . tail)
-     (values (k (datum->syntax #f (cons (syntax/loc #'tag multi) #'args)))
+     (values (multi-k (datum->syntax #f (cons (syntax/loc #'tag multi) #'args)))
              #'tail)]))
 
-(define-for-syntax (convert-pattern/generate-match e)
+(define-for-syntax ((convert-pattern/generate-match repack-id) e)
   (define-values (pattern idrs can-be-empty?) (convert-pattern e))
   (with-syntax ([((id id-ref) ...) idrs])
     (with-syntax ([(tmp-id ...) (generate-temporaries #'(id ...))])
@@ -346,6 +349,7 @@
        #'syntax-infoer
        #`(#,(string-append "'" (shrubbery-syntax->string e) "'")
           #,pattern
+          #,repack-id
           (tmp-id ...)
           (id ...)
           (id-ref ...))))))
@@ -356,20 +360,20 @@
    '((default . stronger))
    'macro
    (lambda (stx)
-     (call-with-quoted-expression stx convert-template
+     (call-with-quoted-expression stx
+                                  convert-template
+                                  convert-template
                                   (lambda (e) #`(quote-syntax #,e))))
    (lambda (stx)
-     (call-with-quoted-expression stx convert-pattern/generate-match
+     (call-with-quoted-expression stx
+                                  (convert-pattern/generate-match #'repack-as-term)
+                                  (convert-pattern/generate-match #'repack-as-multi)
                                   (lambda (e) (binding-form
                                                #'syntax-infoer
                                                #`(#,(string-append "'" (shrubbery-syntax->string e) "'")
-                                                  ((~datum multi)
-                                                   ((~datum group)
-                                                    #,(let loop ([e e])
-                                                        (syntax-parse e
-                                                          [(~datum op) #`(~datum op)]
-                                                          [id:identifier #`(~literal id)]
-                                                          [(a ...) (map loop (syntax->list e))]))))
+                                                  #,(syntax-parse e
+                                                      [((~datum op) id) #`((~datum op) (~literal id))])
+                                                  repack-as-term
                                                   ()
                                                   ()
                                                   ())))))))
@@ -394,22 +398,22 @@
 
 (define-syntax (syntax-infoer stx)
   (syntax-parse stx
-    [(_ static-infos (annotation-str pattern tmp-ids (id ...) id-refs))
+    [(_ static-infos (annotation-str pattern repack tmp-ids (id ...) id-refs))
      (binding-info #'annotation-str
                    #'syntax
                    #'()
                    #'((id) ...)
                    #'syntax-matcher
                    #'syntax-binder
-                   #'(pattern tmp-ids (id ...) id-refs))]))
+                   #'(pattern repack tmp-ids (id ...) id-refs))]))
 
 (define-syntax (syntax-matcher stx)
   (syntax-parse stx
-    [(_ arg-id (pattern (tmp-id ...) (id ...) (id-ref ...)) IF success fail)
+    [(_ arg-id (pattern repack (tmp-id ...) (id ...) (id-ref ...)) IF success fail)
      #'(IF (syntax? arg-id)
            (begin
              (define-values (match? tmp-id ...)
-               (syntax-parse (repack-group-or-term arg-id)
+               (syntax-parse (repack arg-id)
                  [pattern (values #t id-ref ...)]
                  [_ (values #f 'id ...)]))
              (IF match?
@@ -419,7 +423,7 @@
 
 (define-syntax (syntax-binder stx)
   (syntax-parse stx
-    [(_ arg-id (pattern (tmp-id ...) (id ...) (id-ref ...)))
+    [(_ arg-id (pattern repack (tmp-id ...) (id ...) (id-ref ...)))
      #'(begin
          (define id tmp-id) ...)]))
 

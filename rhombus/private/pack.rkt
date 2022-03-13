@@ -44,7 +44,8 @@
          pack-tail*
          unpack-tail*
          
-         repack-group-or-term)
+         repack-as-term
+         repack-as-multi)
 
 (define multi-blank (syntax-property (syntax-property (datum->syntax #f 'multi) 'raw "") 'from-pack #t))
 (define group-blank (syntax-property (syntax-property (datum->syntax #f 'group) 'raw "") 'from-pack #t))
@@ -100,7 +101,8 @@
 
 (define (unpack-term form who)
   (define (fail)
-    (raise-error who "multi-term syntax not allowed in term context" form))
+    (and who
+         (raise-error who "multi-term syntax not allowed in term context" form)))
   (let loop ([r form])
     (cond
       [(multi-syntax? r)
@@ -113,7 +115,7 @@
        (if (= 2 (length l))
            (cadr l)
            (fail))]
-      [(list? r) (cannot-coerce-list who r)]
+      [(list? r) (and who (cannot-coerce-list who r))]
       [else r])))
 
 ;; "Packs" to a `group` form, but `r` starts with `group` already
@@ -209,12 +211,18 @@
   (pack* r depth (lambda (r)
                    (unpack-tail r (if (symbol? qs) qs (syntax-e qs))))))
 
-;; normalize for pattern matching:
-(define (repack-group-or-term r)
+;; normalize for multi-term pattern matching:
+(define (repack-as-multi r)
   (cond
     [(group-syntax? r) (list multi-blank r)]
     [(multi-syntax? r) r]
     [else (list multi-blank (list group-blank r))]))
+
+;; normalize for single-term pattern matching:
+(define (repack-as-term r)
+  (or (unpack-term r #f)
+      ;; can't match a term pattern:
+      #'(group)))
 
 (define (cannot-coerce-list who r)
   (raise-arguments-error* who rhombus-realm
