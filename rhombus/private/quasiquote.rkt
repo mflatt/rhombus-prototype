@@ -330,12 +330,12 @@
 (define-for-syntax (call-with-quoted-expression stx k literal-k)
   (syntax-parse stx
     #:datum-literals (quotes group op)
-    #:literals (rhombus...)
-    [(_ (quotes (group (~and dots (op rhombus...)))) . tail)
-     (values (literal-k #'dots)
+    #:literals (rhombus... $ ......)
+    [(_ (quotes (group (~and special (op (~or rhombus... $ ......))))) . tail)
+     (values (literal-k #'special)
              #'tail)]
     [(_ ((~and tag quotes) . args) . tail)
-     (values (k #`(#,(syntax/loc #'tag multi) . args))
+     (values (k (datum->syntax #f (cons (syntax/loc #'tag multi) #'args)))
              #'tail)]))
 
 (define-for-syntax (convert-pattern/generate-match e)

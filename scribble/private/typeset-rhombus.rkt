@@ -83,7 +83,10 @@
       [(element*? (syntax-e stx)) (syntax-e stx)]
       [else
        (syntax-parse stx
-         #:datum-literals (group parens brackets braces block alts op)
+         #:datum-literals (multi group parens brackets braces block quotes alts op)
+         [(multi g ...)
+          (add-between (map loop (syntax->list #'(g ...)))
+                       (element tt-style "; "))]
          [(group elem ... (block g ...))
           (list (group #'(elem ...))
                 (element tt-style ": ")
@@ -102,6 +105,7 @@
          [(parens elem ...) (seq "(" #'(elem ...) ")")]
          [(brackets elem ...) (seq "[" #'(elem ...) "]")]
          [(braces elem ...) (seq "{" #'(elem ...) "}")]
+         [(quotes elem ...) (seq "'" #'(elem ...) "'")]
          [(op id)
           (define str (shrubbery-syntax->string stx))
           (define space-name (id-space-name* #'id))
@@ -421,15 +425,11 @@
                (loop (cdr elems)))])))
   (define (replace-in-term stx)
     (syntax-parse stx
-      #:datum-literals (parens brackets braces block alts op)
-      [((~and tag (~or parens brackets braces block)) g ...)
+      #:datum-literals (parens brackets braces block quotes multi alts op)
+      [((~and tag (~or parens brackets braces quotes block multi)) g ...)
        (datum->syntax stx (cons #'tag (replace-in-groups #'(g ...))) stx stx)]
       [((~and tag alts) b ...)
        (datum->syntax stx (cons #'tag (replace-in-terms #'(b ...))) stx stx)]
-      [((~and tag parens) g ...)
-       (datum->syntax stx (cons #'tag (replace-in-groups #'(g ...))) stx stx)]
-      [((~and tag parens) g ...)
-       (datum->syntax stx (cons #'tag (replace-in-groups #'(g ...))) stx stx)]
       [else stx]))
   (replace-in-term block-stx))
 

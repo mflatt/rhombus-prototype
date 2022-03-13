@@ -5,10 +5,13 @@ import:
   for_label:
     rhombus open
     rhombus/macro open
+    "fixme.rhm" open
 
 export:
   all_from(rhombus/macro)
   all_from(rhombus):
     for_label
   all_from(rhombus/macro):
+    for_label
+  all_from("fixme.rhm"):
     for_label

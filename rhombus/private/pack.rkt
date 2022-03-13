@@ -46,8 +46,8 @@
          
          repack-group-or-term)
 
-(define multi-blank (syntax-property (datum->syntax #f 'multi) 'raw ""))
-(define group-blank (syntax-property (datum->syntax #f 'group) 'raw ""))
+(define multi-blank (syntax-property (syntax-property (datum->syntax #f 'multi) 'raw "") 'from-pack #t))
+(define group-blank (syntax-property (syntax-property (datum->syntax #f 'group) 'raw "") 'from-pack #t))
 
 (define (group-syntax? r)
   (and (syntax? r)

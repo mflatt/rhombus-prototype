@@ -55,15 +55,21 @@
               [(brackets) (values "[" ", " "]")]
               [(braces) (values "{" ", " "}")]
               [(quotes) (values "'«" ", " "»'")]
-              [else (error 'write-shubbery "unexpected ~s" (car v))]))
-          (display open op)
-          (for/fold ([first? #t]) ([v (in-list (cdr v))])
-            (unless (or first?
-                        (and (pair? v) (eq? (car v) 'block)))
-              (display sep op))
-            (loop v #f)
-            #f)
-          (display close op)])]
+              [else (values #f #f #f)]))
+          (cond
+            [open
+             (display open op)
+             (for/fold ([first? #t]) ([v (in-list (cdr v))])
+               (unless (or first?
+                           (and (pair? v) (eq? (car v) 'block)))
+                 (display sep op))
+               (loop v #f)
+               #f)
+             (display close op)]
+            [else
+             (display "#{" op)
+             (write v op)
+             (display "}#" op)])])]
       [(symbol? v)
        (define s (symbol->immutable-string v))
        (cond

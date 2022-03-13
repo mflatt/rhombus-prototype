@@ -26,7 +26,7 @@ and so on:
 
 @(rhombusblock:
     bind.macro 'AlsoPosn ($x, $y) $tail ......':
-      values('(Posn($x, $y))', tail)
+      values('Posn($x, $y)', tail)
 
     def AlsoPosn(x, y): Posn(1, 2)
     x  // prints 1
@@ -76,10 +76,10 @@ identifier to the right of the dot. The dot provider associated with
 ``fields'' by calling helper functions:
 
 @(rhombusblock:
-    dot.macro '(vector_dot_provider $left $dot $right):
+    dot.macro 'vector_dot_provider $left $dot $right':
       match right
-      | 'angle: '(vector_angle($left))
-      | 'magnitude: '(vector_magnitude($left))
+      | 'angle': 'vector_angle($left)'
+      | 'magnitude': 'vector_magnitude($left)'
 
     fun vector_angle(Posn(x, y)): atan(y, x)
     fun vector_magnitude(Posn(x, y)): sqrt(x*x + y*y)
@@ -98,11 +98,11 @@ A macro can explicitly associate static information with an expression
 by using @rhombus[static_info_ct.wrap]:
 
 @(rhombusblock:
-    expr.macro '(or_zero $p $tail ......):
-      val expansion: '($p || Posn(0,0))
+    expr.macro 'or_zero $p $tail ......':
+      val expansion: '$p || Posn(0,0)'
       values(static_info_ct.wrap(expansion,
                                  '(($(dot_ct.provider_key),
-                                    vector_dot_provider))),
+                                    vector_dot_provider))'),
              tail)
   
     or_zero(Posn(3, 4)).magnitude // prints 5
@@ -110,7 +110,7 @@ by using @rhombus[static_info_ct.wrap]:
   )
 
 A similar effect could be acheived by expanding to
-@rhombus['(($p || Posn(0,0)) :: Vector)], but for better or worse, this
+@rhombus['($p || Posn(0,0)) :: Vector'], but for better or worse, this
 implementation of @rhombus[or_zero] omits an extra predicate on the
 result of the expression, and instead claims that it will always work as
 a @rhombus[Vector].
@@ -133,13 +133,13 @@ representation.
 
 @(rhombusblock:
     fun zero(): Posn(0, 0)
-    static_info.macro 'zero: '(($(expr_ct.call_result_key),
+    static_info.macro 'zero': '($(expr_ct.call_result_key),
                                 $(static_info_ct.pack('(($(dot_ct.provider_key),
-                                                         vector_dot_provider))))))
+                                                         vector_dot_provider))')))'
     zero().magnitude  // prints 0
 )
 
-The @rhombus[static_info.macro] form expects @rhombus['] followed by an
+The @rhombus[static_info.macro] form expects @rhombus[''] containing an
 identifier or operator, not a more funciton-like pattern, because it's
 mean to define a constant association between a name and static
 information.
@@ -151,11 +151,11 @@ dot provider is used directly, then it receives itself as the left
 argument:
 
 @(rhombusblock:
-    dot.macro '(hello $left $dot $right):
+    dot.macro 'hello $left $dot $right':
       match right
-      | 'english: '"Hi"
-      | 'chinese: '"你好"
-      | 'spanish: '"Hola"
+      | 'english': '"Hi"'
+      | 'chinese': '"你好"'
+      | 'spanish': '"Hola"'
 
     hello.chinese  // prints "你好"
     hello.spanish  // prints "Hola"

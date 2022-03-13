@@ -68,7 +68,7 @@ for_meta:
     | match ts
       | 'literal_syntax($new_g)':
           'literal_syntax($(relocate_syntax(new_g, g)))'
-    | 'as_seq(relocate_group($ts, literal_syntax($(relocate_syntax('#false', g)))))'
+    | 'relocate_group($ts, literal_syntax($(relocate_syntax('#false', g))))'
 
   def nested(gs, builder, stxs):
     val tss: map(escape, gs)
@@ -125,8 +125,6 @@ for_meta:
         | ~else: values(head, tail)
     | ~else: values(head, tail)
 
-fun as_seq(v): '($v)'
-
 fun sequence_cons_syntax(a, d, context):
   let a_r: relocate_syntax(to_syntax(a), context);
   match d
@@ -141,36 +139,34 @@ fun sequence_append_syntax(d1, d2, context):
       
 fun parens_syntax(ts, context):
   match ts
-  | ['$t', ...]: as_seq(relocate_syntax('($t, ...)', context))
+  | ['$t', ...]: relocate_syntax('($t, ...)', context)
 
 fun brackets_syntax(ts, context):
   match ts
-  | ['$t', ...]: as_seq(relocate_syntax('[$t, ...]', context))
+  | ['$t', ...]: relocate_syntax('[$t, ...]', context)
 
 fun braces_syntax(ts, context):
   match ts
-  | ['$t', ...]: as_seq(relocate_syntax('{$t, ...}', context))
+  | ['$t', ...]: relocate_syntax('{$t, ...}', context)
 
 fun block_syntax(ts, context):
   match ts
-  | ['$t', ...]: as_seq(relocate_syntax(': $t; ...', context))
+  | ['$t', ...]: relocate_syntax(': $t; ...', context)
 
 fun quotes_syntax(ts, context):
   match ts
-  | ['$t', ...]:
-      as_seq(relocate_syntax('«'$t; ...'»', context))
+  | ['$t', ...]: relocate_syntax('«'$t; ...'»', context)
 
 fun alts_syntax(ts, context):
   match ts
-  | ['$t', ...]:
-      as_seq(relocate_syntax('| $t | ...', context))
+  | ['$t', ...]: relocate_syntax('| $t | ...', context)
 
 fun relocate_group(ts, context):
   match ts
   | '$g': relocate_syntax(g, context)
 
 fun relocate_expansion(e, context):
-  as_seq(relocate_syntax(to_syntax(e), context))
+  relocate_syntax(to_syntax(e), context)
 
 // ----------------------------------------
 
@@ -198,12 +194,12 @@ expr.macro 'rhombusblock $tail ...':
         values('#{typeset-rhombusblock}($option, ..., $(escape('$fin_tail ...')))', '')
     | ~else: raise_syntax_error("expected a block", '$me $tail ...')
   fun check_options(options):
-    match '$options; ...'
-    | '': #true
-    | '~inset: $on; $more; ...': check_options(more)
-    | '~indent: $amt; $more; ...': check_options(more)
-    | '~prompt: $prompt; $more; ...': check_options(more)
-    | '$opt; $_; ...': raise_syntax_error("invalid option", opt)
+    match '($options, ...)'
+    | '()': #true
+    | '(~inset: $on, $more, ...)': check_options(more)
+    | '(~indent: $amt, $more, ...)': check_options(more)
+    | '(~prompt: $prompt, $more, ...)': check_options(more)
+    | '($opt, $_, ...)': raise_syntax_error("invalid option", opt)
   match '$tail ...'
   | '($options, ...) $new_tail ...':
       check_options(options)

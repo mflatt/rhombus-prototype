@@ -662,7 +662,7 @@
              (cond
                [quote-nested?
                 (define-values (next-l last-line delta raw)
-                  (next-of rest-l0 last-line0 delta0 group-tail-raw0 (state-count? s)))
+                  (next-of rest-l0 close-line0 close-delta0 group-tail-raw0 (state-count? s)))
                 (cond
                   [(and (pair? next-l)
                         (eq? 'closer (token-name (car next-l)))

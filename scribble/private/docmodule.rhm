@@ -27,10 +27,10 @@ for_meta:
         [symbol(lib), str]
 
 decl.macro 'docmodule ($mod ...)':
-  ': $(parsed(['defmodule',
-               keyword(#{#:require-form}),
-               unparsed('fun (mod): @rhombus[import: $$(mod)]'),
-               translate_mod('$mod ...')]))'
+  '$(parsed(['defmodule',
+             keyword(#{#:require-form}),
+             unparsed('fun (mod): @rhombus[import: $$(mod)]'),
+             translate_mod('$mod ...')]))'
 
 expr.macro 'rhombusmodname ($mod ...) $tail ......':
   values(parsed(['racketmodname', translate_mod('$mod ...')]),

@@ -4,7 +4,7 @@
 @title{Syntax Objects}
 
 @doc[
-  annotation.macro 'Syntax
+  annotation.macro 'Syntax'
 ]{
 
   Matches syntax objects.
@@ -12,40 +12,38 @@
 }
 
 @doc[
-  expr.macro '(' $form)
+  expr.macro '« FIXME ' $form '»'
 ]{
 
  Creates a syntax object quoting @rhombus[form].
 
  A @rhombus[$] within @rhombus[form] escapes to an expression whose
- value replaces the @rhombus[$] form. A @rhombus['] within @rhombus[form]
- increases the quoting depth so that a matching @rhombus[$] within the
- nested @rhombus['] form doesn't escape, but merely decreases the quoting
- depth.
+ value replaces the @rhombus[$] form. (A @rhombus[''] within @rhombus[form]
+ does not increase the quoting depth.)
 
 @examples[
-  '1,
-  'pi,
-  '(1 + 2),
-  '($(1 + 2)),
-  '(' $(1 + $(4-1))),
+  '1',
+  'pi',
+  '1 + 2',
+  '$(1 + 2)',
+  '«' $(1 + 2) '»'
 ]
 
 }
 
 
 @doc[
-  expr.macro '($ $expr)
+  expr.macro '$ $expr'
 ]{
 
- Only allowed within a @rhombus['] form, escapes so that the value of
+ Only allowed within a @rhombus[''] form, escapes so that the value of
  @rhombus[expr] is used in place of the @rhombus[$] form.
 
 }
 
 
 @doc[
-  bind.macro '(' $form)
+  bind.macro '« FIXME ' $form '»'
 ]{
 
  Matches a syntax object consistent with @rhombus[form].
@@ -55,21 +53,21 @@
  Ellipses, etc.
 
 @examples[
-  match '(1 + 2)
-  | '($n + $m): [n, m]
+  match '1 + 2'
+  | '$n + $m': [n, m]
 ]
 
 }
 
 
 @doc[
-  bind.macro '($ $identifier),
-  bind.macro '($ ($identifier $: $syntax_class)),
+  bind.macro '$ $identifier',
+  bind.macro '$ ($identifier $: $syntax_class)',
 ]{
 
- Only allowed within a @rhombus[', ~bind] binding pattern, escapes so that
+ Only allowed within a @rhombus['', ~bind] binding pattern, escapes so that
  @rhombus[identifier] is bound to the corresponding portion of the syntax
- object that matches the @rhombus[', ~bind] form.
+ object that matches the @rhombus['', ~bind] form.
 
  The @rhombus[syntax_class] can be @rhombus[Term, ~stxclass], @rhombus[Id, ~stxclass],
  or @rhombus[Group, ~stxclass], among others.
@@ -77,7 +75,7 @@
 }
 
 @doc[
-  expr.macro '($identifier $: $syntax_class)
+  expr.macro '$identifier $: $syntax_class'
 ]{
 
  Only allowed with @rhombus[$] within a template, matches and binds
@@ -111,10 +109,10 @@
 
 
 @doc[
-  bind.macro '(......)
+  bind.macro '......'
 ]{
 
- Used within @rhombus[', ~bind] binding patterns to indicate tail
+ Used within @rhombus['', ~bind] binding patterns to indicate tail
  repetition.
 
 }
