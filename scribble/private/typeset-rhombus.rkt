@@ -29,10 +29,10 @@
   ;; originally on a single line
   (define (id-space-name* id) (id-space-name id space-name))
   (let loop ([stx stx])
-    (define (seq open elems-stx close)
+    (define (seq open elems-stx close #:sep [sep tt-comma])
       (list (element paren-color open)
             (add-between (map loop (syntax->list elems-stx))
-                         tt-comma)
+                         sep)
             (element paren-color close)))
     (define (group elems-stx)
       (let g-loop ([elems (syntax->list elems-stx)] [pre-space? #f] [check-prefix? #f])
@@ -105,7 +105,7 @@
          [(parens elem ...) (seq "(" #'(elem ...) ")")]
          [(brackets elem ...) (seq "[" #'(elem ...) "]")]
          [(braces elem ...) (seq "{" #'(elem ...) "}")]
-         [(quotes elem ...) (seq "'" #'(elem ...) "'")]
+         [(quotes elem ...) (seq "'" #'(elem ...) "'" #:sep tt-semicolon)]
          [(op id)
           (define str (shrubbery-syntax->string stx))
           (define space-name (id-space-name* #'id))
@@ -299,6 +299,7 @@
 
 (define tt-space (element tt-style " "))
 (define tt-comma (element tt-style ", "))
+(define tt-semicolon (element tt-style "; "))
 
 (define (block-string->content-string str col stx-ranges)
   ;; strip `:` from the beginning, add spaces

@@ -40,10 +40,11 @@
          pack-group*
          unpack-group*
          pack-multi*
+         pack-block*
          unpack-multi*
          pack-tail*
          unpack-tail*
-         
+
          repack-as-term
          repack-as-multi)
 
@@ -203,6 +204,10 @@
   (unpack* qs r depth
            (lambda (r)
              (unpack-multi r qs))))
+
+;; Like `pack-multi*, but preserves `block` insteda of converting to `multi`:
+(define (pack-block* stxes depth)
+  (pack* stxes depth (lambda (r) r)))
 
 (define (pack-tail* stxes depth)
   (pack* stxes depth pack-tail))

@@ -55,7 +55,16 @@ for_meta:
       | '{$_, ...}': '{$new_gs, ...}'
       | '«'$_; ...'»': '«'$new_gs; ...'»'
       | ': $_; ...': ': $new_gs; ...'
-      | '| $_ | ...': '| $new_gs | ...'
+    literal('$(relocate_syntax(new, head_context(stxs)))')
+
+  def literal_rebuilt_alts(e_bs, bs, stxs):
+    def new_bs: map2(fun (e_bs, orig_b):
+                       match e_bs
+                       | 'literal_syntax($b)':
+                           relocate_syntax(b, orig_b),
+                     e_bs,
+                     bs)
+    def new: to_alts_syntax(new_bs)
     literal('$(relocate_syntax(new, head_context(stxs)))')
 
   def is_literal(stx):
@@ -70,12 +79,26 @@ for_meta:
           'literal_syntax($(relocate_syntax(new_g, g)))'
     | 'relocate_group($ts, literal_syntax($(relocate_syntax('#false', g))))'
 
+  def build_relocate_block(e_b, b):
+    if is_literal(e_b)
+    | match e_b
+      | 'literal_syntax($new_b)':
+          'literal_syntax($(relocate_syntax(new_b, b)))'
+    | 'relocate_syntax($e_b, literal_syntax($(relocate_syntax('#false', b))))'
+
   def nested(gs, builder, stxs):
     val tss: map(escape, gs)
     if andmap(is_literal, tss)
     | literal_rebuilt_nested(tss, gs, stxs)
     | val new_gs: map2(build_relocate_group, tss, gs)
       '$builder([$new_gs, ...], literal_syntax($(head_context(stxs))))'
+
+  def nested_alts(bs, stxs):
+    val e_bs: map(escape_one, bs)
+    if andmap(is_literal, e_bs)
+    | literal_rebuilt_alts(e_bs, bs, stxs)
+    | val new_bs: map2(build_relocate_block, e_bs, bs)
+      'alts_syntax([$new_bs, ...], literal_syntax($(head_context(stxs))))'
 
   def escape(stxs):
     match stxs
@@ -104,8 +127,8 @@ for_meta:
         nested(gs, 'quotes_syntax', stxs)
     | ': $gs; ...':
         nested(gs, 'block_syntax', stxs)
-    | '| $bs | ...':
-        nested(bs, 'alts_syntax', stxs)
+    | '| $(bs $: Block) | ...':
+        nested_alts(bs, stxs)
     | '$(id $: Id_Op)':
         val mv: syntax_meta_value(typeset_meta.in_space(id), #false)
         match mv
@@ -158,8 +181,7 @@ fun quotes_syntax(ts, context):
   | ['$t', ...]: relocate_syntax('«'$t; ...'»', context)
 
 fun alts_syntax(ts, context):
-  match ts
-  | ['$t', ...]: relocate_syntax('| $t | ...', context)
+  relocate_syntax(to_alts_syntax(ts), context)
 
 fun relocate_group(ts, context):
   match ts

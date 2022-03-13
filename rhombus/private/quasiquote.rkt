@@ -155,7 +155,7 @@
        (values e (list #`[#,e (#,pack* (syntax #,e) 0)]))]
       [(parens (group id:identifier (op $:) stx-class:identifier))
        (define rsc (syntax-local-value (in-syntax-class-space #'stx-class) (lambda () #f)))
-       (define (compat)
+       (define (compat pack*)
          (define sc (rhombus-syntax-class-class rsc))
          (values (if sc
                      #`(~var id #,sc)
@@ -176,15 +176,21 @@
           (cond
             [(not (eq? kind 'term))
              (values #f #f)]
-            [else (compat)])]
+            [else (compat pack*)])]
          [(eq? (rhombus-syntax-class-kind rsc) 'group)
           (cond
             [(eq? kind 'term) (incompat)]
             [(not (eq? kind 'group)) (values #f #f)]
-            [else (compat)])]
+            [else (compat pack*)])]
+         [(eq? (rhombus-syntax-class-kind rsc) 'multi)
+          (cond
+            [(eq? kind 'multi) (compat pack*)]
+            [else (incompat)])]
          [(eq? (rhombus-syntax-class-kind rsc) 'block)
           (cond
-            [(eq? kind 'block) (compat)]
+            [(and (eq? kind 'multi) (syntax-parse in-e
+                                      [(head . _) (memq (syntax-e #'head) '(block alts))]))
+             (compat #'pack-block*)]
             [else (incompat)])]
          [else
           (error "unrecognized kind" kind)])]))
@@ -211,7 +217,7 @@
                     (handle-escape/match-head $-id e in-e #'pack-group* #'Group 'group))
                   ;; handle-multi-escape:
                   (lambda ($-id e in-e)
-                    (handle-escape/match-head $-id e in-e #'pack-multi* #'Block 'block))
+                    (handle-escape/match-head $-id e in-e #'pack-multi* #'Multi 'multi))
                   ;; deepen-escape
                   (lambda (idr)
                     (syntax-parse idr

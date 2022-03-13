@@ -11,6 +11,7 @@
 
 (provide literal_syntax
          to_syntax
+         to_alts_syntax
          unwrap_syntax
          relocate_syntax
          relocate_span_syntax)
@@ -43,6 +44,17 @@
 (define (to_syntax v)
   (datum->syntax #f v))
 
+(define (to_alts_syntax blocks)
+  (unless (andmap (lambda (block)
+                    (and (syntax? block)
+                         (syntax-parse block
+                           #:datum-literals (block)
+                           [(block . _) #t]
+                           [else #f])))
+                  blocks)
+    (raise-argument-error* 'unwrap_syntax rhombus-realm "List.of(BlockSyntax)" blocks))
+  (datum->syntax #f (cons 'alts blocks)))
+
 (define (unwrap_syntax v)
   (cond
     [(not (syntax? v))
@@ -54,11 +66,7 @@
   (unless (syntax? stx) (raise-argument-error* 'relocate_syntax rhombus-realm "Syntax" stx))
   (unless (syntax? ctx-stx-in) (raise-argument-error* 'relocate_syntax rhombus-realm "Syntax" ctx-stx-in))
   (define ctx-stx (relevant-source-syntax ctx-stx-in))
-  (log-error "?? ~s" (syntax->datum stx))
-  (log-error " : ~s" (syntax->datum ctx-stx-in))
-  (log-error " = ~s" (syntax->datum ctx-stx))
   (define (relocate stx)
-    (log-error " ! ~s" (syntax->datum stx))
     (datum->syntax stx (syntax-e stx) ctx-stx ctx-stx))
   (let loop ([stx stx])
     (syntax-parse stx
