@@ -13,7 +13,7 @@
 
 @doc[
   defn.macro '«defn.macro '$identifier_or_operator $pattern ...':
-                 body
+                 $body
                  ...»',
   grammar identifier_or_operator:
     $identifier
@@ -56,7 +56,7 @@
   defn.macro '«defn.sequence_macro '$identifier_or_operator $pattern ...
                                       $pattern
                                       ...':
-                 body
+                 $body
                  ...»',
   grammar identifier_or_operator:
     $identifier
