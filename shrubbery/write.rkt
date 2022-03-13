@@ -54,7 +54,7 @@
               [(parens) (values "(" ", " ")")]
               [(brackets) (values "[" ", " "]")]
               [(braces) (values "{" ", " "}")]
-              [(quotes) (values "'«" ", " "»'")]
+              [(quotes) (values "'«" "; " "»'")]
               [else (values #f #f #f)]))
           (cond
             [open

@@ -20,7 +20,10 @@
          expected5
 
          input6
-         expected6)
+         expected6
+
+         input7
+         expected7)
 
 ;; input1 is split into parts to accomodate O(n^2) tests
 (define input1s
@@ -166,6 +169,7 @@ struct posn(x, y):
          eql(a.x, b.x) && eql(a.y, b.y),
        hc,
        hc)
+
 INPUT
 
 ;; ----------------------------------------
@@ -1967,3 +1971,37 @@ INPUT
     (group 2)
     (group begin (block (group 1 (op +) 2)))
     (group (parens (group begin (block (group x)))))))
+
+(define input7
+#<<INPUT
+
+'apple'
+'apple + banana'
+'apple; banana'
+'apple
+ banana'
+':
+   apple
+   banana'
+'(a)'
+'(a 'nested' b)'
+'«a 'nested' b»'
+'  « a 'nested' b »  '
+' /* x */ « a 'nested' b » 
+ '
+
+INPUT
+)
+
+(define expected7
+  '(top
+    (group (quotes (group apple)))
+    (group (quotes (group apple (op +) banana)))
+    (group (quotes (group apple) (group banana)))
+    (group (quotes (group apple) (group banana)))
+    (group (quotes (group (block (group apple) (group banana)))))
+    (group (quotes (group (parens (group a)))))
+    (group (quotes (group (parens (group a (quotes (group nested)) b)))))
+    (group (quotes (group a (quotes (group nested)) b)))
+    (group (quotes (group a (quotes (group nested)) b)))
+    (group (quotes (group a (quotes (group nested)) b)))))
