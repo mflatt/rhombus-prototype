@@ -66,7 +66,7 @@
                                 [else #f]))))
                      blocks)])
     (unless (andmap values blocks)
-      (raise-argument-error* 'unwrap_syntax rhombus-realm "List.of(BlockSyntax)" blocks))
+      (raise-argument-error* 'to_alts_syntax rhombus-realm "List.of(BlockSyntax)" blocks))
     (datum->syntax #f (cons 'alts blocks))))
 
 (define (unwrap_syntax v)

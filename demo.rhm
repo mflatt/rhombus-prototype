@@ -95,6 +95,8 @@ size
 'apple + banana'
 'apple + $(3 + 4)'
 'apple + ('$(3 + 4)')'
+'apple + ('$[(3 + 4)]')'
+'apple + ('$['3 + 4; 8']')'
 
 // defining an infix operator
 

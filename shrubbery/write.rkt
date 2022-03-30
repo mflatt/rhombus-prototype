@@ -69,7 +69,7 @@
             [else
              (display "#{" op)
              (write v op)
-             (display "}#" op)])])]
+             (display "}" op)])])]
       [(symbol? v)
        (define s (symbol->immutable-string v))
        (cond

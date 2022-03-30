@@ -90,7 +90,7 @@ for_meta:
         nested(gs, 'brackets_syntax', stxs)
     | '{$gs, ...}':
         nested(gs, 'braces_syntax', stxs)
-    | '«'$gs; ...'»':
+    | '«'$[gs]; ...'»':
         nested(gs, 'quotes_syntax', stxs)
     | ': $gs; ...':
         nested(gs, 'block_syntax', stxs)
@@ -145,7 +145,7 @@ fun block_syntax(ts, context):
 
 fun quotes_syntax(ts, context):
   match ts
-  | ['$t', ...]: relocate_syntax('«'$t; ...'»', context)
+  | ['$t', ...]: relocate_syntax('«'$[t]; ...'»', context)
 
 fun alts_syntax(ts, context):
   relocate_syntax(to_alts_syntax(ts), context)

@@ -66,16 +66,18 @@
        (values p new-idrs #f)]
       [((~and tag (~or parens brackets braces quotes multi block))
         (group (op (~and (~literal $) $-id)) esc))
-       #:when (and (zero? depth) (not as-tail?))
+       #:do [(define new-depth (if (is-quotes? #'tag) (add1 depth) depth))
+             (define-values (unwrapped-esc undepth) (escape-layers #'esc new-depth))]
+       #:when (and (= new-depth undepth) (not as-tail?))
        ;; Analogous special case, but for blocks (maybe within an `alts`), etc.
-       #:do [(define-values (p new-idrs) (handle-multi-escape  #'$-id #'esc e))]
+       #:do [(define-values (p new-idrs) (handle-multi-escape  #'$-id unwrapped-esc e))]
        #:when p
        (values p new-idrs #f)]
       [((~and tag (~or parens brackets braces quotes multi block))
         (~and g (group . _)))
        ;; Special case: for a single group with (), [], {}, '', or block, if the group
        ;; can be empty, allow a match/construction with zero groups
-       (define-values (p new-idrs can-be-empty?) (convert #'g #t depth as-tail?))
+       (define-values (p new-idrs can-be-empty?) (convert #'g #t (if (is-quotes? #'tag) (add1 depth) depth) as-tail?))
        (if can-be-empty?
            (handle-maybe-empty-sole-group #'tag p new-idrs)
            (values (quasisyntax/loc e (#,(make-datum #'tag) #,p))
@@ -84,7 +86,8 @@
       [((~and tag (~or parens brackets braces quotes multi block alts group))
         g ...)
        ;; Note: this is where `depth` would be incremented, when `tag` is `quotes`, if we wanted that
-       (let loop ([gs #'(g ...)] [pend-idrs #f] [idrs '()] [ps '()] [can-be-empty? #t] [tail #f] [depth depth])
+       (let loop ([gs #'(g ...)] [pend-idrs #f] [idrs '()] [ps '()] [can-be-empty? #t] [tail #f]
+                                 [depth (if (is-quotes? #'tag) (add1 depth) depth)])
          (define (simple gs a-depth)
            (syntax-parse gs
              [(g . gs)
@@ -131,9 +134,10 @@
             (define-values (id new-idrs) (handle-tail-escape #'op.name #'op.e e))
             (loop #'() #f (append new-idrs (or pend-idrs '()) idrs) ps (and can-be-empty? (not pend-idrs)) id depth)]
            [(((~datum op) (~and (~literal $) $-id)) esc . n-gs)
+            (define-values (unwrapped-esc undepth) (escape-layers #'esc depth))
             (cond
-              [(zero? depth)
-               (define-values (pat new-idrs) (handle-escape #'$-id #'esc e))
+              [(= depth undepth)
+               (define-values (pat new-idrs) (handle-escape #'$-id unwrapped-esc e))
                (loop #'n-gs new-idrs (append (or pend-idrs '()) idrs) (cons pat ps) (and can-be-empty? (not pend-idrs)) #f depth)]
               [else
                (simple2 gs (sub1 depth))])]
@@ -145,6 +149,21 @@
        (values (make-literal #'id) null #f)]
       [_
        (values e null #f)])))
+
+(define-for-syntax (is-quotes? tag)
+  (and (eq? (syntax-e tag) 'quotes)
+       (free-identifier=? (datum->syntax tag '#%quote) #'#%quote)))
+
+(define-for-syntax (escape-layers esc depth)
+  (cond
+    [(zero? depth) (values esc 0)]
+    [else
+     (syntax-parse esc
+       #:datum-literals (brackets group)
+       [(brackets (group e))
+        (define-values (unwrapped-esc undepth) (escape-layers #'e (- depth 1)))
+        (values unwrapped-esc (+ undepth 1))]
+       [_ (values esc 0)])]))
 
 (define-for-syntax (convert-pattern e #:as-tail? [as-tail? #f])
   (define (handle-escape $-id e in-e pack* context-syntax-class kind)

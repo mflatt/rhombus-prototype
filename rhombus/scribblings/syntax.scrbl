@@ -33,8 +33,31 @@ itself remains quoted.
     '1 + $('$') 2'  // prints a shrubbery: 1 + $ 2
   )
 
-@aside{Nested @rhombus[''] does not increase the quoting level like
- Racket quasiquote.}
+A nested @rhombus[''] increases the quoting level so that an additional
+@rhombus[$] is needed to escape, while uses of @rhombus[$] that are not
+deep enough to escape are preserved in the quoted term. This convention
+is often convenient for quoting terms that are meant to include
+quasiquotation terms.
+
+@(rhombusblock:
+    'parse('1 + $(2 + 3)')'  // prints a shrubbery: parse('1 + $(2 + 3)')
+    'parse('1 + $(2 + $(4 - 1))')'  // prints a shrubbery: parse('1 + $(2 + 3)')
+  )
+
+To increase the unquoting depth of @rhombus[$] by one, use square
+brackets around the argument of @rhombus[$]:
+
+@(rhombusblock:
+    'parse('1 + $[2 + 3]')'  // prints a shrubbery: parse(1 + $ 5)
+  )
+
+@aside{Square brackets would normally create a list, so an extra set of
+ parentheses are needed are the quare brackets for the rare case that
+ it's meant to produce a list value. Note that a list as a result of a
+ @rhombus[$]-escaped expression would be illegal as a term to splice into
+ an enclosing syntax object, but the overal @rhombus[$] term might be
+ followed by @rhombus[...] as described next, in which case producing a
+ list could be meaningful.}
 
 Like @rhombus[$], @rhombus[...] is treated specially within a @rhombus['']-quoted term (except,
 like @rhombus[$], when it’s the only thing in the term). When @rhombus[...] immediately
