@@ -2,8 +2,9 @@
 (require (for-syntax racket/base
                      syntax/parse
                      shrubbery/print
+                     (only-in "private/repetition.rkt"
+                              [... rhombus...])
                      (only-in "private/quasiquote.rkt"
-                              [... rhombus...]
                               $))
          racket/interaction-info
          "private/bounce.rkt"
@@ -41,6 +42,7 @@
         "private/cond.rkt"
         "private/match.rkt"
         "private/quasiquote.rkt"
+        "private/repetition.rkt"
         "private/keyword.rkt"
         "private/symbol.rkt"
         "private/values.rkt"

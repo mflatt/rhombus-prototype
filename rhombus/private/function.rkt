@@ -16,7 +16,7 @@
          "ref-result-key.rkt"
          "static-info.rkt"
          "annotation.rkt"
-         (only-in "quasiquote.rkt"
+         (only-in "repetition.rkt"
                   [... rhombus...])
          (submod "annotation.rkt" for-class)
          (only-in "equal.rkt"

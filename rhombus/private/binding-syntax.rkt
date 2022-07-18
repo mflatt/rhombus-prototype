@@ -15,8 +15,6 @@
          "syntax.rkt"
          "binding.rkt"
          (for-syntax
-          (rename-in "quasiquote.rkt"
-                     [... rhombus...])
           (submod "quasiquote.rkt" convert))
          "parse.rkt"
          ;; for `matcher` and `binder`:

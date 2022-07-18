@@ -12,8 +12,9 @@
          "map-ref-set-key.rkt"
          "call-result-key.rkt"
          "ref-result-key.rkt"
-         (only-in "quasiquote.rkt"
+         (only-in "repetition.rkt"
                   [... rhombus...])
+         (submod "repetition.rkt" for-repeat)
          "parse.rkt")
 
 (provide cons
@@ -126,14 +127,19 @@
   (syntax-parse stx
     #:datum-literals (group op)
     #:literals (rhombus...)
-    [(form-id (tag arg ... rest-arg (group (op rhombus...))) . tail)
+    [(form-id (tag arg ... rest-arg (group (op (~and ellipses rhombus...)))) . tail)
      (values (wrap-list-static-info
-              (syntax/loc #'tag
-                (list* (rhombus-expression arg) ... (rhombus-expression rest-arg))))
+              (cond
+                [(null? (syntax->list #'(arg ...)))
+                 ;; special case to expose static info on rest elements
+                 (quasisyntax/loc #'tag
+                   #,(repetition-as-list #'ellipses #'rest-arg))]
+                [else
+                 (quasisyntax/loc #'tag
+                   (list* (rhombus-expression arg) ... #,(repetition-as-list #'ellipses #'rest-arg)))]))
              #'tail)]
     [(form-id (tag arg ...) . tail)
      (values (wrap-list-static-info
               (syntax/loc #'tag
                 (list (rhombus-expression arg) ...)))
              #'tail)]))
-

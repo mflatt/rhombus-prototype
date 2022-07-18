@@ -18,13 +18,14 @@
          (submod "syntax-class.rkt" for-quasiquote)
          (only-in "underscore.rkt"
                   [_ rhombus-_])
+         (only-in "repetition.rkt"
+                  [... rhombus...])
          (only-in "annotation.rkt"
                   ::))
 
 (provide #%quote
          syntax_term
-         $
-         (rename-out [rhombus... ...]))
+         $)
 
 (module+ convert
   (provide (for-syntax convert-pattern
@@ -513,14 +514,3 @@
         (raise-syntax-error #f
                             "misuse outside of a pattern or template"
                             #'op)]))))
-
-(define-syntax rhombus...
-  (expression-transformer
-   #'rhombus...
-   (lambda (stx)
-     (syntax-parse stx
-       [(op::operator . tail)
-        (raise-syntax-error #f
-                            "misuse outside of a pattern"
-                            #'op.name)]))))
-
