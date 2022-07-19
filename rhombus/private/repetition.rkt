@@ -16,10 +16,19 @@
                repetition-as-list)))
 
 (begin-for-syntax
-  (property repetition (seq-id element-static-infos))
+  (property repetition expression-prefix-operator (seq-id element-static-infos))
 
-  (define (make-repetition seq-id element-static-infos)
-    (repetition seq-id element-static-infos)))
+  (define (make-repetition name seq-id element-static-infos)
+    (repetition
+     name '((default . stronger)) 'macro
+     (lambda (stx)
+       (syntax-parse stx
+         [(self . _)
+          (raise-syntax-error #f
+                              "cannot use repetition binding as an expression"
+                              #'self)]))
+     seq-id
+     element-static-infos)))
 
 (define-syntax rhombus...
   (expression-transformer

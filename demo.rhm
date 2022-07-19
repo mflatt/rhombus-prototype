@@ -457,8 +457,8 @@ if a_set[1] && !a_set[2]
 | "ok"
 | 1/0
 
-def [x, ys, ...]: nums
-ys
+def [x, y, ...]: nums
+[y, ...]
 
 def Array(ax, ay, az): nums_a
 az
@@ -478,8 +478,8 @@ bob_loc
 def Map(symbol(alice), alice_loc2, symbol(bob), bob_loc2): local_map
 [alice_loc2, bob_loc2]
 
-def [ps :: Posn, ...] : [Posn(1, 2), Posn(3, 4)]
-ps[0].x
+def [p :: Posn, ...] : [Posn(1, 2), Posn(3, 4)]
+[p, ...][0].x
 
 fun
 | is_sorted([]): #true
@@ -493,29 +493,31 @@ is_sorted([1, 2, 30, 4, 5])
 fun
 | got_milk([]): #false
 | got_milk([head, tail, ...]):
-   head == "milk" || got_milk(tail)
+   head == "milk" || got_milk([tail, ...])
 
 got_milk([])
 got_milk(["apple", "milk", "banana"])
 got_milk(["apple", "coffee", "banana"])
 
-List(1, 2, [3, 4], ...)
+begin:
+ val [n, ...]: [3, 4]
+ List(1, 2, n, ...)
 
 val nested_p :: Posn.of(Integer, Posn.of(Integer, Integer)): Posn(1, Posn(3, 4))
 nested_p.y.x
 
 // rest arguments
 
-fun f_rest(x, ys :: Integer, ...):
-  ys
+fun f_rest(x, y :: Integer, ...):
+  [y, ...]
 
 f_rest(10, 11, 12, 13)
 
 fun
 | g_rest(): "no"
 | g_rest(x :: Integer): "simple"
-| g_rest(x :: Integer, ys :: Integer, ...):
-   ys
+| g_rest(x :: Integer, y :: Integer, ...):
+   [y, ...]
 | g_rest(x): x
 
 g_rest()
@@ -524,8 +526,8 @@ g_rest(1, 2, 3)
 g_rest("hello") == "hello"
 
 fun
-| posns_y(ps :: Posn, ...):
-    ps[1].y
+| posns_y(p :: Posn, ...):
+    [p, ...][1].y
 | posns_y(x):
     x
      
@@ -539,8 +541,8 @@ fun get_pt_x(pt :: matching(Posn(_, _))):
 
 get_pt_x(Posn(1, 2))
 
-fun get_pts_x(pts :: matching([Posn(_, _), ...])):
-  pts[0].x
+fun get_pts_x(pt :: matching([Posn(_, _), ...])):
+  [pt, ...][0].x
 
 get_pts_x([Posn(1, 2)])
 

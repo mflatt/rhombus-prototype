@@ -18,6 +18,7 @@
          "annotation.rkt"
          (only-in "repetition.rkt"
                   [... rhombus...])
+         (submod "repetition.rkt" for-repeat)
          (submod "annotation.rkt" for-class)
          (only-in "equal.rkt"
                   [= rhombus=])
@@ -211,16 +212,20 @@
                     [(arg ...) args]
                     [rhs rhs]
                     [(maybe-rest-tmp maybe-match-rest
-                                     (maybe-bind-rest ...)
-                                     (maybe-bind-rest-static-info ...))
+                                     (maybe-bind-rest-seq ...)
+                                     (maybe-bind-rest ...))
                      (if (syntax-e rest-arg)
                          (with-syntax-parse ([rest::binding-form rest-parsed]
                                              [rest-impl::binding-impl #'(rest.infoer-id () rest.data)]
-                                             [rest-info::binding-info #'rest-impl.info])
+                                             [rest-info::binding-info #'rest-impl.info]
+                                             [(rest-tmp-id ...) (generate-temporaries #'(rest-info.bind-id ...))])
                            #`(rest-tmp
                               (rest-getter #,rest-arg rest-tmp rest-info)
-                              ((define-values (rest-info.bind-id ...) (rest-getter)))
-                              ((define-static-info-syntax/maybe rest-info.bind-id (#%ref-result (rest-info.bind-static-info ...)))
+                              ((define-values (rest-tmp-id ...) (rest-getter)))
+                              ((define-syntax rest-info.bind-id
+                                 (make-repetition (quote-syntax rest-info.bind-id)
+                                                  (quote-syntax rest-tmp-id)
+                                                  (quote-syntax (rest-info.bind-static-info ...))))
                                ...)))
                          #'(() #f () ()))])
         (with-syntax ([(((arg-form ...) arg-default) ...)
@@ -254,8 +259,8 @@
                 (begin
                   ;; `arg-info.binder-id` and `arg-info.bind-id` are used in
                   ;; `nested-bindings` because `try-next` above is `#f`
+                  maybe-bind-rest-seq ...
                   maybe-bind-rest ...
-                  maybe-bind-rest-static-info ...
                   (add-annotation-check
                    #,function-name #,pred
                    (rhombus-body-expression rhs))))))))))
@@ -304,16 +309,20 @@
                                               [(this-arg-id ...) this-args]
                                               [pred (fcase-pred fc)]
                                               [rhs (fcase-rhs fc)]
-                                              [(maybe-match-rest (maybe-bind-rest ...) (maybe-bind-rest-static-info ...))
+                                              [(maybe-match-rest (maybe-bind-rest-seq ...) (maybe-bind-rest ...))
                                                (cond
                                                  [(syntax-e (fcase-rest-arg fc))
                                                   (define rest-parsed (fcase-rest-arg-parsed fc))
                                                   (with-syntax-parse ([rest::binding-form rest-parsed]
                                                                       [rest-impl::binding-impl #'(rest.infoer-id () rest.data)]
-                                                                      [rest-info::binding-info #'rest-impl.info])
+                                                                      [rest-info::binding-info #'rest-impl.info]
+                                                                      [(rest-tmp-id ...) (generate-temporaries #'(rest-info.bind-id ...))])
                                                     #`((rest-getter #,(fcase-rest-arg fc) rest-tmp rest-info)
-                                                       ((define-values (rest-info.bind-id ...) (rest-getter)))
-                                                       ((define-static-info-syntax/maybe rest-info.bind-id (#%ref-result (rest-info.bind-static-info ...)))
+                                                       ((define-values (rest-tmp-id ...) (rest-getter)))
+                                                       ((define-syntax rest-info.bind-id
+                                                          (make-repetition (quote-syntax rest-info.bind-id)
+                                                                           (quote-syntax rest-tmp-id)
+                                                                           (quote-syntax (rest-info.bind-static-info ...))))
                                                         ...)))]
                                                  [else
                                                   #'(#f () ())])])
@@ -332,8 +341,8 @@
                                           (define-static-info-syntax/maybe arg-info.bind-id arg-info.bind-static-info ...)
                                           ...)
                                         ...
+                                        maybe-bind-rest-seq ...
                                         maybe-bind-rest ...
-                                        maybe-bind-rest-static-info ...
                                         (add-annotation-check
                                          #,function-name
                                          pred

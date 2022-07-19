@@ -180,8 +180,9 @@
                #:with rest::binding-info #'rest-info
                #:with (rest-seq-tmp-id ...) (generate-temporaries #'(rest.bind-id ...))
                #'((define-values (rest-seq-tmp-id ...) (rest-tmp-id))
-                  (define-syntax rest.bind-id ...
-                    (make-repetition (quote-syntax rest-seq-tmp-id)
+                  (define-syntax rest.bind-id
+                    (make-repetition (quote-syntax rest.bind-id)
+                                     (quote-syntax rest-seq-tmp-id)
                                      (quote-syntax (rest.bind-static-info ... . down-static-infos))))
                   ...)]))]))
 
