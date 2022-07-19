@@ -541,8 +541,8 @@ fun get_pt_x(pt :: matching(Posn(_, _))):
 
 get_pt_x(Posn(1, 2))
 
-fun get_pts_x(pt :: matching([Posn(_, _), ...])):
-  [pt, ...][0].x
+fun get_pts_x(pts :: matching([Posn(_, _), ...])):
+  pts[0].x
 
 get_pts_x([Posn(1, 2)])
 

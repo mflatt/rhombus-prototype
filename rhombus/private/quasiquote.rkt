@@ -74,7 +74,7 @@
 
 (define-for-syntax (convert-syntax e make-datum make-literal
                                    handle-escape handle-group-escape handle-multi-escape
-                                   deepen-escape
+                                   deepen-escape deepen-syntax-escape
                                    handle-tail-escape handle-block-tail-escape
                                    handle-maybe-empty-sole-group
                                    handle-maybe-empty-alts handle-maybe-empty-group
@@ -113,18 +113,22 @@
       [((~and tag (~or parens brackets braces quotes multi block alts group))
         g ...)
        ;; Note: this is where `depth` would be incremented, when `tag` is `quotes`, if we wanted that
-       (let loop ([gs #'(g ...)] [pend-idrs #f] [idrs '()] [sidrs '()] [ps '()] [can-be-empty? #t] [tail #f] [depth depth])
+       (let loop ([gs #'(g ...)] [pend-idrs #f] [pend-sidrs #f] [idrs '()] [sidrs '()] [ps '()] [can-be-empty? #t] [tail #f] [depth depth])
          (define (simple gs a-depth)
            (syntax-parse gs
              [(g . gs)
               (define-values (p new-ids new-sidrs nested-can-be-empty?) (convert #'g #f a-depth #f))
-              (loop #'gs new-ids (append (or pend-idrs '()) idrs) (append new-sidrs sidrs) (cons p ps) (and can-be-empty? (not pend-idrs)) #f depth)]))
+              (loop #'gs new-ids new-sidrs
+                    (append (or pend-idrs '()) idrs) (append (or pend-sidrs '()) sidrs)
+                    (cons p ps) (and can-be-empty? (not pend-idrs)) #f depth)]))
          (define (simple2 gs a-depth)
            (syntax-parse gs
              [(g0 g1 . gs)
               (define-values (p0 new-ids0 new-sids0 nested-can-be-empty?0) (convert #'g0 #f a-depth #f))
               (define-values (p1 new-ids1 new-sids1 nested-can-be-empty?1) (convert #'g1 #f a-depth #f))
-              (loop #'gs (append new-ids0 new-ids1) (append (or pend-idrs '()) idrs) (append new-sids0 new-sids1 sidrs) (list* p1 p0 ps) (and can-be-empty? (not pend-idrs)) #f depth)]))
+              (loop #'gs (append new-ids0 new-ids1) (append new-sids0 new-sids1)
+                    (append (or pend-idrs '()) idrs) (append (or pend-sidrs '()) sidrs)
+                    (list* p1 p0 ps) (and can-be-empty? (not pend-idrs)) #f depth)]))
          (syntax-parse gs
            [()
             (let ([ps (let ([ps (reverse ps)])
@@ -132,6 +136,7 @@
                             (append ps tail)
                             ps))]
                   [idrs (append (or pend-idrs '()) idrs)]
+                  [sidrs (append (or pend-sidrs '()) sidrs)]
                   [can-be-empty? (and can-be-empty? (not pend-idrs))])
               (cond
                 [(and can-be-empty? (eq? (syntax-e #'tag) 'alts))
@@ -151,13 +156,17 @@
                         (or tail-any-escape?
                             (identifier? #'op.e)))
             (define-values (id new-idrs new-sidrs) (handle-tail-escape #'op.name #'op.e e))
-            (loop #'() #f (append new-idrs (or pend-idrs '()) idrs) (append new-sidrs sidrs) ps (and can-be-empty? (not pend-idrs)) id depth)]
+            (loop #'() #f #f
+                  (append new-idrs (or pend-idrs '()) idrs) (append new-sidrs (or pend-sidrs '()) sidrs)
+                  ps (and can-be-empty? (not pend-idrs)) id depth)]
            [(op:block-tail-repetition)
             #:when (and (zero? depth)
                         (or tail-any-escape?
                             (identifier? #'op.e)))
             (define-values (id new-idrs new-sidrs) (handle-block-tail-escape #'op.name #'op.e e))
-            (loop #'() #f (append new-idrs (or pend-idrs '()) idrs) (append new-sidrs sidrs) ps (and can-be-empty? (not pend-idrs)) id depth)]
+            (loop #'() #f #f
+                  (append new-idrs (or pend-idrs '()) idrs) (append new-sidrs (or pend-sidrs '()) sidrs)
+                  ps (and can-be-empty? (not pend-idrs)) id depth)]
            [(op:list-repetition . gs)
             #:when (zero? depth)
             (unless pend-idrs
@@ -166,12 +175,18 @@
                                   #'op.name))
             (define new-pend-idrs (for/list ([idr (in-list pend-idrs)])
                                     (deepen-escape idr)))
-            (loop #'gs #f (append new-pend-idrs idrs) sidrs (cons (quote-syntax ...) ps) can-be-empty? #f depth)]
+            (define new-pend-sidrs (for/list ([sidr (in-list pend-sidrs)])
+                                     (deepen-syntax-escape sidr)))
+            (loop #'gs #f #f
+                  (append new-pend-idrs idrs) (append new-pend-sidrs sidrs)
+                  (cons (quote-syntax ...) ps) can-be-empty? #f depth)]
            [(((~datum op) (~and (~literal $) $-id)) esc . n-gs)
             (cond
               [(zero? depth)
                (define-values (pat new-idrs new-sidrs) (handle-escape #'$-id #'esc e))
-               (loop #'n-gs new-idrs (append (or pend-idrs '()) idrs) (append new-sidrs sidrs) (cons pat ps) (and can-be-empty? (not pend-idrs)) #f depth)]
+               (loop #'n-gs new-idrs new-sidrs
+                     (append (or pend-idrs '()) idrs) (append (or pend-sidrs '()) sidrs)
+                     (cons pat ps) (and can-be-empty? (not pend-idrs)) #f depth)]
               [else
                (simple2 gs (sub1 depth))])]
            [(g . _)
@@ -279,6 +294,14 @@
                     (syntax-parse idr
                       [(id (pack (_ stx) depth))
                        #`(id (pack (syntax (stx (... ...))) #,(add1 (syntax-e #'depth))))]))
+                  ;; deepen-syntax-escape
+                  (lambda (sidr)
+                    (error "FIXME")
+                    sidr
+                    #;
+                    (syntax-parse idr
+                      [(id (pack (_ stx) depth))
+                       #`(id (pack (syntax (stx (... ...))) #,(add1 (syntax-e #'depth))))]))
                   ;; handle-tail-escape:
                   (lambda (name e in-e)
                     (if (free-identifier=? e #'rhombus-_)
@@ -351,6 +374,9 @@
                          #`[(id-pat (... ...)) (unpack q e #,(add1 (syntax-e #'depth)))]]
                         [(id-pat (converter depth (qs t) . args))
                          #`[(id-pat (... ...)) (converter #,(add1 (syntax-e #'depth)) (qs (t (... ...)))) . args]]))
+                    ;; deepen-syntax-escape
+                    (lambda (sidr)
+                      (error "should have no sidrs for template"))
                     ;; handle-tail-escape:
                     (lambda (name e in-e)
                       (define id (car (generate-temporaries (list e))))

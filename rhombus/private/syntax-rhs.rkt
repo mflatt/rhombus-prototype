@@ -5,6 +5,7 @@
                      "srcloc.rkt"
                      "parse.rkt")
          (submod "quasiquote.rkt" convert)
+         "quasiquote.rkt"
          (rename-in "repetition.rkt"
                     [... rhombus...])
          "parse.rkt"
