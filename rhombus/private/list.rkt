@@ -133,10 +133,10 @@
                 [(null? (syntax->list #'(arg ...)))
                  ;; special case to expose static info on rest elements
                  (quasisyntax/loc #'tag
-                   #,(repetition-as-list #'ellipses #'rest-arg))]
+                   #,(repetition-as-list #'ellipses #'rest-arg 1))]
                 [else
                  (quasisyntax/loc #'tag
-                   (list* (rhombus-expression arg) ... #,(repetition-as-list #'ellipses #'rest-arg)))]))
+                   (list* (rhombus-expression arg) ... #,(repetition-as-list #'ellipses #'rest-arg 1)))]))
              #'tail)]
     [(form-id (tag arg ...) . tail)
      (values (wrap-list-static-info
