@@ -47,6 +47,9 @@
          pack-tail*
          unpack-tail*
 
+         unpack-multi-group*
+         unpack-tail-term*
+
          repack-as-term
          repack-as-multi)
 
@@ -234,6 +237,13 @@
                  (map (lambda (r) (unpack-group r qs)) r)
                  (unpack-multi r qs)))))
 
+;; An extra layer of unpacking to convert to a list
+(define (unpack-multi-group* qs r depth)
+  (cond
+    [(= depth 0) r]
+    [(= depth 1) (syntax->list (unpack-multi* qs r (sub1 depth)))]
+    [else (map syntax->list (syntax->list (unpack-multi* qs r (sub1 depth))))]))
+
 ;; Like `pack-multi*, but preserves `block` instead of converting to `multi`:
 (define (pack-block* stxes depth)
   (pack* stxes depth (lambda (r) r)))
@@ -244,6 +254,12 @@
 (define (unpack-tail* qs r depth)
   (pack* r depth (lambda (r)
                    (unpack-tail r (if (symbol? qs) qs (syntax-e qs))))))
+
+(define (unpack-tail-term* qs r depth)
+  (cond
+    [(= depth 0) r]
+    [else (map (lambda (r) (syntax->list (unpack-term* qs r (sub1 depth))))
+               r)]))
 
 ;; normalize for multi-term pattern matching:
 (define (repack-as-multi r)

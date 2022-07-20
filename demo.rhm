@@ -150,7 +150,7 @@ match cons(7, 8)
 
 match '(z + y, {[10, 11, 12]})'
 | '(x $a)': a
-| '($a + y, {[$n, ...]})': cons(a, n)
+| '($a + y, {[$n, ...]})': cons(a, [n, ...])
 
 cond
 | #true: 17
@@ -163,7 +163,7 @@ fun
 | factorial(n): n*factorial(n-1)
 
 expr.macro '$a *! $tail ...':
-  values('(factorial($a))', tail)
+  values('(factorial($a))', '$tail ...')
 
 10*!
 
@@ -184,7 +184,7 @@ just_five ++ " is the result"
 // another way to write that
 
 expr.macro 'also_prefix_plus $e ...':
-  match e
+  match '$e ...'
   | '$a $b $c ...':
       values(a, '+ $b $c ...')
   | ~else:
@@ -269,7 +269,7 @@ rx
 // or a block of definitions and a sequence of expressions
 
 defn.macro 'define_eight $e ...':
-  match e
+  match '$e ...'
   | '$name':
       'def $name: 8'
        
@@ -277,7 +277,7 @@ define_eight ate
 ate
 
 defn.macro 'define_and_use $e ...':
-  match e
+  match '$e ...'
   | '$name: $rhs ...':
       'def $name: $rhs ...
        literal_syntax($name)'
@@ -288,7 +288,7 @@ nine
 // declaration form
 
 decl.macro 'empty_import $e ...':
-  match e
+  match '$e ...'
   | '':
       'import:«»'
 
@@ -369,7 +369,7 @@ annotation.macro 'AlsoPosn': values('Posn', '')
 Posn(1, 2) :: AlsoPosn  // prints Posn(1, 2)
 
 bind.macro 'AlsoPosn ($x, $y) $tail ...':
-  values('Posn($x, $y)', tail)
+  values('Posn($x, $y)', '$tail ...')
 
 annotation.macro 'Vector':
   values(annotation_ct.pack_predicate('fun (x): x is_a Posn',
@@ -396,7 +396,7 @@ expr.macro 'or_zero $p $tail ...':
   values(static_info_ct.wrap('$p || Posn(0,0)',
                              '(($(dot_ct.provider_key),
                                 vector_dot_provider))'),
-         tail)
+         '$tail ...')
   
 or_zero(Posn(3, 4)).magnitude
 
@@ -551,7 +551,7 @@ fun nested_pt_x(pt :: matching(Posn(Posn(_, _), _))):
 
 annotation.macro 'ListOf ($contract ...) $tail ...':
   values('matching([_ :: ($contract ...), $('...')])',
-         tail)
+         '$tail ...')
 
 fun get_pts_x2(pts -: ListOf(Posn)):
   pts[0].x

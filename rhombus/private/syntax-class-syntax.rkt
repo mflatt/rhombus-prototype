@@ -22,9 +22,17 @@
        (convert-pattern #:splice? #t
                         #'in-quotes))
      (with-syntax ([((attr ...) ...)
-                    (map (lambda (binding) (cons '#:attr binding)) idrs)])
-       (values #`(pattern #,p attr ... ...)
-               (map (lambda (binding) (syntax-e (car (syntax->list binding)))) idrs)))]))
+                    (map (lambda (binding)
+                           (syntax-parse binding
+                             [[id . _] #'(#:attr id id)]))
+                         (append idrs sidrs))]
+                   [([val-id val-rhs] ...) idrs]
+                   [([stx-id stx-rhs] ...) sidrs])
+       (values #`(pattern #,p
+                          #:do [(define val-id val-rhs) ...]
+                          #:do [(define-syntax stx-id stx-rhs) ...]
+                          attr ... ...)
+               (map (lambda (binding) (syntax-e (car (syntax->list binding)))) (append idrs sidrs))))]))
 
 (define-for-syntax (generate-syntax-class class-name alts)
   (let-values ([(patterns attributes)

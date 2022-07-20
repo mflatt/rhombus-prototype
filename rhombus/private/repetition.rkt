@@ -23,7 +23,6 @@
              make-expression+binding+repetition-prefix-operator
 
              repetition-as-list
-             repetition-as-syntax
 
              :repetition
              :repetition-info
@@ -60,7 +59,7 @@
 
   (struct expression+binding+repetition-prefix-operator (exp-op bind-op rep-op)
     #:property prop:expression-prefix-operator (lambda (self) (expression+binding+repetition-prefix-operator-exp-op self))
-    #:property prop:binding-prefix-operator (lambda (self) (expression+binding+repetition-prefix-operator-exp-op self))
+    #:property prop:binding-prefix-operator (lambda (self) (expression+binding+repetition-prefix-operator-bind-op self))
     #:property prop:repetition-prefix-operator (lambda (self) (expression+binding+repetition-prefix-operator-rep-op self)))
   (define (make-expression+binding+repetition-prefix-operator name prec protocol exp bind rep)
     (expression+binding+repetition-prefix-operator
@@ -134,6 +133,3 @@
      (raise-syntax-error (syntax-e ellipses)
                          "not preceded by a repetition"
                          stx)]))
-
-(define-for-syntax (repetition-as-syntax ellipses stx depth)
-  (repetition-as-list ellipses stx depth))
