@@ -18,9 +18,9 @@
          (submod "syntax-class.rkt" for-quasiquote)
          (only-in "underscore.rkt"
                   [_ rhombus-_])
-         (only-in "repetition.rkt"
+         (only-in "ellipsis.rkt"
                   [... rhombus...])
-         (submod "repetition.rkt" for-repeat)
+         "repetition.rkt"
          (only-in "annotation.rkt"
                   ::))
 
@@ -176,7 +176,6 @@
               (raise-syntax-error #f
                                   "misplaced repetition"
                                   #'op.name))
-            (log-error "deepen")
             (define new-pend-idrs (for/list ([idr (in-list pend-idrs)])
                                     (deepen-escape idr)))
             (define new-pend-sidrs (for/list ([sidr (in-list pend-sidrs)])

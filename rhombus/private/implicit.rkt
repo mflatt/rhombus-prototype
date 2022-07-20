@@ -5,6 +5,7 @@
          "expression.rkt"
          "binding.rkt"
          "expression+binding.rkt"
+         "repetition.rkt"
          "parse.rkt"
          (submod "function.rkt" for-call)
          (submod "map-ref.rkt" for-ref)
@@ -99,7 +100,7 @@
    'left))
 
 (define-syntax #%array
-  (make-expression+binding-prefix-operator
+  (make-expression+binding+repetition-prefix-operator
    #'#%array
    '((default . stronger))
    'macro
@@ -108,7 +109,10 @@
      (parse-list-expression stxes))
    ;; binding
    (lambda (stxes)
-     (parse-list-binding stxes))))
+     (parse-list-binding stxes))
+   ;; repetition
+   (lambda (stxes)
+     (parse-list-repetition stxes))))
 
 (define-syntax #%ref
   (expression-infix-operator

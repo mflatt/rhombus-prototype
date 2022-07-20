@@ -12,9 +12,9 @@
          "map-ref-set-key.rkt"
          "call-result-key.rkt"
          "ref-result-key.rkt"
-         (only-in "repetition.rkt"
+         (only-in "ellipsis.rkt"
                   [... rhombus...])
-         (submod "repetition.rkt" for-repeat)
+         "repetition.rkt"
          "parse.rkt")
 
 (provide cons
@@ -27,7 +27,8 @@
 
 (module+ for-binding
   (provide (for-syntax parse-list-binding
-                       parse-list-expression)))
+                       parse-list-expression
+                       parse-list-repetition)))
 
 (define-binding-syntax cons  
   (binding-transformer
@@ -122,7 +123,6 @@
                            (= (length v) #,len))))
      (generate-binding #'form-id pred args #'tail)]))
 
-
 (define-for-syntax (parse-list-expression stx)
   (syntax-parse stx
     #:datum-literals (group op)
@@ -142,4 +142,17 @@
      (values (wrap-list-static-info
               (syntax/loc #'tag
                 (list (rhombus-expression arg) ...)))
+             #'tail)]))
+
+(define-for-syntax (parse-list-repetition stx)
+  (syntax-parse stx
+    #:datum-literals (group op)
+    #:literals (rhombus...)
+    [(form-id (tag rep::repetition (group (op (~and ellipses rhombus...)))) . tail)
+     #:with rep-info::repetition-info #'rep.parsed
+     (values (make-repetition-info #'rep-info.name
+                                   #'rep-info.seq-id
+                                   #'rep-info.bind-depth
+                                   (+ (syntax-e #'rep-info.use-depth) 1)
+                                   #'rep-info.element-static-infos)
              #'tail)]))

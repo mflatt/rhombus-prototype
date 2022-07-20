@@ -16,9 +16,9 @@
          "ref-result-key.rkt"
          "static-info.rkt"
          "annotation.rkt"
-         (only-in "repetition.rkt"
+         (only-in "ellipsis.rkt"
                   [... rhombus...])
-         (submod "repetition.rkt" for-repeat)
+         "repetition.rkt"
          (submod "annotation.rkt" for-class)
          (only-in "equal.rkt"
                   [= rhombus=])

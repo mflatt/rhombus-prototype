@@ -4,10 +4,10 @@
                      "annotation-string.rkt")
          "parse.rkt"
          "binding.rkt"
+         "repetition.rkt"
          "static-info.rkt"
          "ref-result-key.rkt"
-         (submod "annotation.rkt" for-class)
-         (submod "repetition.rkt" for-repeat))
+         (submod "annotation.rkt" for-class))
 
 ;; `make-composite-binding-transformer` is mostly generic with respect
 ;; to a composite datatype, but the `rest` support is currently

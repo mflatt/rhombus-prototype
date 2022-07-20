@@ -2,7 +2,7 @@
 (require (for-syntax racket/base
                      syntax/parse
                      shrubbery/print
-                     (only-in "private/repetition.rkt"
+                     (only-in "private/ellipsis.rkt"
                               [... rhombus...])
                      (only-in "private/quasiquote.rkt"
                               $))
@@ -42,7 +42,7 @@
         "private/cond.rkt"
         "private/match.rkt"
         "private/quasiquote.rkt"
-        "private/repetition.rkt"
+        "private/ellipsis.rkt"
         "private/keyword.rkt"
         "private/symbol.rkt"
         "private/values.rkt"

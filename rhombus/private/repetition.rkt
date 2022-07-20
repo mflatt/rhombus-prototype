@@ -9,32 +9,66 @@
                      enforest/transformer
                      enforest/property
                      enforest/name-parse
-                     enforest/proc-name)
+                     enforest/proc-name
+                     "name-path-op.rkt"
+                     "introducer.rkt")
+         "name-root-ref.rkt"
          "expression.rkt"
+         "binding.rkt"
          "static-info.rkt"
          "ref-result-key.rkt")
 
-(provide (rename-out [rhombus... ...]))
+(provide
+ (for-syntax make-repetition
+             make-expression+binding+repetition-prefix-operator
 
-(module+ for-repeat
-  (provide
-   (for-syntax make-repetition
-               repetition-as-list
-               repetition-as-syntax)))
+             repetition-as-list
+             repetition-as-syntax
+
+             :repetition
+             :repetition-info
+
+             make-repetition-info))
 
 (begin-for-syntax
-  (property repetition expression-prefix-operator (seq-id depth element-static-infos))
+  (define-syntax-class :repetition-info
+    #:datum-literals (parens group)
+    (pattern (name
+              seq-id
+              bind-depth:exact-nonnegative-integer
+              use-depth:exact-nonnegative-integer
+              element-static-infos)))
+
+  (define (make-repetition-info name seq-id bind-depth use-depth element-static-infos)
+    #`(#,name #,seq-id #,bind-depth #,use-depth #,element-static-infos))
+
+  (define (check-repetition-result form proc)
+    (syntax-parse (if (syntax? form) form #'#f)
+      [_::repetition-info form]
+      [_ (raise-result-error (proc-name proc) "repeaition-info?" form)]))
 
   (property repetition-prefix-operator prefix-operator)
   (property repetition-infix-operator infix-operator)
 
+  (struct expression+repetition-prefix-operator (exp-op rep-op)
+    #:property prop:expression-prefix-operator (lambda (self) (expression+repetition-prefix-operator-exp-op self))
+    #:property prop:repetition-prefix-operator (lambda (self) (expression+repetition-prefix-operator-rep-op self)))
+  (define (make-expression+repetition-prefix-operator name prec protocol exp rep)
+    (expression+repetition-prefix-operator
+     (expression-prefix-operator name prec protocol exp)
+     (repetition-prefix-operator name prec protocol rep)))
+
+  (struct expression+binding+repetition-prefix-operator (exp-op bind-op rep-op)
+    #:property prop:expression-prefix-operator (lambda (self) (expression+binding+repetition-prefix-operator-exp-op self))
+    #:property prop:binding-prefix-operator (lambda (self) (expression+binding+repetition-prefix-operator-exp-op self))
+    #:property prop:repetition-prefix-operator (lambda (self) (expression+binding+repetition-prefix-operator-rep-op self)))
+  (define (make-expression+binding+repetition-prefix-operator name prec protocol exp bind rep)
+    (expression+binding+repetition-prefix-operator
+     (expression-prefix-operator name prec protocol exp)
+     (binding-prefix-operator name prec protocol bind)
+     (repetition-prefix-operator name prec protocol rep)))
+
   (define in-repetition-space (make-interned-syntax-introducer/add 'rhombus/repetition))
-
-  (struct repetition-use (rep depth))
-
-  (define (check-repetition-use-result form proc)
-    (unless (repetition-use? form) (raise-result-error* (proc-name proc) rhombus-realm "Repetition_Use" form))
-    form)
 
   (define (identifier-repetition-use id)
     (raise-syntax-error #f
@@ -43,7 +77,7 @@
 
   ;; Form in a repetition context:
   (define-enforest
-    #:syntax-class :repetition-use
+    #:syntax-class :repetition
     #:prefix-more-syntax-class :prefix-op+repetition-use+tail
     #:infix-more-syntax-class :infix-op+repetition-use+tail
     #:desc "repetition"
@@ -53,13 +87,13 @@
     #:name-root-ref name-root-ref
     #:prefix-operator-ref repetition-prefix-operator-ref
     #:infix-operator-ref repetition-infix-operator-ref
-    #:check-result check-binding-result
+    #:check-result check-repetition-result
     #:make-identifier-form identifier-repetition-use)
 
   (define (make-repetition name seq-id element-static-infos
                            #:depth [depth 1]
                            #:expr-handler [expr-handler (lambda (stx fail) (fail))])
-    (repetition
+    (make-expression+repetition-prefix-operator
      name '((default . stronger)) 'macro
      (lambda (stx)
        (expr-handler stx (lambda ()
@@ -68,41 +102,37 @@
                               (raise-syntax-error #f
                                                   "cannot use repetition binding as an expression"
                                                   #'self)]))))
-     seq-id
-     depth
-     element-static-infos)))
-
-(define-syntax rhombus...
-  (expression-transformer
-   #'rhombus...
-   (lambda (stx)
-     (syntax-parse stx
-       [(op::operator . tail)
-        (raise-syntax-error #f
-                            "misuse outside of a binding or constructor"
-                            #'op.name)]))))
+     (lambda (stx)
+       (syntax-parse stx
+         [(id . tail)
+          (values (make-repetition-info name
+                                        seq-id
+                                        depth
+                                        #'0
+                                        element-static-infos)
+                  #'tail)])))))
 
 (define-for-syntax (repetition-as-list ellipses stx depth)
   (syntax-parse stx
-    #:datum-literals (group)
-    [(group rep-name:id)
-     #:do [(define rep (syntax-local-value* #'rep-name repetition-ref))]
-     #:when rep
-     (unless (= depth (repetition-depth rep))
+    [rep::repetition
+     #:with rep-info::repetition-info #'rep.parsed
+     (define want-depth (syntax-e #'rep-info.bind-depth))
+     (define use-depth (+ depth (syntax-e #'rep-info.use-depth)))
+     (unless (= use-depth want-depth)
        (raise-syntax-error #f
                            "used with wrong ellipsis depth"
-                           #'rep-name
+                           #'rep-info.name
                            #f
                            null
                            (format "\n  expected: ~a\n  actual: ~a"
-                                   (repetition-depth rep)
-                                   depth)))
-     (wrap-static-info (repetition-seq-id rep)
+                                   want-depth
+                                   use-depth)))
+     (wrap-static-info #'rep-info.seq-id
                        #'#%ref-result
-                       (repetition-element-static-infos rep))]
+                       #'rep-info.element-static-infos)]
     [_
      (raise-syntax-error (syntax-e ellipses)
-                         "not bound as a repetition"
+                         "not preceded by a repetition"
                          stx)]))
 
 (define-for-syntax (repetition-as-syntax ellipses stx depth)
