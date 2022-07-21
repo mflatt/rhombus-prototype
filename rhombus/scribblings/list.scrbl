@@ -65,10 +65,12 @@ pattern.
 
 Each variable in a pattern preceding @rhombus[...] is bound as a
 @tech{repetition}, which cannot be used like a plain variable.
-Instead, a repetition variable must be used before @rhombus[...] in an
-expression form that supports using repetitions. A
-@litchar{[}...@litchar{]} or @rhombus[List] expression supports
-@rhombus[...].
+Instead, a repetition variable must be used in an expression form that
+supports using repetitions, typically with before @rhombus[...]. For
+example, a @litchar{[}...@litchar{]} or @rhombus[List] expression (as
+opposed to binding) supports @rhombus[...] in place of a last element,
+in which case the preceding element form is treated as a repetition
+that supplies the tail of the new list.
 
 @(rhombusblock:
     fun
@@ -80,11 +82,6 @@ expression form that supports using repetitions. A
     got_milk(["apple", "milk", "banana"])    // prints #true
     got_milk(["apple", "coffee", "banana"])  // prints #false
   )
-
-A use of @litchar{[}...@litchar{]} or @rhombus[List] for an expression
-also supports @rhombus[...] in place of a last argument, in which case
-the preceding argument is treated as a list that is the tail of the new
-list.
 
 When @litchar{[}...@litchar{]} appears after an expression, then instead
 of forming a list, it accesses an element of an @tech{map} value.

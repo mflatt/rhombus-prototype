@@ -59,10 +59,11 @@
                       datum))
 
 (define-syntax #%tuple
-  (make-expression+binding-prefix-operator
+  (make-expression+binding+repetition-prefix-operator
    #'#%tuple
    '((default . stronger))
    'macro
+   ;; expression
    (lambda (stxes)
      (syntax-parse stxes
        [(_ (~and head ((~datum parens) . args)) . tail)
@@ -77,6 +78,7 @@
              ;; delay parsing by using `rhombus-expression`, instead
              (syntax-parse (car args)
                [e::expression (values #'e.parsed #'tail)])]))]))
+   ;; binding
    (lambda (stxes)
      (syntax-parse stxes
        [(_ (~and head ((~datum parens) . args)) . tail)
@@ -88,7 +90,20 @@
              (raise-syntax-error #f "too many patterns" #'head)]
             [else
              (syntax-parse (car args)
-               [b::binding (values #'b.parsed #'tail)])]))]))))
+               [b::binding (values #'b.parsed #'tail)])]))]))
+   ;; repetition
+   (lambda (stxes)
+     (syntax-parse stxes
+       [(_ (~and head ((~datum parens) . args)) . tail)
+        (let ([args (syntax->list #'args)])
+          (cond
+            [(null? args)
+             (raise-syntax-error #f "empty repetition" #'head)]
+            [(pair? (cdr args))
+             (raise-syntax-error #f "too many repetions" #'head)]
+            [else
+             (syntax-parse (car args)
+               [r::repetition (values #'r.parsed #'tail)])]))]))))
 
 (define-syntax #%call
   (expression-infix-operator

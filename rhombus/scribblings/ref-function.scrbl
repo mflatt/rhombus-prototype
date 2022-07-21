@@ -2,25 +2,51 @@
 @(import: "common.rhm" open)
 
 @(val dots: @rhombus[..., ~bind])
+@(val dots_expr: @rhombus[...])
 
 @title{Functions}
 
+An expression followed by a parenthesized sequence of expressions is
+parsed as an implicit use of the @rhombus[#{#%call}] form, which is
+normally bound to implement function calls.
+
 @doc[
-  defn.macro 'fun $identifier($kwopt_binding, ..., $rest) $maybe_result_annotation:
+  expr.macro '#{#%call} $fun_expr ($arg, ..., $maybe_rest)',
+
+  grammar arg:
+    $arg_expr
+    $keyword: $arg_expr,
+
+  grammar maybe_rest:
+    $repetition $$(@litchar{,}) $$(dots_expr)
+    $$("ϵ")
+]{
+
+  A function call. Each @rhombus[arg_expr] alone is a by-position
+  argument, and each @rhombus[keyword: arg_expr] combination is a
+  by-keyword argument. If the argument sequence ends with @dots_expr,
+  the then the elements of the preceding @tech{repetition} are used as
+  additional by-position arguments, in order after the
+  @rhombus[arg_expr] arguments.
+
+}
+
+@doc[
+  defn.macro 'fun $identifier($kwopt_binding, ..., $maybe_rest) $maybe_result_annotation:
                 $body
                 ...',
   defn.macro 'fun
-              | $identifier($binding, ..., $rest) $maybe_result_annotation:
+              | $identifier($binding, ..., $maybe_rest) $maybe_result_annotation:
                   $body
                   ...
               | ...',
 
-  expr.macro 'fun ($kwopt_binding, ..., $rest) $maybe_result_annotation:
+  expr.macro 'fun ($kwopt_binding, ..., $maybe_rest) $maybe_result_annotation:
                 $body
                 ...',
 
   expr.macro 'fun
-              | ($binding, ..., $rest) $maybe_result_annotation:
+              | ($binding, ..., $maybe_rest) $maybe_result_annotation:
                   $body
                   ...
               | ...',
@@ -36,9 +62,9 @@
     -: $annotation
     $$("ϵ"),
 
-  grammar rest:
-    $$("ϵ")
+  grammar maybe_rest:
     $binding $$(@litchar{,}) $$(dots)
+    $$("ϵ")
 ]{
 
  Binds @rhombus[identifier] as a function, or when @rhombus[identifier]

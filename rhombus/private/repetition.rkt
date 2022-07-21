@@ -21,13 +21,15 @@
 (provide
  (for-syntax make-repetition
              make-expression+binding+repetition-prefix-operator
+             repetition-transformer
 
              repetition-as-list
 
              :repetition
              :repetition-info
 
-             make-repetition-info))
+             make-repetition-info)
+ define-repetition-syntax)
 
 (begin-for-syntax
   (define-syntax-class :repetition-info
@@ -109,7 +111,12 @@
                                         depth
                                         #'0
                                         element-static-infos)
-                  #'tail)])))))
+                  #'tail)]))))
+
+  (define (repetition-transformer name proc)
+    (repetition-prefix-operator name '((default . stronger)) 'macro proc))
+
+  )
 
 (define-for-syntax (repetition-as-list ellipses stx depth)
   (syntax-parse stx
@@ -133,3 +140,9 @@
      (raise-syntax-error (syntax-e ellipses)
                          "not preceded by a repetition"
                          stx)]))
+
+(define-syntax (define-repetition-syntax stx)
+  (syntax-parse stx
+    [(_ id:identifier rhs)
+     #`(define-syntax #,(in-repetition-space #'id)
+         rhs)]))

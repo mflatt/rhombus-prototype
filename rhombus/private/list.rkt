@@ -23,7 +23,8 @@
          List
          (for-space rhombus/annotation List)
          (for-space rhombus/static-info List)
-         (for-space rhombus/folder List))
+         (for-space rhombus/folder List)
+         (for-space rhombus/repetition List))
 
 (module+ for-binding
   (provide (for-syntax parse-list-binding
@@ -74,6 +75,26 @@
            ([accum null])
            ((lambda (v) (cons v accum)))
            #,list-static-infos]]))))
+
+(define-repetition-syntax List
+  (repetition-transformer
+   #'List
+   (lambda (stx)
+     (syntax-parse stx
+       #:datum-literals (op |.| parens group each)
+       [(form-id (op |.|) each (parens g) . tail)
+        (define name (string->symbol (format "~a.each" (syntax-e #'form-id))))
+        (values (make-repetition-info name
+                                      #`(check-repetition-list '#,name (rhombus-expression g))
+                                      1
+                                      0
+                                      #'())
+                #'tail)]))))
+
+(define (check-repetition-list who v)
+  (unless (list? v)
+    (raise-argument-error who "List" v))
+  v)
 
 (define-static-info-syntax List
   (#%call-result ((#%map-ref list-ref)
