@@ -483,17 +483,34 @@
 (define-for-syntax (parse-function-call rator-in stxes)
   (define rator (rhombus-local-expand rator-in))
   (syntax-parse stxes
-    [(_ (head::parens rand::kw-expression ...) . tail)
-     #:with ((arg-form ...) ...) (for/list ([kw (in-list (syntax->list #'(rand.kw ...)))]
-                                            [parsed (in-list (syntax->list #'(rand.parsed ...)))])
-                                   (if (syntax-e kw)
-                                       (list kw parsed)
-                                       (list parsed)))
-     (define e (datum->syntax (quote-syntax here)
-                              (cons rator #'(arg-form ... ...))
-                              (span-srcloc rator #'head)
-                              #'head))
-     (define result-static-infos (or (syntax-local-static-info rator #'#%call-result)
-                                     #'()))
-     (values (wrap-static-info* e result-static-infos)
-             #'tail)]))
+    #:datum-literals (group op)
+    [(_ (head::parens rand ... rep (group (op (~and dots rhombus...)))) . tail)
+     (generate-call rator #'head #'(rand ...) #'rep #'dots #'tail)]
+    [(_ (head::parens rand ...) . tail)
+     (generate-call rator #'head #'(rand ...) #f #f #'tail)]))
+
+(define-for-syntax (generate-call rator head rands reps dots tail)
+  (with-syntax-parse ([(rand::kw-expression ...) rands])
+    (with-syntax-parse ([((arg-form ...) ...) (for/list ([kw (in-list (syntax->list #'(rand.kw ...)))]
+                                                         [parsed (in-list (syntax->list #'(rand.parsed ...)))])
+                                                (if (syntax-e kw)
+                                                    (list kw parsed)
+                                                    (list parsed)))])
+      (define e
+        (cond
+          [reps
+           (define rest-args (repetition-as-list dots reps 1))
+           (datum->syntax (quote-syntax here)
+                          (append (list #'apply rator)
+                                  (syntax->list #'(arg-form ... ...))
+                                  (list rest-args))
+                          (span-srcloc rator head)
+                          head)]
+          [else (datum->syntax (quote-syntax here)
+                               (cons rator #'(arg-form ... ...))
+                               (span-srcloc rator head)
+                               head)]))
+      (define result-static-infos (or (syntax-local-static-info rator #'#%call-result)
+                                      #'()))
+      (values (wrap-static-info* e result-static-infos)
+              tail))))

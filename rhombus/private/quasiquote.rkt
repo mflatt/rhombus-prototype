@@ -241,9 +241,7 @@
                  (list #`[id (make-pattern-variable-syntax
                               (quote-syntax id)
                               (quote-syntax #,temp-id)
-                              #,(if (rhombus-syntax-class-built-in? rsc)
-                                    #`(quote-syntax #,unpack*)
-                                    #`(syntax-result-to-list #,unpack*))
+                              (quote-syntax #,unpack*)
                               #,pack-depth
                               (hasheq #,@(apply append (for/list ([b (in-list attribute-mappings)])
                                                          (list #`(quote #,(car b)) #`(quote-syntax #,(cdr b)))))))])))
@@ -499,10 +497,6 @@
           #`(replacement-unpack* $-name e depth)]
          [_
           #`(generic-unpack* $-name #,e depth)]))]))
-
-(define-for-syntax (syntax-result-to-list proc)
-  (lambda (qs stx depth)
-    (proc qs stx depth)))
 
 (define-for-syntax (call-with-quoted-expression stx single-k multi-k literal-k)
   (syntax-parse stx
