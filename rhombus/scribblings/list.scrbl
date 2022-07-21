@@ -64,7 +64,7 @@ pattern.
   )
 
 Each variable in a pattern preceding @rhombus[...] is bound as a
-@deftech{repetition}, which cannot be used like a plain variable.
+@tech{repetition}, which cannot be used like a plain variable.
 Instead, a repetition variable must be used before @rhombus[...] in an
 expression form that supports using repetitions. A
 @litchar{[}...@litchar{]} or @rhombus[List] expression supports

@@ -1,24 +1,26 @@
 #lang scribble/rhombus/manual
 @(import: "common.rhm" open)
 
+@(val dots: @rhombus[..., ~bind])
+
 @title{Functions}
 
 @doc[
-  defn.macro 'fun $identifier($kwopt_binding, ...) $maybe_result_annotation:
+  defn.macro 'fun $identifier($kwopt_binding, ..., $rest) $maybe_result_annotation:
                 $body
                 ...',
   defn.macro 'fun
-              | $identifier($binding, ...) $maybe_result_annotation:
+              | $identifier($binding, ..., $rest) $maybe_result_annotation:
                   $body
                   ...
               | ...',
 
-  expr.macro 'fun ($kwopt_binding, ...) $maybe_result_annotation:
+  expr.macro 'fun ($kwopt_binding, ..., $rest) $maybe_result_annotation:
                 $body
                 ...',
 
   expr.macro 'fun
-              | ($arg_binding, ...) $maybe_result_annotation:
+              | ($binding, ..., $rest) $maybe_result_annotation:
                   $body
                   ...
               | ...',
@@ -32,7 +34,11 @@
   grammar maybe_result_annotation:
     :: $annotation
     -: $annotation
+    $$("ϵ"),
+
+  grammar rest:
     $$("ϵ")
+    $binding $$(@litchar{,}) $$(dots)
 ]{
 
  Binds @rhombus[identifier] as a function, or when @rhombus[identifier]
@@ -107,27 +113,43 @@
   is_passing(80) && is_passing(#true)
 ]
 
+When a @rhombus[rest] is specified as @rhombus[binding $$(@litchar{,}) $$(dots)],
+then the function alternative accepts any number of additional
+argument, and each variable in @rhombus[binding] is bound to a
+repetition for all additional arguments, instead of a single argument.
+
+@examples[
+  ~label: #false,
+  fun
+  | is_sorted([]): #true
+  | is_sorted([head]): #true
+  | is_sorted([head, next, tail, ...]):
+      head <= next && is_sorted([next, tail, ...]),
+  is_sorted([1, 2, 3, 3, 5]),
+  is_sorted([1, 2, 9, 3, 5])
+]
+
 }
 
 @doc[
-  defn.macro 'operator ($opname $arg_binding) $maybe_result_annotation:
+  defn.macro 'operator ($opname $binding) $maybe_result_annotation:
                 $body
                 ...',
-  defn.macro 'operator ($arg_binding $opname $arg_binding) $maybe_result_annotation:
+  defn.macro 'operator ($binding $opname $binding) $maybe_result_annotation:
                 $body
                 ...',
   defn.macro 'operator
-              | ($opname $arg_binding) $maybe_result_annotation:
+              | ($opname $binding) $maybe_result_annotation:
                   $body
                   ...
-              | ($arg_binding $opname $arg_binding) $maybe_result_annotation:
+              | ($binding $opname $binding) $maybe_result_annotation:
                   $body
                   ...',
 ]{
 
  Binds @rhombus[opname] as an operator, either prefix or infix. The
- @rhombus[arg_binding] and @rhombus[maybe_result_annotation] parts are
- the same as in @rhombus[function] definitions.
+ @rhombus[maybe_result_annotation] parts are the same as in
+ @rhombus[fun] definitions.
 
  When an operator definition includes both a prefix and infix variant
  with @litchar{|}, the variants can be in either order.

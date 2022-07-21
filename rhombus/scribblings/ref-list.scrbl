@@ -2,6 +2,7 @@
 @(import: "common.rhm" open)
 
 @(val dots: @rhombus[..., ~bind])
+@(val dots_expr: @rhombus[...])
 
 @title{Lists}
 
@@ -14,11 +15,17 @@ element by position (in time proportional to the position), and it works
 with the @rhombus[++] operator to append lists.
 
 @doc[
-  fun List(v :: Any, ...) :: List
+  fun List(v :: Any, ...) :: List,
+  fun List(v :: Any, ..., repetition, dots) :: List,
+  grammar dots:
+    $$(dots_expr)
 ]{
 
  Constructs a list of the given arguments, equivalent to using
- @rhombus[[v, ...]].
+ @rhombus[[v, ...]]. When @dots_expr appears after all arguments,
+ the preceding positions is a @tech{repetition} position, and
+ all elements of the repetition are included in order at the end of the
+ list.
 
 @examples[
   val lst: List(1, 2, 3),
@@ -68,12 +75,3 @@ with the @rhombus[++] operator to append lists.
  @rhombus[for] body into a result list.
 
 }
-
-@doc[
-  bind.macro '...'
-]{
-
- Used within binding patterns such as @rhombus[List, ~bind] or
- @rhombus['', ~bind] to indicate repetition.
-}
-
