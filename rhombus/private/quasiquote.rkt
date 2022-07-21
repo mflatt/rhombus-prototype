@@ -100,7 +100,7 @@
         (group (op (~and (~literal $) $-id)) esc))
        #:when (and (zero? depth) (not as-tail?))
        ;; Analogous special case, but for blocks (maybe within an `alts`), etc.
-       #:do [(define-values (p new-idrs new-sidrs) (handle-multi-escape  #'$-id #'esc e))]
+       #:do [(define-values (p new-idrs new-sidrs) (handle-multi-escape #'$-id #'esc e))]
        #:when p
        (values p new-idrs new-sidrs #f)]
       [((~and tag (~or parens brackets braces quotes multi block))
@@ -458,7 +458,7 @@
 (define-syntax-rule (unpack-rep-group* $-name e depth)
   (get-repetition $-name e depth unpack-group*))
 (define-syntax-rule (unpack-rep-multi* $-name e depth)
-  (get-repetition $-name e depth unpack-multi-as-term*))
+  (get-repetition $-name e depth unpack-multi*))
 
 (define-syntax (get-repetition stx)
   (syntax-parse stx
@@ -472,7 +472,7 @@
          (syntax-parse e
            #:literals (begin quote-syntax)
            [(begin (quote-syntax . _) e) (loop #'e)]
-           [(unpack* _ e d)
+           [(unpack*:id _ e d)
             #:when (free-identifier=? #'unpack* unpack*-id)
             #'e]
            [_ e])))

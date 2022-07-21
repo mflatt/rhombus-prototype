@@ -19,4 +19,4 @@
     #`(parsed #,(unpack-parsed v 'parsed)))
 
   (define (unparsed d)
-    #`(rhombus-expression #,(unpack-group d 'unparsed))))
+    #`(rhombus-expression #,(unpack-group d 'unparsed #f))))

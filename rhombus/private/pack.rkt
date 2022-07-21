@@ -46,6 +46,7 @@
          pack-multi*
          pack-tagged-multi*
          pack-block*
+         unpack-multi*
          unpack-multi-as-term*
 
          pack-tail*
@@ -232,6 +233,10 @@
   (pack* stxes depth pack-tagged-multi))
 
 ;; Unpacks a multi to a `multi` form instead of a 
+(define (unpack-multi* qs r depth)
+  (unpack* qs r depth unpack-multi))
+
+;; Unpacks a multi to a `multi` form instead of a 
 (define (unpack-multi-as-term* qs r depth)
   (unpack* qs r depth (lambda (r name qs)
                         (datum->syntax qs (cons multi-blank (unpack-multi r name qs))))))
@@ -279,7 +284,6 @@
 
 ;; similar to `unpack-multi-tail*`, but each leaf is a plain list of groups
 (define (unpack-multi-list-tail* qs r depth)
-  (log-error ">> ~s" r)
   (unpack-group* qs r (add1 depth)))
 
 ;; normalize for multi-term pattern matching:
