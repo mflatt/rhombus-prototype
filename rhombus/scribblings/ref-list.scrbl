@@ -44,8 +44,8 @@ with the @rhombus[++] operator to append lists.
 @examples[
   val List(1, x, y): [1, 2, 3],
   y,
-  val List(1, xs, ...): [1, 2, 3],
-  xs
+  val List(1, x, ...): [1, 2, 3],
+  [x, ...]
 ]
 
 }

@@ -12,7 +12,7 @@
       [(list? v) (map (lambda (v)
                         (unpack-parsed v who))
                       v)]
-      [(syntax? v) (unpack-term v who)]
+      [(syntax? v) (unpack-term v who #f)]
       [else v]))
   
   (define (parsed v)

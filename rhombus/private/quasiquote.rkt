@@ -217,7 +217,7 @@
                  (list #`[#,temp2 (#,pack* (syntax #,temp1) 0)])
                  (list #`[#,e (make-pattern-variable-syntax (quote-syntax e)
                                                             (quote-syntax #,temp2)
-                                                            (quote-syntax unpack-term*)
+                                                            (quote-syntax #,unpack*)
                                                             0
                                                             (hasheq))])))]
       [(parens (group id:identifier (op ::) stx-class:identifier))
@@ -242,7 +242,7 @@
                               (quote-syntax id)
                               (quote-syntax #,temp-id)
                               #,(if (rhombus-syntax-class-built-in? rsc)
-                                    unpack*
+                                    #`(quote-syntax #,unpack*)
                                     #`(syntax-result-to-list #,unpack*))
                               #,pack-depth
                               (hasheq #,@(apply append (for/list ([b (in-list attribute-mappings)])
@@ -276,7 +276,7 @@
           (cond
             [(and (eq? kind 'multi) (syntax-parse in-e
                                       [(head . _) (memq (syntax-e #'head) '(block alts))]))
-             (compat #'pack-block* #'unpack-block*)]
+             (compat #'pack-block* #'unpack-multi-as-term*)]
             [else (incompat)])]
          [else
           (error "unrecognized kind" kind)])]))
@@ -305,7 +305,7 @@
                     (handle-escape/match-head $-id e in-e #'pack-group* #'unpack-group* #'Group 'group))
                   ;; handle-multi-escape:
                   (lambda ($-id e in-e)
-                    (handle-escape/match-head $-id e in-e #'pack-tagged-multi* #'unpack-multi* #'Multi 'multi))
+                    (handle-escape/match-head $-id e in-e #'pack-tagged-multi* #'unpack-multi-as-term* #'Multi 'multi))
                   ;; deepen-escape
                   (lambda (idr)
                     (syntax-parse idr
@@ -325,17 +325,17 @@
                                   (list #`[#,temp-id (pack-tail* (syntax #,e) 0)])
                                   (list #`[#,e (make-pattern-variable-syntax (quote-syntax #,e)
                                                                              (quote-syntax #,temp-id)
-                                                                             (quote-syntax unpack-tail-term*)
+                                                                             (quote-syntax unpack-tail-list*)
                                                                              1
                                                                              (hasheq))])))))
                   ;; handle-block-tail-escape:
                   (lambda (name e in-e)
                     (let ([temp-id (car (generate-temporaries (list e)))])
                       (values e
-                              (list #`[#,temp-id (pack-multi* (syntax #,e) 0)])
+                              (list #`[#,temp-id (pack-multi-tail* (syntax #,e) 0)])
                               (list #`[#,e (make-pattern-variable-syntax (quote-syntax #,e)
                                                                          (quote-syntax #,temp-id)
-                                                                         (quote-syntax unpack-multi-group*)
+                                                                         (quote-syntax unpack-multi-tail-list*)
                                                                          1
                                                                          (hasheq))]))))
                   ;; handle-maybe-empty-sole-group
@@ -381,23 +381,24 @@
                       ; TODO fix how check-escape works
                       #;(check-escape e)
                       (define id (car (generate-temporaries (list e))))
-                      (values id (list #`[#,id (unpack-term*/... (quote-syntax #,$-id) #,e 0)]) null))
+                      (values id (list #`[#,id (unpack-rep-term* (quote-syntax #,$-id) #,e 0)]) null))
                     ;; handle-group-escape:
                     (lambda ($-id e in-e)
                       #;(check-escape e)
                       (define id (car (generate-temporaries (list e))))
-                      (values id (list #`[#,id (unpack-group*/... (quote-syntax #,$-id) #,e 0)]) null))
+                      (values id (list #`[#,id (unpack-rep-group* (quote-syntax #,$-id) #,e 0)]) null))
                     ;; handle-multi-escape:
                     (lambda ($-id e in-e)
                       #;(check-escape e)
                       (define id (car (generate-temporaries (list e))))
                       (with-syntax ([(tag . _) in-e])
-                        (values #`(tag . #,id) (list #`[#,id (unpack-multi*/... (quote-syntax #,$-id) #,e 0)]) null)))
+                        (values #`(tag . #,id) (list #`[#,id (unpack-rep-multi* (quote-syntax #,$-id) #,e 0)]) null)))
                     ;; deepen-escape
                     (lambda (idr)
                       (syntax-parse idr
-                        #:literals (unpack-term*/... unpack-group*/... unpack-multi*/... unpack-tail*/...)
-                        [(id-pat ((~and unpack (~or unpack-term*/... unpack-group*/... unpack-multi*/... unpack-tail*/...)) q e depth))
+                        #:literals (unpack-rep-term* unpack-rep-group* unpack-rep-multi* unpack-rep-tail* unpack-rep-multi-tail*)
+                        [(id-pat ((~and unpack (~or unpack-rep-term* unpack-rep-group* unpack-rep-multi* unpack-rep-tail* unpack-rep-multi-tail*))
+                                  q e depth))
                          #`[(id-pat (... ...)) (unpack q e #,(add1 (syntax-e #'depth)))]]
                         [(id-pat (converter depth (qs t) . args))
                          #`[(id-pat (... ...)) (converter #,(add1 (syntax-e #'depth)) (qs (t (... ...)))) . args]]))
@@ -407,11 +408,11 @@
                     ;; handle-tail-escape:
                     (lambda (name e in-e)
                       (define id (car (generate-temporaries (list e))))
-                      (values id (list #`[#,id (unpack-tail*/... '#,name #,e 0)]) null))
+                      (values id (list #`[#,id (unpack-rep-tail* (quote-syntax #,name) #,e 0)]) null))
                     ;; handle-block-tail-escape:
                     (lambda (name e in-e)
                       (define id (car (generate-temporaries (list e))))
-                      (values id (list #`[#,id (unpack-multi*/... '#,name #,e 0 1)]) null))
+                      (values id (list #`[#,id (unpack-rep-multi-tail* (quote-syntax #,name) #,e 0)]) null))
                     ;; handle-maybe-empty-sole-group
                     (lambda (tag template idrs sidrs)
                       ;; if `template` generates `(group)`, then instead of `(tag (group))`,
@@ -452,39 +453,56 @@
                              #,body)]))]))
   (wrap-bindings idrs #`(#,(quote-syntax quasisyntax) #,template)))
 
-(define-syntax-rule (unpack-term*/... $-name e depth)
-  (unpack-term* $-name (get-repetition e depth) depth))
-(define-syntax-rule (unpack-group*/... $-name e depth)
-  (unpack-group* $-name (get-repetition e depth) depth))
-(define-syntax-rule (unpack-multi*/... $-name e depth depth+ ...)
-  (unpack-multi* $-name (get-repetition e depth depth+ ...) depth))
-(define-syntax-rule (unpack-tail*/... $-name e depth)
-  (unpack-tail* $-name (get-repetition e depth 1) depth))
+(define-syntax-rule (unpack-rep-term* $-name e depth)
+  (get-repetition $-name e depth unpack-term*))
+(define-syntax-rule (unpack-rep-group* $-name e depth)
+  (get-repetition $-name e depth unpack-group*))
+(define-syntax-rule (unpack-rep-multi* $-name e depth)
+  (get-repetition $-name e depth unpack-multi-as-term*))
 
 (define-syntax (get-repetition stx)
   (syntax-parse stx
-    [(_ e 0) #'(rhombus-expression (group e))]
-    [(_ e depth) (repetition-as-syntax #'rhombus... #'(group e) (syntax-e #'depth))]
-    [(_ e depth 1) (repetition-as-syntax #'rhombus... #'(group e) (+ (syntax-e #'depth) 1))]))
+    [(_ $-name e 0 unpack*) #'(unpack* $-name (rhombus-expression (group e)) 0)]
+    [(_ $-name e depth unpack*)
+     (define base-e (repetition-as-list #'rhombus... #'(group e) (syntax-e #'depth)))
+     (define unpack*-id #'unpack*)
+     ;; strip away redundant unpack as an optimization
+     (define opt-e
+       (let loop ([e base-e])
+         (syntax-parse e
+           #:literals (begin quote-syntax)
+           [(begin (quote-syntax . _) e) (loop #'e)]
+           [(unpack* _ e d)
+            #:when (free-identifier=? #'unpack* unpack*-id)
+            #'e]
+           [_ e])))
+     #`(unpack* $-name #,opt-e depth)]))
 
-(define-for-syntax (repetition-as-syntax ellipses stx depth)
-  (define e (repetition-as-list ellipses stx depth))
-  ;; strip away conversion to list, since we want syntax;
-  ;; in the case of tail handling, this is not just an optimization,
-  ;; but a change to the time complexity of using the tail in a template
-  (let loop ([e e])
-    (syntax-parse e
-      #:literals (unpack-term* unpack-multi* unpack-tail-term* unpack-multi-group* begin quote-syntax)
-      [(begin (quote-syntax . _) e) (loop #'e)]
-      [(unpack-term* _ e d) #'e]
-      [(unpack-multi* _ e d) #'e]
-      [(unpack-tail-term* _ e d) #'e]
-      [(unpack-multi-group* _ e d) #'e]
-      [_ e])))
+(define-syntax-rule (unpack-rep-tail* $-name e depth)
+  (get-tail-repetition $-name e depth unpack-tail-list* unpack-tail* unpack-list-tail*))
+(define-syntax-rule (unpack-rep-multi-tail* $-name e depth)
+  (get-tail-repetition $-name e depth unpack-multi-tail-list* unpack-multi-tail* unpack-multi-list-tail*))
+
+(define-syntax (get-tail-repetition stx)
+  (syntax-parse stx
+    [(_ $-name e depth replaceable-unpack* replacement-unpack* generic-unpack*)
+     (define base-e (repetition-as-list #'rhombus... #'(group e) (+ 1 (syntax-e #'depth))))
+     ;; replace redundant unpack with alternative; this is not just an
+     ;; optimization, but a change to the time complexity of using the
+     ;; tail in a template by avoiding conversion to a list and back
+     (let loop ([e base-e])
+       (syntax-parse e
+         #:literals (begin quote-syntax)
+         [(begin (quote-syntax . _) e) (loop #'e)]
+         [(unpack* $-name e d)
+          #:when (free-identifier=? #'unpack* #'replaceable-unpack*)
+          #`(replacement-unpack* $-name e depth)]
+         [_
+          #`(generic-unpack* $-name #,e depth)]))]))
 
 (define-for-syntax (syntax-result-to-list proc)
   (lambda (qs stx depth)
-    (syntax->list (proc qs stx depth))))
+    (proc qs stx depth)))
 
 (define-for-syntax (call-with-quoted-expression stx single-k multi-k literal-k)
   (syntax-parse stx
@@ -564,7 +582,7 @@
      (binding-info #'annotation-str
                    #'syntax
                    #'()
-                   #'((id) ...)
+                   #'((id) ... (sid) ...)
                    #'syntax-matcher
                    #'syntax-binder
                    #'(pattern repack tmp-ids (id ...) id-refs (sid ...) sid-refs))]))
