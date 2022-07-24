@@ -17,7 +17,7 @@ check:
   61
 
 check:
-  add(1, List.each([10, 20, 30]), ...)
+  add(1, List.repet([10, 20, 30]), ...)
   61
 
 check:
@@ -34,6 +34,6 @@ check:
   
 check:
   ~print
-  '(hi $(List.each(["a", "b", "c"]))) ...'
+  '(hi $(List.repet(["a", "b", "c"]))) ...'
   '(hi "a") (hi "b") (hi "c")'
                   

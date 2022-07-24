@@ -81,9 +81,9 @@
    #'List
    (lambda (stx)
      (syntax-parse stx
-       #:datum-literals (op |.| parens group each)
-       [(form-id (op |.|) each (parens g) . tail)
-        (define name (string->symbol (format "~a.each" (syntax-e #'form-id))))
+       #:datum-literals (op |.| parens group repet)
+       [(form-id (op |.|) repet (parens g) . tail)
+        (define name (string->symbol (format "~a.repet" (syntax-e #'form-id))))
         (values (make-repetition-info name
                                       #`(check-repetition-list '#,name (rhombus-expression g))
                                       1
