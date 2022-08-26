@@ -1,5 +1,7 @@
 #lang rhombus
-import: "check.rhm" open
+import:
+  "check.rhm" open
+  rhombus/macro open
 
 namespace root:
   namespace trunk:
@@ -20,6 +22,13 @@ check:
 check:
   root.trunk.side
   "left"
+
+check:
+  namespace root.trunk.branch:
+    val name: "branch"
+    export: name
+  root.trunk.branch.name
+  "branch"
 
 fun root.f(x):
   "root" ++ x
@@ -44,6 +53,33 @@ check:
 check:
   root.trunk.seven
   7
+
+class root.Posn(x, y)
+
+check:
+  namespace inner
+  operator ((x :: Integer) inner.(+) (y :: Integer)):
+    ~weaker_than: *
+    [x, y]
+  1 inner.(+) 2*8
+  [1, 16]
+
+check:
+  use_static_dot
+  root.Posn(1, 2).x
+  1
+
+check:
+  match root.Posn(1, 2)
+  | root.Posn(x, y): [y, x]
+  [2, 1]
+
+expr.rule '$left (root.(^^^)) $right':
+  '[[$left, $right]]'
+
+check:
+  1 root.(^^^) 2
+  [[1, 2]]
 
 check:
   val root.name: "ROOT"

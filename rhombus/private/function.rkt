@@ -23,6 +23,7 @@
          (submod "annotation.rkt" for-class)
          (only-in "equal.rkt"
                   [= rhombus=])
+         "dotted-sequence-parse.rkt"
          "error.rkt")
 
 (provide fun)

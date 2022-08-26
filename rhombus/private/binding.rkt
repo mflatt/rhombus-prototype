@@ -13,7 +13,8 @@
          "static-info.rkt"
          "realm.rkt"
          "error.rkt"
-         "name-root-ref.rkt")
+         "name-root-ref.rkt"
+         "dotted-sequence-parse.rkt")
 
 (begin-for-syntax
   (provide (property-out binding-prefix-operator)
@@ -33,9 +34,7 @@
            binding-info
 
            in-binding-space
-           :dotted-identifier-sequence
-           :non-binding-dotted-identifier
-           :dotted-identifier))
+           :non-binding-dotted-identifier))
 
 (provide define-binding-syntax
          raise-binding-failure)
@@ -114,34 +113,6 @@
       [_ (raise-result-error (proc-name proc) "binding-info-result?" form)]))
 
   (define in-binding-space (make-interned-syntax-introducer/add 'rhombus/binding))
-  
-
-  (define-splicing-syntax-class :dotted-identifier-sequence
-    #:datum-literals (op |.|)
-    (pattern (~seq head-id:identifier (~seq (op |.|) tail-id:identifier) ...)))
-
-  (define (build-dot-symbol ids)
-    (string->symbol
-     (apply string-append
-            (let loop ([ids ids])
-              (cond
-                [(null? (cdr ids)) (list (symbol->string (syntax-e (car ids))))]
-                [else (list* (symbol->string (syntax-e (car ids)))
-                             "."
-                             (loop (cdr ids)))])))))
-
-  (define (build-dot-identifier head-ids-stx tail-id all)
-    (define head-ids (syntax->list head-ids-stx))
-    (cond
-      [(null? head-ids) tail-id]
-      [(extensible-name-root? head-ids)
-       (datum->syntax tail-id
-                      (build-dot-symbol (append head-ids (list tail-id)))
-                      tail-id
-                      tail-id)]
-      [else (raise-syntax-error (build-dot-symbol head-ids)
-                                "not defined as a namespace"
-                                all)]))
 
   (define-syntax-class :non-binding-dotted-identifier
     #:datum-literals (op |.|)
@@ -152,12 +123,6 @@
                                                  (lambda (v)
                                                    (name-root-ref-root v binding-prefix-operator?)))]
                            [_ #f]))
-             #:do [(define name (build-dot-identifier #'(head-id ...) #'tail-id #'all))]
-             #:attr name name))
-
-  (define-syntax-class :dotted-identifier
-    #:datum-literals (op |.|)
-    (pattern (~and all ((~seq head-id:identifier (op |.|)) ... tail-id:identifier))
              #:do [(define name (build-dot-identifier #'(head-id ...) #'tail-id #'all))]
              #:attr name name)))
 

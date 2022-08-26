@@ -18,6 +18,7 @@
          (for-syntax "parse.rkt")
          (submod "value.rkt" for-define)
          "syntax.rkt"
+         "dotted-sequence-parse.rkt"
          (submod "expression-syntax.rkt" for-define))
 
 (provide (rename-out [rhombus-define def]))

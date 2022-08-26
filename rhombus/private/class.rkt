@@ -14,6 +14,7 @@
          "assign.rkt"
          "static-info.rkt"
          "name-root.rkt"
+         "dotted-sequence-parse.rkt"
          "realm.rkt")
 
 (provide (rename-out [rhombus-class class]))
@@ -45,7 +46,9 @@
   (definition-transformer
    (lambda (stxes)
      (syntax-parse stxes
-       [(_ name:identifier ((~datum parens) field::field ...))
+       [(_ name-seq::dotted-identifier-sequence ((~datum parens) field::field ...))
+        #:with full-name::dotted-identifier #'name-seq
+        #:with name #'full-name.name
         (define fields (syntax->list #'(field.name ...)))
         (define-values (immutable-fields mutable-fields)
           (for/fold ([imm '()] [m '()] #:result (values (reverse imm) (reverse m)))

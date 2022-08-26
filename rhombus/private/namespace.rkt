@@ -4,6 +4,7 @@
                      racket/symbol
                      "introducer.rkt")
          "definition.rkt"
+         "dotted-sequence-parse.rkt"
          "forwarding-sequence.rkt"
          "parse.rkt"
          "name-root.rkt"
@@ -16,13 +17,15 @@
    (lambda (stx)
      (syntax-parse stx
        #:datum-literals (alts block group)
-       [(form-id name:identifier)
+       [(form-id name-seq::dotted-identifier-sequence)
+        #:with name::dotted-identifier #'name-seq
         #`((rhombus-nested-forwarding-sequence
-            (define-name-root-for-exports name)))]
-       [(form-id name:identifier
+            (define-name-root-for-exports name.name)))]
+       [(form-id name-seq::dotted-identifier-sequence
                  ((~and tag block) form ...))
+        #:with name::dotted-identifier #'name-seq
         #`((rhombus-nested-forwarding-sequence
-            (define-name-root-for-exports name)
+            (define-name-root-for-exports name.name)
             #,(syntax-local-introduce
                #`(rhombus-nested form ...))))]))))
 
