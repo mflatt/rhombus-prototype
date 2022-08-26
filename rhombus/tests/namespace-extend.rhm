@@ -120,20 +120,36 @@ check:
   trunk.side
   "left"
 
-#//
+check:
+  namespace math
+  namespace ext1:
+    val math.e: 2.71
+    export: math
+  namespace ext2:
+    val math.d: "d"
+    export: math
+  [ext1.math.e, ext2.math.d]
+  [2.71, "d"]
+
 check:
   import: .root open
-  f("hello")
+  f(" hello")
   "root hello"
 
-#//
 check:
   import: .root open
   trunk.f(" hi")
   "trunk hi"
 
-#//
 check:
   import: .root open
   trunk.side
   "left"
+
+#//
+check:
+  import: 
+    lib("rhombus/tests/example-extend-a.rhm") open
+    lib("rhombus/tests/example-extend-b.rhm") open
+  List(List.a, List.b)
+  ["a", "b"]
