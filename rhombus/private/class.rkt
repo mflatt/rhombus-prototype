@@ -57,22 +57,25 @@
             (if (syntax-e mutable)
                 (values imm (cons field m))
                 (values (cons field imm) m))))
+        (define intro (make-syntax-introducer))
         (with-syntax ([name? (datum->syntax #'name (string->symbol (format "~a?" (syntax-e #'name))) #'name)]
                       [(class:name) (generate-temporaries #'(name))]
                       [(make-name) (generate-temporaries #'(name))]
-                      [name-instance (datum->syntax #'name (string->symbol (format "~a.instance" (syntax-e #'name))) #'name)]
+                      [name-instance (intro (datum->syntax #'name (string->symbol (format "~a.instance" (syntax-e #'name))) #'name))]
                       [(name-field ...) (for/list ([field (in-list fields)])
-                                          (datum->syntax field
-                                                         (string->symbol (format "~a.~a"
-                                                                                 (syntax-e #'name)
-                                                                                 (syntax-e field)))
-                                                         field))]
+                                          (intro
+                                           (datum->syntax field
+                                                          (string->symbol (format "~a.~a"
+                                                                                  (syntax-e #'name)
+                                                                                  (syntax-e field)))
+                                                          field)))]
                       [(set-name-field! ...) (for/list ([field (in-list mutable-fields)])
-                                               (datum->syntax field
-                                                              (string->symbol (format "set-~a.~a!"
-                                                                                      (syntax-e #'name)
-                                                                                      (syntax-e field)))
-                                                              field))]
+                                               (intro
+                                                (datum->syntax field
+                                                               (string->symbol (format "set-~a.~a!"
+                                                                                       (syntax-e #'name)
+                                                                                       (syntax-e field)))
+                                                               field)))]
                       [cnt (length fields)]
                       [(field-index ...) (for/list ([field (in-list fields)]
                                                     [i (in-naturals)])

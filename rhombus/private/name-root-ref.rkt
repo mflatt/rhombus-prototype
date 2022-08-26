@@ -23,45 +23,51 @@
       (enforest:name-root
        (lambda (stxes)
          (let loop ([stxes stxes]
-                    [get get] ; for finding without any prefix
-                    [prefixes
-                     ;; reversed search path:
-                     (let ([form-id (syntax-parse stxes
-                                      [(form-id . _) #'form-id])])
-                       (if self-id
-                           (list self-id form-id)
-                           (list form-id)))])
+                    [gets
+                     ;; reverse order search path: (cons get prefix)
+                     (list
+                      (cons get #f)
+                      (cons #f (syntax-parse stxes
+                                 [(form-id . _) #'form-id])))])
+           (define (build-name prefix field-id)
+             (datum->syntax prefix
+                            (string->symbol
+                             (string-append (symbol->immutable-string (syntax-e prefix))
+                                            "."
+                                            (symbol->immutable-string (syntax-e field-id))))
+                            field-id
+                            field-id))
            (define (next form-id field-id what tail)
-             (define names (for/list ([prefix (in-list prefixes)])
-                             (relocate-field form-id
-                                             field-id
-                                             (datum->syntax prefix
-                                                            (string->symbol
-                                                             (string-append (symbol->immutable-string (syntax-e prefix))
-                                                                            "."
-                                                                            (symbol->immutable-string (syntax-e field-id))))
-                                                            field-id
-                                                            field-id))))
-             (define dotted-id
-               ;; any extension defined directly with a longer `.` name takes precedence:
-               (for/or ([name (in-list (reverse names))])
-                 (and (identifier-binding (in-space name)) name)))
              (define binding-end? (and binding-ref
                                        (syntax-parse tail
                                          #:datum-literals (op parens |.|)
                                          [((op |.|) . _) #f]
                                          [_ #t])))
-             (define id (or dotted-id
-                            ;; the normal way, resolving `.` by looking in the namespace:
-                            (let ([id (get (if binding-end? #f form-id) what field-id)])
-                              (if (and id
-                                       (or (not binding-end?)
-                                           (syntax-local-value* (in-space id)
-                                                                (lambda (v)
-                                                                  (name-root-ref-root v binding-ref)))))
-                                  (relocate-field form-id field-id id)
-                                  ;; only get here when `binding-end?`:
-                                  (car (reverse names))))))
+             (define id
+               (or (for/or ([get+prefix (in-list (reverse gets))])
+                     (define get (car get+prefix))
+                     (define prefix (cdr get+prefix))
+                     (cond
+                       [(not get)
+                        (define name (build-name prefix field-id))
+                        (and (identifier-binding (in-space name))
+                             (relocate-field form-id field-id name))]
+                       [else
+                        (define sub-id (if prefix
+                                           (build-name prefix field-id)
+                                           field-id))
+                        (let ([id (get #f what sub-id)])
+                          (and id
+                               (or (not binding-end?)
+                                   (syntax-local-value* (in-space id)
+                                                        (lambda (v)
+                                                          (name-root-ref-root v binding-ref))))
+                               (relocate-field form-id field-id id)))]))
+                   (if binding-end?
+                       (relocate-field form-id field-id (build-name (cdar (reverse gets)) field-id))
+                       ;; try again with the shallowest to report an error
+                       (let ([get (caar gets)])
+                         (get form-id what field-id)))))
              ;; keep looking at dots?
              (define more-dots?
                (syntax-parse tail
@@ -76,11 +82,14 @@
                 (portal-syntax->lookup (portal-syntax-content v)
                                        (lambda (self-id next-get)
                                          (loop (cons id tail)
-                                               next-get
-                                               (cond
-                                                 [dotted-id names]
-                                                 [self-id (cons self-id names)]
-                                                 [else names]))))]
+                                               (cons
+                                                (cons next-get #f)
+                                                (for/list ([get+prefix (in-list gets)])
+                                                  (define get (car get+prefix))
+                                                  (define prefix (cdr get+prefix))
+                                                  (cons get (if prefix
+                                                                (build-name prefix field-id)
+                                                                field-id)))))))]
                [else
                 (values id tail)]))
            (syntax-parse stxes

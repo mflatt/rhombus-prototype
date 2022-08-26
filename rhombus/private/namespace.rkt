@@ -61,7 +61,28 @@
                 (raise-syntax-error #f
                                     "duplicate export name with different bindings"
                                     ext-id))
-              (hash-set ht ext-sym int-id)]))]
+              (define base-ht (hash-set ht ext-sym int-id))
+              ;; look for extensions (in all spaces)
+              (define prefix (format "~a." (symbol->string (syntax-e int-id))))
+              (for*/fold ([ht base-ht]) ([space-sym (in-list (cons #f (syntax-local-module-interned-scope-symbols)))]
+                                         #:do [(define intro (if space-sym
+                                                                 (make-interned-syntax-introducer/add space-sym)
+                                                                 (lambda (x) x)))]
+                                         #:when (extensible-name-root? (list (intro int-id)))
+                                         [sym (in-list (syntax-bound-symbols (intro int-id)))])
+                (define str (symbol->immutable-string sym))
+                (cond
+                  [(and (> (string-length str) (string-length prefix))
+                        (string=? prefix (substring str 0 (string-length prefix))))
+                   (define old (hash-ref ht sym #f))
+                   (define id (datum->syntax (intro int-id) sym int-id))
+                   (when (and old
+                              (not (free-identifier=? (intro old) id)))
+                     (raise-syntax-error #f
+                                         "duplicate export name with different bindings"
+                                         id))
+                   (hash-set ht sym id)]
+                  [else ht]))]))]
         [(all-from-out mod-path)
          (raise-syntax-error #f
                              "module re-export not supported in a namespace context"

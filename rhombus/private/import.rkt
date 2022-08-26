@@ -1,6 +1,7 @@
 #lang racket/base
 (require (for-syntax racket/base
                      syntax/parse
+                     racket/symbol
                      enforest
                      enforest/operator
                      enforest/transformer
@@ -207,10 +208,11 @@
          (rhombus-import mods . more))]))
 
 ;; Uses a continuation form to thread through the module path that
-;; accessed-via-dots module paths are relative to. When a dot prefix
-;; is used, then we get an `import-spaces` form, which can have
-;; a mixture of name roots, modules (to re-import), and singletons,
-;; and we have to sort out that mixture here.
+;; accessed-via-dots module paths are relative to and to thread
+;; through a dotted path prefix. When a dot prefix is used, then we
+;; get an `import-spaces` form, which can have a mixture of name
+;; roots, modules (to re-import), and singletons, and we have to sort
+;; out that mixture here.
 (define-syntax (rhombus-import-one stx)
   (syntax-parse stx
     #:datum-literals (import-dotted import-root import-spaces singleton)
@@ -223,6 +225,8 @@
     [(_ wrt (import-spaces ir ...) r (k-form write-placeholder . k-args))
      ;; Split into the three types:
      (define-values (mods hiers sings) (split-imports (syntax->list #'(ir ...))))
+     ;; For each space where the import is a module, collapse
+     ;; module paths to deal with import changes
      (define new-wrt
        (for/fold ([wrt (syntax-e #'wrt)])
                  ([mod (in-list mods)])
@@ -329,7 +333,7 @@
                 (syntax-parse i
                   #:datum-literals (parsed map)
                   [(parsed mod-path parsed-r) #`(reimport #,id #,(syntax-local-introduce (transform-in #'parsed-r)))]
-                  [(map . _) #`(import-root #,(intro id) #,i)])))))
+                  [(map . _) #`(import-root #,(intro id) #,i #,space-id)])))))
   (cond
     [(null? space+maps)
      (if as-field?
@@ -361,7 +365,7 @@
 (define-for-syntax (imports-from-root im r-parsed covered-ht accum? open-all-spaces?)
   (syntax-parse im
     #:datum-literals (import-root map)
-    [(import-root id (map orig-id [key val] ...))
+    [(import-root id (map orig-id [key val] ...) lookup-id)
      (define prefix (extract-prefix #'id r-parsed))
      (define-values (ht expose-ht new-covered-ht)
        (convert-require-from-root
@@ -372,8 +376,30 @@
           (values (syntax-e key) val))
         covered-ht
         accum?))
+     (define bound-prefix (string-append (symbol->immutable-string (syntax-e #'id))
+                                         "."))
+     (define extension-ht
+       (for*/fold ([ht #hasheq()]) ([space-sym (in-list (cons #f (syntax-local-module-interned-scope-symbols)))]
+                                    #:do [(define intro (if space-sym
+                                                            (make-interned-syntax-introducer/add space-sym)
+                                                            (lambda (x) x)))]
+                                    [sym (in-list (syntax-bound-symbols #'lookup-id))]
+                                    #:do [(define str (symbol->immutable-string sym))]
+                                    #:when (and (> (string-length str) (string-length bound-prefix))
+                                                (string=? bound-prefix (substring str 0 (string-length bound-prefix)))))
+         (define ext-id (datum->syntax #'lookup-id sym #'id))
+         (define id+intros (hash-ref ht sym null))
+         (cond
+           [(ormap (lambda (id+intro)
+                     (free-identifier=? (car id+intro) ext-id))
+                   id+intros)
+            ;; already found a binding that covers this one
+            ht]
+           [else
+            (hash-set ht sym (cons (cons ext-id intro) id+intros))])))
      (values
       #`(begin
+          ;; non-exposed
           #,@(if (syntax-e prefix)
                  (with-syntax ([(root-id) (generate-temporaries #'(id))])
                    #`((define-name-root root-id
@@ -386,8 +412,33 @@
                         #,(for/list ([(key val) (in-hash ht)])
                             #`[#,key #,val]))
                       (define-syntax #,(datum->syntax #'id (syntax-e prefix) #'id)
-                        (make-rename-transformer (quote-syntax root-id)))))
+                        (make-rename-transformer (quote-syntax root-id)))
+                      ;; If there are no renames, this could replace the above:
+                      #;
+                      #,@(let ([new-id (datum->syntax #'id (syntax-e prefix) #'id)])
+                           (if (bound-identifier=? new-id #'lookup-id)
+                               '()
+                               #`((define-syntax #,new-id (make-rename-transformer (quote-syntax lookup-id))))))
+                      ;; Additional imports for namespace extensions
+                      #,@(for*/list ([ext-id+intros (in-hash-values extension-ht)]
+                                     [ext-id+intro (in-list ext-id+intros)]
+                                     #:do [(define ext-id (car ext-id+intro))
+                                           (define intro (cdr ext-id+intro))
+                                           (define new-id
+                                             (intro
+                                              (datum->syntax #'id
+                                                             (string->symbol
+                                                              (string-append (symbol->immutable-string (syntax-e prefix))
+                                                                             "."
+                                                                             (substring
+                                                                              (symbol->immutable-string (syntax-e ext-id))
+                                                                              (string-length bound-prefix))))
+                                                             #'id)))]
+                                     #:unless (bound-identifier=? new-id ext-id))
+                           #`(define-syntax #,new-id
+                               (make-rename-transformer (quote-syntax #,ext-id))))))
                  null)
+          ;; exposed
           #,@(for/list ([space-sym (in-list (cond
                                               [open-all-spaces?
                                                (cons #f (syntax-local-module-interned-scope-symbols))]

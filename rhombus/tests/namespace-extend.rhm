@@ -117,7 +117,7 @@ check:
 
 check:
   import: .root.trunk
-  trunk.side    // needs to check dotted orig id to find definition
+  trunk.side
   "left"
 
 #//
