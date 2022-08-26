@@ -1,11 +1,13 @@
 #lang racket/base
 (require (for-syntax racket/base
                      syntax/parse
+                     racket/symbol
                      "introducer.rkt")
          "definition.rkt"
          "forwarding-sequence.rkt"
          "parse.rkt"
-         "name-root.rkt")
+         "name-root.rkt"
+         "name-root-ref.rkt")
 
 (provide namespace)
 
@@ -14,6 +16,9 @@
    (lambda (stx)
      (syntax-parse stx
        #:datum-literals (alts block group)
+       [(form-id name:identifier)
+        #`((rhombus-nested-forwarding-sequence
+            (define-name-root-for-exports name)))]
        [(form-id name:identifier
                  ((~and tag block) form ...))
         #`((rhombus-nested-forwarding-sequence

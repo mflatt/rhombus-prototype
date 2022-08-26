@@ -377,6 +377,7 @@
           #,@(if (syntax-e prefix)
                  (with-syntax ([(root-id) (generate-temporaries #'(id))])
                    #`((define-name-root root-id
+                        #:orig-id orig-id
                         #:root-as-rename #,(for/or ([key (in-list (syntax->list #'(key ...)))]
                                                     [val (in-list (syntax->list #'(val ...)))]
                                                     #:when (not (syntax-e key)))

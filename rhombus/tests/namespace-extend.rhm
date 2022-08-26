@@ -1,0 +1,103 @@
+#lang rhombus
+import: "check.rhm" open
+
+namespace root:
+  namespace trunk:
+    val name: "trunk"
+    export: name
+  val name: "root"
+  val trunk.side: "left"
+  export: trunk name
+
+check:
+  root.name
+  "root"
+
+check:
+  root.trunk.name
+  "trunk"
+
+check:
+  root.trunk.side
+  "left"
+
+fun root.f(x):
+  "root" ++ x
+fun root.trunk.f(x):
+  "trunk" ++ x
+
+check:
+  root.f(" hi")
+  "root hi"
+
+check:
+  root.trunk.f(" hi")
+  "trunk hi"
+
+val root.ten: 10
+val root.trunk.seven: 7
+
+check:
+  root.ten
+  10
+
+check:
+  root.trunk.seven
+  7
+
+check:
+  val root.name: "ROOT"
+  root.name
+  "ROOT"
+
+check:
+  val root.trunk.name: "TRUNK"
+  [root.name, root.trunk.name]
+  ["root", "TRUNK"]
+
+check:
+  fun root.f(x): "ROOT" ++ x
+  root.f(" hi")
+  "ROOT hi"
+
+namespace route:
+  export: trunc
+  namespace trunc
+  val trunc.name: "trunc"
+
+check:
+  route.trunc.name
+  "trunc"
+
+check:
+  import: .root open
+  trunk.name
+  "trunk"
+
+check:
+  import: .root.trunk
+  trunk.name
+  "trunk"
+
+check:
+  import: .root.trunk
+  trunk.side    // needs to check dotted orig id to find definition
+  "left"
+
+#//
+check:
+  import: .root open
+  f("hello")
+  "root hello"
+
+#//
+check:
+  import: .root open
+  trunk.f(" hi")
+  "trunk hi"
+
+#//
+check:
+  import: .root open
+  trunk.side
+  "left"
