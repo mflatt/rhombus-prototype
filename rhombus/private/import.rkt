@@ -287,7 +287,8 @@
             (syntax-parse (car irs)
               [(space im)
                (define-values (form new-covered-ht) (imports-from-namespace #'im #'r covered-ht (pair? (cdr irs))
-                                                                            (eq? #f (syntax-e #'space))))
+                                                                            (eq? #f (syntax-e #'space))
+                                                                            #'dotted))
                (cons form
                      (loop (cdr irs) new-covered-ht))])])))
      #`(begin
@@ -370,7 +371,7 @@
          [_
           (loop (cdr irs) (cons ir rev-mods) rev-namesps rev-sings)])])))
 
-(define-for-syntax (imports-from-namespace im r-parsed covered-ht accum? open-all-spaces?)
+(define-for-syntax (imports-from-namespace im r-parsed covered-ht accum? open-all-spaces? dotted-id)
   (syntax-parse im
     #:datum-literals (import-root map)
     [(import-root id (map orig-id [key val] ...) lookup-id)
@@ -382,7 +383,9 @@
                                     #:do [(define intro (if space-sym
                                                             (make-interned-syntax-introducer/add space-sym)
                                                             (lambda (x) x)))]
-                                    [sym (in-list (syntax-bound-symbols #'lookup-id))] ;; TODO: we want extact-scope symbols, only
+                                    [sym (in-list (syntax-bound-symbols #'lookup-id (syntax-local-phase-level)
+                                                                        ;; need exact-scopes binding with dotted:
+                                                                        (syntax-e dotted-id)))]
                                     #:do [(define str (symbol->immutable-string sym))]
                                     #:when (and (> (string-length str) (string-length bound-prefix))
                                                 (string=? bound-prefix (substring str 0 (string-length bound-prefix)))))
@@ -416,9 +419,9 @@
          (define space (cdr id+space))
          (or (not space) (eq? space space-sym))))
      (define (already-bound? id as-id)
-       ;; TODO: also like to check whether `id` is already bound
-       ;; as a rename transformer for `as-id`
-       (bound-identifier=? id as-id))
+       (or (bound-identifier=? id as-id)
+           (and (identifier-binding id (syntax-local-phase-level) #f #t)
+                (free-identifier=? id as-id))))
      (values
       #`(begin
           ;; non-exposed

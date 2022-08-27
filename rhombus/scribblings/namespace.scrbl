@@ -100,4 +100,6 @@ scope of the extending definition.
 When a namespace is exported, any extensions of the namespace visible
 at the export site are also exported. Multiple extensions of a
 namespace can be imported into a context as long as the extensions do
-not conflict.
+not conflict, which is partly a result of the rule that the same name
+can be imported into a context multiple times as long as the binding
+is always the same.
