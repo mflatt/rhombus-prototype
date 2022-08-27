@@ -146,10 +146,9 @@ check:
   trunk.side
   "left"
 
-#//
 check:
   import: 
     lib("rhombus/tests/example-extend-a.rhm") open
     lib("rhombus/tests/example-extend-b.rhm") open
-  List(List.a, List.b)
-  ["a", "b"]
+  List(List.a, List.b, ExList.a)
+  ["a", "b", "a"]
