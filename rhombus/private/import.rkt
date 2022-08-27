@@ -383,7 +383,7 @@
                                     #:do [(define intro (if space-sym
                                                             (make-interned-syntax-introducer/add space-sym)
                                                             (lambda (x) x)))]
-                                    [sym (in-list (syntax-bound-symbols #'lookup-id (syntax-local-phase-level)
+                                    [sym (in-list (syntax-bound-symbols (syntax-local-introduce (intro #'lookup-id)) (syntax-local-phase-level)
                                                                         ;; need exact-scopes binding with dotted:
                                                                         (syntax-e dotted-id)))]
                                     #:do [(define str (symbol->immutable-string sym))]
