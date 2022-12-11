@@ -21,6 +21,7 @@
          "class-constructor.rkt"
          "class-binding.rkt"
          "class-annotation.rkt"
+         "class-annotation-indirect.rkt"
          "class-dot.rkt"
          "class-static-info.rkt"
          "class-method.rkt"
@@ -70,9 +71,7 @@
                                         (field.default ...)
                                         (field.mutable ...)
                                         (field.private ...)
-                                        (field.predicate ...)
-                                        (field.annotation-str ...)
-                                        (field.static-infos ...)])
+                                        (field.ctc-seq ...)])
         (cond
           [(null? (syntax-e body))
            #`((class-finish #,finish-data ()))]
@@ -110,9 +109,7 @@
                     (constructor-field-default ...) ; #f or (parsed)
                     (constructor-field-mutable ...)
                     (constructor-field-private ...)
-                    (constructor-field-predicate ...)
-                    (constructor-field-annotation-str ...)
-                    (constructor-field-static-infos ...)]
+                    (constructor-field-ctc-seq ...)]
           exports
           option ...)
        (define stxes #'orig-stx)
@@ -241,6 +238,13 @@
        (define (temporary template)
          ((make-syntax-introducer) (datum->syntax #f (string->symbol (format template (syntax-e #'name))))))
 
+       (define-values (constructor-field-predicates
+                       constructor-field-annotation-strs
+                       constructor-field-static-infos-exprs)
+         (for/lists (predicates strs static-info-exprs) ([name (in-list (syntax->list #'(constructor-field-name ...)))]
+                                                         [field-ctc-seq (in-list (syntax->list #'(constructor-field-ctc-seq ...)))])
+           (annotation-sequence->indirect-forms name field-ctc-seq values)))
+
        (with-syntax ([name? (datum->syntax #'name (string->symbol (format "~a?" (syntax-e #'name))) #'name)]
                      [class:name (temporary "class:~a")]
                      [make-name (temporary "make-~a")]
@@ -257,9 +261,9 @@
                                               id)]
                      [(maybe-set-name-field! ...) maybe-set-name-fields]
                      [(field-name ...) fields]
-                     [(field-static-infos ...) (append (syntax->list #'(constructor-field-static-infos ...))
-                                                       (for/list ([f (in-list added-fields)])
-                                                         (added-field-static-infos f)))]
+                     [(field-static-infos-expr ...) (append constructor-field-static-infos-exprs
+                                                            (for/list ([f (in-list added-fields)])
+                                                              (added-field-static-infos-expr f)))]
                      [(field-argument ...) (append (for/list ([kw (in-list constructor-keywords)]
                                                               [df (in-list constructor-defaults)])
                                                      (if (syntax-e df)
@@ -267,9 +271,11 @@
                                                          kw))
                                                    (for/list ([f (in-list added-fields)])
                                                      (added-field-arg-id f)))]
-                     [(field-predicate ...) (append (syntax->list #'(constructor-field-predicate ...))
+                     [(field-ctc-seq ...) (append (syntax->list #'(constructor-field-ctc-seq ...))
+                                                  (map added-field-ctc-seq added-fields))]
+                     [(field-predicate ...) (append constructor-field-predicates
                                                     (map added-field-predicate added-fields))]
-                     [(field-annotation-str ...) (append (syntax->list #'(constructor-field-annotation-str ...))
+                     [(field-annotation-str ...) (append constructor-field-annotation-strs
                                                          (map added-field-annotation-str added-fields))]
                      [super-name (and super (class-desc-id super))]
                      [((super-field-name
@@ -297,13 +303,14 @@
                        [((public-field-name ...) (private-field-name ...)) (partition-fields #'(field-name ...))]
                        [((public-name-field ...) (private-name-field ...)) (partition-fields #'(name-field ...))]
                        [((public-maybe-set-name-field! ...) (private-maybe-set-name-field! ...)) (partition-fields #'(maybe-set-name-field! ...))]
-                       [((public-field-static-infos ...) (private-field-static-infos ...)) (partition-fields #'(field-static-infos ...))]
+                       [((public-field-static-infos-expr ...) (private-field-static-infos-expr ...)) (partition-fields #'(field-static-infos-expr ...))]
                        [((public-field-argument ...) (private-field-argument ...)) (partition-fields #'(field-argument ...))]
                        [(constructor-public-name-field ...) (partition-fields all-name-fields constructor-private?s
                                                                               #:result (lambda (pub priv) pub))]
-                       [(constructor-public-field-static-infos ...) (partition-fields #'(constructor-field-static-infos ...)
-                                                                                      constructor-private?s
-                                                                                      #:result (lambda (pub priv) pub))]
+                       [(constructor-field-static-infos-expr ...) constructor-field-static-infos-exprs]
+                       [(constructor-public-field-static-infos-expr ...) (partition-fields constructor-field-static-infos-exprs
+                                                                                           constructor-private?s
+                                                                                           #:result (lambda (pub priv) pub))]
                        [(constructor-public-field-keyword ...) constructor-public-keywords]
                        [(super-name* ...) (if super #'(super-name) '())]
                        [make-internal-name (and exposed-internal-id
@@ -314,6 +321,17 @@
            (define defns
              (reorder-for-top-level
               (append
+               (build-class-annotation-form super annotation-rhs
+                                            super-constructor-fields
+                                            exposed-internal-id intro
+                                            #'(name name-instance name?
+                                                    internal-name-instance
+                                                    [constructor-name-field ...] [constructor-public-name-field ...] [super-name-field ...]
+                                                    [constructor-field-keyword ...] [constructor-public-field-keyword ...] [super-field-keyword ...]))
+               (build-class-annotation-indirections #'(field-ctc-seq ...)
+                                                    #'(field-predicate ...)
+                                                    #'(field-annotation-str ...)
+                                                    #'(field-static-infos-expr ...))
                (build-methods method-results
                               added-methods method-mindex method-names method-private
                               #'(name name-instance name?
@@ -324,7 +342,7 @@
                                       [(list 'private-field-name
                                              (quote-syntax private-name-field)
                                              (quote-syntax private-maybe-set-name-field!)
-                                             (quote-syntax private-field-static-infos)
+                                             private-field-static-infos-expr
                                              (quote-syntax private-field-argument))
                                        ...]
                                       [super-name* ...]))
@@ -362,22 +380,15 @@
                                                 [(list 'private-field-name
                                                        (quote-syntax private-name-field)
                                                        (quote-syntax private-maybe-set-name-field!)
-                                                       (quote-syntax private-field-static-infos)
+                                                       private-field-static-infos-expr
                                                        (quote-syntax private-field-argument))
                                                  ...]))
                (build-class-binding-form super binding-rhs
                                          exposed-internal-id intro
                                          #'(name name-instance name?
                                                  [constructor-name-field ...] [constructor-public-name-field ...] [super-name-field ...]
-                                                 [constructor-field-static-infos ...] [constructor-public-field-static-infos ...] [super-field-static-infos ...]
+                                                 [constructor-field-static-infos-expr ...] [constructor-public-field-static-infos-expr ...] [super-field-static-infos ...]
                                                  [constructor-field-keyword ...] [constructor-public-field-keyword ...] [super-field-keyword ...]))
-               (build-class-annotation-form super annotation-rhs
-                                            super-constructor-fields
-                                            exposed-internal-id intro
-                                            #'(name name-instance name?
-                                                    internal-name-instance
-                                                    [constructor-name-field ...] [constructor-public-name-field ...] [super-name-field ...]
-                                                    [constructor-field-keyword ...] [constructor-public-field-keyword ...] [super-field-keyword ...]))
                (build-class-dot-handling method-mindex method-vtable final?
                                          has-private? method-private exposed-internal-id
                                          #'(name constructor-name name-instance name-ref
@@ -387,7 +398,7 @@
                                                  [(list 'private-field-name
                                                         (quote-syntax private-name-field)
                                                         (quote-syntax private-maybe-set-name-field!)
-                                                        (quote-syntax private-field-static-infos)
+                                                        private-field-static-infos-expr
                                                         (quote-syntax private-field-argument))
                                                   ...]
                                                  [export ...]))
@@ -396,7 +407,7 @@
                                          #'(name constructor-name name-instance
                                                  internal-name-instance make-internal-name
                                                  [name-field ...]
-                                                 [field-static-infos ...]))
+                                                 [field-static-infos-expr ...]))
                (build-class-desc super options
                                  constructor-public-keywords super-keywords ; public field for constructor
                                  constructor-public-defaults super-defaults
@@ -415,7 +426,7 @@
                                                (list 'public-field-name
                                                      (quote-syntax public-name-field)
                                                      (quote-syntax public-maybe-set-name-field!)
-                                                     (quote-syntax public-field-static-infos)
+                                                     public-field-static-infos-expr
                                                      (quote-syntax public-field-argument))
                                                ...)
                                          ([field-name field-argument] ...)))
@@ -519,8 +530,7 @@
                                            '(immutable-field-index ...)
                                            #,(build-guard-expr fields
                                                                (syntax->list #'(field-predicate ...))
-                                                               (map syntax-e
-                                                                    (syntax->list #'(field-annotation-str ...)))))])
+                                                               (syntax->list #'(field-annotation-str ...))))])
              (values class:name name name?
                      (make-struct-field-accessor name-ref field-index 'name-field 'name 'rhombus)
                      ...

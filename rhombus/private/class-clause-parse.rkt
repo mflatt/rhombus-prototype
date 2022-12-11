@@ -16,6 +16,7 @@
          "parens.rkt"
          "name-root-ref.rkt"
          "parse.rkt"
+         "class-annotation-indirect.rkt"
          (only-in "function.rkt" fun)
          (only-in "implicit.rkt" #%body))
 
@@ -118,10 +119,11 @@
                (when (hash-has-key? options 'authentic?)
                  (raise-syntax-error #f "multiple authenticity clause" orig-stx clause))
                (hash-set options 'authentic? #t)]
-              [(field id rhs-id static-infos predicate annotation-str mode)
+              [(field id rhs-id ctc-seq static-infos-id predicate annotation-str mode)
                (hash-set options 'fields (cons (added-field #'id
                                                             #'rhs-id
-                                                            #'static-infos
+                                                            #'ctc-seq
+                                                            #'static-infos-id
                                                             #'predicate
                                                             #'annotation-str
                                                             (syntax-e #'mode))
@@ -295,28 +297,30 @@
     #:attributes (form)
     (pattern (~seq form-id bind ...
                    (~and blk (_::block . _)))
-             #:with (id:identifier (~optional c::inline-annotation)) #'(bind ...)
-             #:attr predicate (if (attribute c)
-                                  #'c.predicate
-                                  #'#f)
-             #:attr annotation-str (if (attribute c)
-                                       #'c.annotation-str
-                                       #'#f)
-             #:attr static-infos (if (attribute c)
-                                     #'c.static-infos
-                                     #'())
+             #:with (id:identifier (~optional c::unparsed-inline-annotation)) #'(bind ...)
+             #:attr ctc-seq (if (attribute c)
+                                #'c.seq
+                                #'#f)
+             #:with (ctc-pred ctc-ann-str ctc-si-expr) (annotation-sequence->indirect-forms #'id
+                                                                                            (and (attribute c)
+                                                                                                 #'c.seq)
+                                                                                            list)
+             #:attr predicate #'ctc-pred
+             #:attr annotation-str #'ctc-ann-str
+             #:attr static-infos-id #'ctc-si-expr
              #:attr form
              #`[(group
                  (parsed
                   (define tmp-id (let ([f-info.name-id (rhombus-body-at . blk)])
-                                   #,(if (and (attribute c) (syntax-e #'c.predicate))
-                                         #`(if (c.predicate f-info.name-id)
+                                   #,(if (syntax-e #'ctc-pred)
+                                         #`(if (ctc-pred f-info.name-id)
                                                f-info.name-id
-                                               (raise-binding-failure 'form-id "value" f-info.name-id 'c.annotation-str))
+                                               (raise-binding-failure 'form-id "value" f-info.name-id annotation-str))
                                          #'f-info.name-id)))))
                 #,@(wrap-class-clause #`(field id
                                                tmp-id
-                                               static-infos
+                                               ctc-seq
+                                               static-infos-id
                                                predicate
                                                annotation-str
                                                #,mode))])))
