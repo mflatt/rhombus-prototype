@@ -10,13 +10,17 @@
 
 (provide (for-syntax build-class-static-infos))
 
+(module+ for-top-level
+  (provide define-static-info-syntax
+           define-static-info-syntax/maybe*))
+
 (define-for-syntax (build-class-static-infos exposed-internal-id
                                              super
                                              names)
   (with-syntax ([(name constructor-name name-instance
                        internal-name-instance make-internal-name
                        [name-field ...]
-                       [field-static-infos ...])
+                       [field-static-infos-expr ...])
                  names])
     (append
      (list
@@ -32,10 +36,11 @@
          '())
      (list
       #'(begin
-          (define-static-info-syntax/maybe* name-field (#%call-result field-static-infos))
+          (define-static-info-syntax/maybe* name-field (#%call-result #,field-static-infos-expr))
           ...)))))
 
 (define-syntax (define-static-info-syntax/maybe* stx)
   (syntax-parse stx
-    [(_ id (_)) #'(begin)]
-    [(_ id rhs ...) #'(define-static-info-syntax id rhs ...)]))
+    #:literals (unsyntax quote-syntax)
+    [(_ id (_ #,(quote-syntax ()))) #'(begin)]
+    [(_ id rhs) #'(define-static-info-syntax id rhs)]))

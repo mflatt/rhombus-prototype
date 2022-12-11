@@ -13,7 +13,9 @@
          (only-in "class-desc.rkt"
                   define-class-desc-syntax)
          (only-in "class-method-result.rkt"
-                  define-method-result-syntax))
+                  define-method-result-syntax)
+         (submod "class-annotation-indirect.rkt" for-top-level)
+         (submod "class-static-info.rkt" for-top-level))
 
 (provide (for-syntax reorder-for-top-level))
 
@@ -47,6 +49,10 @@
             [((~literal define-annotation-constructor) . _) (keep-stx)]
             [((~literal define-dot-provider-syntax) . _) (keep-stx)]
             [((~literal define-method-result-syntax) . _) (keep-stx)]
+            [((~literal define-static-info-syntax) . _) (keep-stx)]
+            [((~literal define-static-info-syntax/maybe*) . _) (keep-stx)]
+            [((~literal define-class-annotation-indirection) _ pred-id add-str-id _)
+             (loop (cdr defs) (cons def stxs) vars (list* #'pred-id #'add-str-id var-names))]
             [_
              (loop (cdr defs) stxs (cons def vars) var-names)])]))]
     [else defs]))

@@ -214,7 +214,7 @@
                         #,e
                         #,field-id)]
         [else e]))
-    
+
     (define static-infos (field-desc-static-infos fld))
     (define more-static-infos (syntax-local-static-info form1 accessor-id))
     (define all-static-infos (if more-static-infos

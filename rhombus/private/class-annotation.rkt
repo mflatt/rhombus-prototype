@@ -106,7 +106,7 @@
                                       #,field
                                       (raise-annotation-failure who
                                                                 #,field
-                                                                '#,annotation-str))]))))))
+                                                                #,annotation-str))]))))))
 
 (define-syntax (compose-annotation-check stx)
   (syntax-parse stx
@@ -117,5 +117,5 @@
            (unless (predicate val)
              (raise-annotation-failure 'who
                                        val
-                                       'annotation-str))
+                                       annotation-str))
            (m obj val)))]))

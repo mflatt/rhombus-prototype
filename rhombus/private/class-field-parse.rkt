@@ -29,68 +29,48 @@
                   ann::not-equal ...
                   (op rhombus=)
                   default-form ...+)
-           #:with ((~optional c::inline-annotation)) #'(ann ...)
-           #:attr predicate (if (attribute c)
-                                #'c.predicate
-                                #'#f)
-           #:attr annotation-str (if (attribute c)
-                                     #'c.annotation-str
-                                     #'#f)
-           #:attr static-infos (if (attribute c)
-                                   #'c.static-infos
-                                   #'())
+           #:with ((~optional c::unparsed-inline-annotation)) #'(ann ...)
+           #:attr ctc-seq (if (attribute c)
+                              #'c.seq
+                              #'#f)
            #:attr default #`((rhombus-expression (#,group-tag default-form ...))))
   (pattern (group (~optional (~and private (~var private))
                              #:defaults ([private #'#f]))
                   (~optional (~and mutable (~var mutable))
                              #:defaults ([mutable #'#f]))
                   name:identifier
-                  (~optional c::inline-annotation))
-           #:attr predicate (if (attribute c)
-                                #'c.predicate
-                                #'#f)
-           #:attr annotation-str (if (attribute c)
-                                     #'c.annotation-str
-                                     #'#f)
-           #:attr static-infos (if (attribute c)
-                                   #'c.static-infos
-                                   #'())
+                  (~optional c::unparsed-inline-annotation))
+           #:attr ctc-seq (if (attribute c)
+                              #'c.seq
+                              #'#f)
            #:attr default #'#f))
 
 (define-syntax-class :field
   #:datum-literals (group op)
   #:literals (mutable rhombus=)
   (pattern idf::id-field
-           #:attr predicate #'idf.predicate
-           #:attr annotation-str #'idf.annotation-str
-           #:attr static-infos #'idf.static-infos
+           #:attr ctc-seq #'idf.ctc-seq
            #:attr name #'idf.name
            #:attr keyword #'#f
            #:attr default #'idf.default
            #:attr mutable #'idf.mutable
            #:attr private #'idf.private)
   (pattern (group kw:keyword (::block idf::id-field))
-           #:attr predicate #'idf.predicate
-           #:attr annotation-str #'idf.annotation-str
-           #:attr static-infos #'idf.static-infos
+           #:attr ctc-seq #'idf.ctc-seq
            #:attr name #'idf.name
            #:attr keyword #'kw
            #:attr default #'idf.default
            #:attr mutable #'idf.mutable
            #:attr private #'idf.private)
   (pattern (group kw:keyword)
-           #:attr predicate #'#f
-           #:attr annotation-str #'#f
-           #:attr static-infos #'()
+           #:attr ctc-seq #'#f
            #:attr name (datum->syntax #'kw (string->symbol (keyword->string (syntax-e #'kw))) #'kw #'kw)
            #:attr keyword #'kw
            #:attr default #'#f
            #:attr mutable #'#f
            #:attr private #'#f)
   (pattern (group kw:keyword (op rhombus=) default-form ...+)
-           #:attr predicate #'#f
-           #:attr annotation-str #'#f
-           #:attr static-infos #'()
+           #:attr ctc-seq #'#f
            #:attr name (datum->syntax #'kw (string->symbol (keyword->string (syntax-e #'kw))) #'kw #'kw)
            #:attr keyword #'kw
            #:attr default #`((rhombus-expression (#,group-tag default-form ...)))
