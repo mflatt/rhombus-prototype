@@ -13,7 +13,6 @@ the macro is used.
 
 Here’s the classic @rhombus(def_five) macro:
 
-
 @(demo:
     ~defn:
       import:

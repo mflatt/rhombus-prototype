@@ -5,11 +5,11 @@
 
 @(def list_eval = make_rhombus_eval())
 
-@examples(
-  ~eval: list_eval,
-  ~hidden: #true,
-  class Posn(x, y)
-)
+@(demo:
+    ~eval: list_eval
+    ~hidden:
+      class Posn(x, y)
+  )
 
 @title(~tag: "list"){Lists}
 

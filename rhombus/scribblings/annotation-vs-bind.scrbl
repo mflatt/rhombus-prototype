@@ -5,13 +5,13 @@
 
 @(def ann_eval = make_rhombus_eval())
 
-@examples(
-  ~eval: ann_eval,
-  ~hidden: #true,
-  import:
-    rhombus/meta open,
-  class Posn(x, y)
-)
+@(demo:
+    ~eval: ann_eval
+    ~hidden:
+      import:
+        rhombus/meta open
+      class Posn(x, y)
+  )
 
 @title(~tag: "annotation-vs-bind"){Annotations versus Binding Patterns}
 

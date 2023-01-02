@@ -5,9 +5,11 @@
 
 @(def method_eval: make_rhombus_eval())
 
-@examples(~eval: method_eval,
-          ~hidden: #true,
-          fun lookup_specs(make, model): [10, 30])
+@(demo:
+    ~eval: method_eval
+    ~hidden:
+      fun lookup_specs(make, model): [10, 30]
+  )
 
 @title(~tag: "private-method"){Private Fields and Methods}
 

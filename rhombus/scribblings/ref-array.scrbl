@@ -20,13 +20,13 @@ as other operations.
 
  Constructs a mutable array containing given arguments.
 
-@examples(
-  def a: Array(1, 2, 3),
-  a,
-  a[0],
-  a[0] := 0,
-  a
-)
+@(examples:
+    def a: Array(1, 2, 3)
+    a
+    a[0]
+    a[0] := 0
+    a
+  )
 
 }
 
@@ -37,10 +37,10 @@ as other operations.
  Matches an array with as many elements as @rhombus(binding)s, where
  each element matches its corresponding @rhombus(binding).
 
-@examples(
-  def Array(1, x, y): Array(1, 2, 3),
-  y
-)
+@(examples:
+    def Array(1, x, y): Array(1, 2, 3)
+    y
+  )
 
 }
 
@@ -61,9 +61,9 @@ as other operations.
   Creates a fresh array with @rhombus(length) slots, where each slot
   is initialized to @rhombus(val).
 
-@examples(
-  Array.make(3, "x")
-)
+@(examples:
+    Array.make(3, "x")
+  )
 
 }
 
@@ -73,9 +73,9 @@ as other operations.
 
  Returns the length of @rhombus(arr).
 
-@examples(
-  Array.make(3, "x").length()
-)
+@(examples:
+    Array.make(3, "x").length()
+  )
 
 }
 

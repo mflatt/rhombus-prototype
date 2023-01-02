@@ -5,11 +5,11 @@
 
 @(def map_eval = make_rhombus_eval())
 
-@examples(
-  ~eval: map_eval,
-  ~hidden: #true,
-  class Posn(x, y)
-)
+@(demo:
+    ~eval: map_eval
+    ~hidden:
+      class Posn(x, y)
+  )
 
 @title(~tag: "map"){Maps}
 

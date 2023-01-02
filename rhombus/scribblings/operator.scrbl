@@ -5,11 +5,11 @@
 
 @(def op_eval = make_rhombus_eval())
 
-@examples(
-  ~eval: op_eval,
-  ~hidden: #true,
-  class Posn(x, y)
-)
+@(demo:
+    ~eval: op_eval
+    ~hidden:
+      class Posn(x, y)
+  )
 
 @title(~tag: "operator"){Operators}
 

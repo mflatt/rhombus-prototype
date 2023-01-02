@@ -5,12 +5,12 @@
 
 @(def ann_eval: make_rhombus_eval())
 
-@examples(
-  ~eval: ann_eval,
-  ~hidden: #true,
-  class Posn(x, y),
-  import: rhombus/meta open
-)
+@(demo:
+    ~eval: ann_eval
+    ~hidden:
+      class Posn(x, y)
+      import: rhombus/meta open
+  )
 
 @title(~tag: "annotation-macro"){Annotations and Static Information}
 

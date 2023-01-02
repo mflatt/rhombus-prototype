@@ -43,13 +43,13 @@
  @rhombus(/) does not have the same precedence as @rhombus(*) when it
  appears to the right of @rhombus(*).
 
-@examples(
-  1+2,
-  3-4,
-  5*6,
-  8/2,
-  1+2*3
-)
+@(examples:
+    1+2
+    3-4
+    5*6
+    8/2
+    1+2*3
+  )
 
 }
 
@@ -62,10 +62,10 @@
 
  The usual comparsion operators on numbers. See also @rhombus(.=).
 
-@examples(
-  1 < 2,
-  3 >= 3.0
-)
+@(examples:
+    1 < 2
+    3 >= 3.0
+  )
 
 }
 
@@ -88,20 +88,20 @@
 
  The usual functions on numbers.
 
-@examples(
-  sqrt(4),
-  cos(3.14),
-  sin(3.14),
-  tan(3.14 / 4),
-  acos(1),
-  asin(1),
-  atan(0.5),
-  atan(1, 2),
-  log(2.718),
-  exp(1),
-  floor(1.5),
-  ceiling(1.5),
-  round(1.5)
-)
+@(examples:
+    sqrt(4)
+    cos(3.14)
+    sin(3.14)
+    tan(3.14 / 4)
+    acos(1)
+    asin(1)
+    atan(0.5)
+    atan(1, 2)
+    log(2.718)
+    exp(1)
+    floor(1.5)
+    ceiling(1.5)
+    round(1.5)
+  )
 
 }

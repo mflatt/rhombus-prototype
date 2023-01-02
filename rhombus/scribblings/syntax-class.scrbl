@@ -5,13 +5,13 @@
 
 @(def sc_eval = make_rhombus_eval())
 
-@examples(
-  ~eval: sc_eval,
-  ~hidden: #true,
-  import:
-    rhombus/meta open,
-  class Posn(x, y)
-)
+@(demo:
+    ~eval: sc_eval
+    ~hidden:
+      import:
+        rhombus/meta open
+      class Posn(x, y)
+  )
 
 @title(~tag: "syntax-classes"){Syntax Classes}
 

@@ -26,14 +26,14 @@
  the @rhombus(rule_pattern). The @rhombus(rule_pattern) and
  @rhombus(template) forms are the same as for @rhombus(expr.rule).
 
-@examples(
-  ~eval: macro_eval,
-  bind.rule 'many $ann as $id':
-    '$id && [_ :: $ann, $('...')]',
-  def many Integer as tickets: [1, 2, 3],
-  tickets,
-  ~error: def many String as names: "oops",
-)
+@(examples:
+    ~eval: macro_eval
+    bind.rule 'many $ann as $id':
+      '$id && [_ :: $ann, $('...')]'
+    def many Integer as tickets: [1, 2, 3]
+    tickets
+    ~error: def many String as names: "oops"
+  )
 
 }
 

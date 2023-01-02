@@ -5,11 +5,11 @@
 
 @(def posn_eval = make_rhombus_eval())
 
-@examples(
-  ~eval: posn_eval,
-  ~hidden: #true,
-  class Posn(x, y)
-)
+@(demo:
+    ~eval: posn_eval
+    ~hidden:
+      class Posn(x, y)
+  )
 
 @title(~tag: "functions_optional"){Functions and Optional or Keyword Arguments}
 

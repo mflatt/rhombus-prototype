@@ -33,15 +33,15 @@
  use, where each group can be either a another @rhombus(for) clause, an
  expression, or a defintion.
 
-@examples(
-  ~eval: macro_eval,
-  for_clause.macro 'each_in_three $id':
-    'def three: 3
-     each $id: 0..three',
-  for List:
-    each_in_three i
-    i
-)
+@(examples:
+    ~eval: macro_eval
+    for_clause.macro 'each_in_three $id':
+      'def three: 3
+       each $id: 0..three'
+    for List:
+      each_in_three i
+      i
+  )
 
 }
 

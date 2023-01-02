@@ -5,13 +5,13 @@
 
 @(def ann_eval = make_rhombus_eval())
 
-@examples(
-  ~eval: ann_eval,
-  ~hidden: #true,
-  class Posn(x, y),
-  fun flip(p -: Posn): Posn(p.y, p.x),
-  def origin = Posn(0, 0)
-)
+@(demo:
+    ~eval: ann_eval
+    ~hidden:
+      class Posn(x, y)
+      fun flip(p -: Posn): Posn(p.y, p.x)
+      def origin = Posn(0, 0)
+  )
 
 @title(~tag: "annotation"){Annotations and the Dot Operator}
 

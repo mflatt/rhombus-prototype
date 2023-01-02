@@ -264,29 +264,29 @@
 
  See @secref("namespaces") for information on @rhombus(identifier_path).
 
-@examples(
-  class Posn(x, y),
-  Posn(1, 2),
-  Posn.x,
-  Posn.x(Posn(1, 2)),
-  Posn(1, 2).x,
-  ~error: class Posn3(z):
-            extends Posn,
-  class Posn2D(x, y):
-    nonfinal,
-  class Posn3D(z):
-    extends Posn2D,
-  Posn3D(1, 2, 3),
-  class Rectangle(w, h):
-    nonfinal
-    constructor (~width: w, ~height: h):
-        super(w, h),
-  class Square():
-    extends Rectangle
-    constructor (~side: s):
-        super(~width: s, ~height: s)(),
-  Square(~side: 10)
-)
+@(examples:
+    class Posn(x, y)
+    Posn(1, 2)
+    Posn.x
+    Posn.x(Posn(1, 2))
+    Posn(1, 2).x
+    ~error: class Posn3(z):
+              extends Posn
+    class Posn2D(x, y):
+      nonfinal
+    class Posn3D(z):
+      extends Posn2D
+    Posn3D(1, 2, 3)
+    class Rectangle(w, h):
+      nonfinal
+      constructor (~width: w, ~height: h):
+          super(w, h)
+    class Square():
+      extends Rectangle
+      constructor (~side: s):
+          super(~width: s, ~height: s)()
+    Square(~side: 10)
+  )
 
 }
 
@@ -396,18 +396,18 @@
  interface definitions, so using @rhombus(class.together) does not make
  the class and interface names more available in those terms.
 
-@examples(
-  class.together:
-    class Tree(x :: List.of(Node))
-    class Node(val, children :: Tree),
-  class.together:
-    class Even():
-      nonfinal
-      abstract method get_next() :: Odd
-    class Odd():
-      nonfinal
-      abstract method get_next() :: Even  
-)
+@(examples:
+    class.together:
+      class Tree(x :: List.of(Node))
+      class Node(val, children :: Tree)
+    class.together:
+      class Even():
+        nonfinal
+        abstract method get_next() :: Odd
+      class Odd():
+        nonfinal
+        abstract method get_next() :: Even  
+  )
 
 }
 

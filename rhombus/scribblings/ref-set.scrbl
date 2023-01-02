@@ -54,14 +54,14 @@ to be included in the set. These uses of square brackets are implemented by
  while @rhombus({}) does not, since @rhombus({}) produces an empty map
  instead.
 
-@examples(
-  def s: Set{"x", 1, "y", 2},
-  s,
-  s["x"],
-  s[1],
-  s[42],
-  Set("x", 1, "y", 2)
-)
+@(examples:
+    def s: Set{"x", 1, "y", 2}
+    s
+    s["x"]
+    s[1]
+    s[42]
+    Set("x", 1, "y", 2)
+  )
 
 }
 
@@ -85,16 +85,16 @@ to be included in the set. These uses of square brackets are implemented by
  @rhombus(rest_binding) are bound
  as repetitions.
 
-@examples(
-  def Set{"x", "y"}: {"x", "y"},
-  ~error:
-    def Set{"x", "y"}: {"x"},
-  def Set{"a"}: {"a", "b"},
-  def Set{"a", & rst}: {"a", "b", "c"},
-  rst,
-  def Set{"a", val, ...}: {"a", "b", "c"},
-  [val, ...]
-)
+@(examples:
+    def Set{"x", "y"}: {"x", "y"}
+    ~error:
+      def Set{"x", "y"}: {"x"}
+    def Set{"a"}: {"a", "b"}
+    def Set{"a", & rst}: {"a", "b", "c"}
+    rst
+    def Set{"a", val, ...}: {"a", "b", "c"}
+    [val, ...]
+  )
 
 }
 
@@ -131,15 +131,15 @@ to be included in the set. These uses of square brackets are implemented by
  Note that @dots_expr and @rhombus(&) are not supported for construction
  mutable sets, only immutable sets.
 
-@examples(
-  def m: MutableSet{"x", 1, "y", 2},
-  m,
-  m["x"],
-  m["x"] := #false,
-  m,
-  m["x"] := #true,
-  m
-)
+@(examples:
+    def m: MutableSet{"x", 1, "y", 2}
+    m
+    m["x"]
+    m["x"] := #false
+    m
+    m["x"] := #true
+    m
+  )
 
 }
 
@@ -151,12 +151,12 @@ to be included in the set. These uses of square brackets are implemented by
  An empty set, where the @rhombus(Set.empty, ~bind) binding matches
  only an empty set (mutable or immutable).
 
-@examples(
-  Set.empty,
-  match Set()
-  | Set.empty: "empty set"
-  | _: #false
-)
+@(examples:
+    Set.empty
+    match Set()
+    | Set.empty: "empty set"
+    | _: #false
+  )
 
 }
 
@@ -167,10 +167,10 @@ to be included in the set. These uses of square brackets are implemented by
 
  Returns the number of values in @rhombus(set).
 
-@examples(
-  Set.length({"a", "b"}),
-  Set.length(Set()),
-  {"a", "b"}.length()
+@(examples:
+    Set.length({"a", "b"})
+    Set.length(Set())
+    {"a", "b"}.length()
   )
 
 }

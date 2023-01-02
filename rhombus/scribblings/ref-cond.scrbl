@@ -15,15 +15,16 @@
  @rhombus(#false)), returns the result of the @rhombus(then_body) clause,
  otherwise returns the result of the @rhombus(else_body) clause.
 
-@examples(
-  if #true
-  | "yes"
-  | "no",
-  if 1+2 == 3
-  | def yep: "yes"
-    yep
-  | "no"
-)
+@(examples:
+    if #true
+    | "yes"
+    | "no"
+
+    if 1+2 == 3
+    | def yep: "yes"
+      yep
+    | "no"
+  )
 
 }
 
@@ -64,12 +65,13 @@
  @rhombus(#false)), returns the result of the @rhombus(body) clause,
  otherwise returns @rhombus(#void).
 
-@examples(
-  when #true
-  | displayln("yes"),
-  when #false
-  | displayln("no")
-)
+@(examples:
+    when #true
+    | displayln("yes")
+
+    when #false
+    | displayln("no")
+  )
 
 }
 
@@ -82,11 +84,12 @@
  If @rhombus(test_expr) produces @rhombus(#false), returns the result
  of the @rhombus(body) clause, otherwise returns @rhombus(#void).
 
-@examples(
-  unless #true
-  | displayln("yes"),
-  unless #false
-  | displayln("no")
-)
+@(examples:
+    unless #true
+    | displayln("yes")
+    
+    unless #false
+    | displayln("no")
+  )
 
 }

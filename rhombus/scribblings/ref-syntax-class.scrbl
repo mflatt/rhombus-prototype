@@ -110,37 +110,37 @@
  on the left-hand side). Variables bound by the pattern are available
  for use in @rhombus(pattern_body).
 
-@examples(
-  ~eval: macro.make_for_meta_eval(),
-  meta:
-    syntax.class Arithmetic
-    | '$x + $y'
-    | '$x - $y',
-  expr.macro 'doubled_operands $(e :: Arithmetic)':
-    values('$(e.x) * 2 + $(e.y) * 2', ''),
-  doubled_operands 3 + 5,
-  expr.macro 'add_one_to_expression $(e :: Arithmetic)':
-    values('$e ... + 1', ''),
-  add_one_to_expression 2 + 2,
-  meta:
-    syntax.class NTerms
-    | '~one $a':
-        ~attr b:
-          '0'
-        ~attr average:
-          '$(Syntax.unwrap(a) / 2)'
-    | '~two $a $b':
-        def sum:
-          Syntax.unwrap(a) + Syntax.unwrap(b)
-        ~attr average:
-          '$(sum / 2)',
-  expr.macro 'second_term $(e :: NTerms)':
-    values(e.b, ''),
-  second_term ~two 1 2,
-  second_term ~one 3,
-  expr.macro 'average $(e :: NTerms)':
-    values(e.average, ''),
-  average ~two 24 42
-)
+@(examples:
+    ~eval: macro.make_for_meta_eval()
+    meta:
+      syntax.class Arithmetic
+      | '$x + $y'
+      | '$x - $y'
+    expr.macro 'doubled_operands $(e :: Arithmetic)':
+      values('$(e.x) * 2 + $(e.y) * 2', '')
+    doubled_operands 3 + 5
+    expr.macro 'add_one_to_expression $(e :: Arithmetic)':
+      values('$e ... + 1', '')
+    add_one_to_expression 2 + 2
+    meta:
+      syntax.class NTerms
+      | '~one $a':
+          ~attr b:
+            '0'
+          ~attr average:
+            '$(Syntax.unwrap(a) / 2)'
+      | '~two $a $b':
+          def sum:
+            Syntax.unwrap(a) + Syntax.unwrap(b)
+          ~attr average:
+            '$(sum / 2)'
+    expr.macro 'second_term $(e :: NTerms)':
+      values(e.b, '')
+    second_term ~two 1 2
+    second_term ~one 3
+    expr.macro 'average $(e :: NTerms)':
+      values(e.average, '')
+    average ~two 24 42
+  )
 
 }

@@ -5,11 +5,11 @@
 
 @(def args_eval = make_rhombus_eval())
 
-@examples(
-  ~eval: args_eval,
-  ~hidden: #true,
-  class Posn(x, y) 
-)
+@(demo:
+    ~eval: args_eval
+    ~hidden:
+      class Posn(x, y) 
+  )
 
 @title(~tag: "more-arguments"){More Function Arguments}
 

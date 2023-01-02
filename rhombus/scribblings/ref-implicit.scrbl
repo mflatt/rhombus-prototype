@@ -72,14 +72,14 @@ Here are all of the implicit forms:
  keyword, operator, parenthesized term, bracketed term, quoted term,
  or braced term.
 
-@examples(
- 7,
- #{#%literal} 7,
- fun only_sevens(7): "yes",
- only_sevens(7),
- ~error: only_sevens(8)
-)
- 
+@(examples:
+    7
+    #{#%literal} 7
+    fun only_sevens(7): "yes"
+    only_sevens(7)
+    ~error: only_sevens(8)
+  )
+
 }
 
 @doc(
@@ -92,12 +92,12 @@ Here are all of the implicit forms:
  @rhombus(binding), and so on. Multiple expression, bindings, etc.,
  are disallowed.
 
-@examples(
- (1+2),
- #{#%parens} (1+2),
- def (x): 1+2,
- x
-)
+@(examples:
+    (1+2)
+    #{#%parens} (1+2)
+    def (x): 1+2
+    x
+  )
  
 }
 

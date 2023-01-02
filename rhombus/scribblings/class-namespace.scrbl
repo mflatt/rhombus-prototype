@@ -6,9 +6,11 @@
 @(def method_eval: make_rhombus_eval())
 
 @// Hack for initial example in a top-level environment:
-@examples(~eval: method_eval,
-          ~hidden: #true,
-          class Posn(x, y))
+@(demo:
+    ~eval: method_eval
+    ~hidden:
+      class Posn(x, y)
+  )
 
 @title(~tag: "class-namespace"){Namespace}
 

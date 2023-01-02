@@ -30,7 +30,7 @@
   (syntax-parse stx
     #:datum-literals (parens group block)
     [(_ (parens (~or (~optional (group #:label (block label-expr))
-                                #:defaults ([label-expr #'(group (parsed "Examples:"))]))
+                                #:defaults ([label-expr #'(group (parsed #f))]))
                      (~optional (group (~and no-prompt #:no_prompt))
                                 #:defaults ([no-prompt #'#f]))
                      (~optional (group #:eval (block eval-expr))

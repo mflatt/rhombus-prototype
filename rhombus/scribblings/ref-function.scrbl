@@ -62,10 +62,10 @@ normally bound to implement function calls.
 
  @see_implicit(@rhombus(#{#%call}), @rhombus(()), "expression", ~is_infix: #true)
 
-@examples(
-  List.length([1, 2, 3]),
-  List.length #{#%call} ([1, 2, 3])
-)
+@(examples:
+    List.length([1, 2, 3])
+    List.length #{#%call} ([1, 2, 3])
+  )
 
 }
 
@@ -134,28 +134,23 @@ normally bound to implement function calls.
 
  See @secref("namespaces") for information on @rhombus(identifier_path).
 
-@examples(
-  fun f(x):
-    x+1,
-  f(0),
-  fun List.number_of_items(l):
-    List.length(l),
-  List.number_of_items(["a", "b", "c"])
-)
-
-@examples(
-  ~label: #false,
-  def identity: fun (x): x,
-  identity(1),
-)
-
-@examples(
-  ~label: #false,
-  fun curried_add(x):
-    fun(y):
-      x + y,
-  curried_add(1)(2)
-)
+@(examples:
+    ~repl:
+      fun f(x):
+        x+1
+      f(0)
+      fun List.number_of_items(l):
+        List.length(l)
+      List.number_of_items(["a", "b", "c"])
+    ~repl:
+      def identity: fun (x): x
+      identity(1)
+    ~repl:
+      fun curried_add(x):
+        fun(y):
+          x + y
+      curried_add(1)(2)
+  )
 
  When @litchar{|} is not used, then arguments can have default values
  as specified after a @rhombus(=) or in a block after the argument name.
@@ -169,45 +164,41 @@ normally bound to implement function calls.
  is equivalent to the form @rhombus($keyword: $identifier = $default_expr)
  for the @rhombus($identifier) with the same string form as @rhombus($keyword).
 
-@examples(
-  fun f(x, y = x+1):
-    [x, y],
-  f(0),
-  f(0, 2),
-)
-
-@examples(
-  ~label: #false,
-  fun transform([x, y],
-                ~scale: factor = 1,
-                ~dx: dx = 0,
-                ~dy: dy = 0):
-    [factor*x + dx, factor*y + dy],
-  transform([1, 2]),
-  transform([1, 2], ~dx: 7),
-  transform([1, 2], ~dx: 7, ~scale: 2)
-)
+@(examples:
+    ~repl:
+      fun f(x, y = x+1):
+        [x, y]
+      f(0)
+      f(0, 2)
+    ~repl:
+      fun transform([x, y],
+                    ~scale: factor = 1,
+                    ~dx: dx = 0,
+                    ~dy: dy = 0):
+        [factor*x + dx, factor*y + dy]
+      transform([1, 2])
+      transform([1, 2], ~dx: 7)
+      transform([1, 2], ~dx: 7, ~scale: 2)
+  )
 
  When alternatives are specified with multiple @litchar{|} clauses, the
  alternatives are tried in order when the function is called. The
  alternatives can differ by number of arguments as well as keywords,
  annotations, and binding patterns.
 
-@examples(
-  fun | hello(name):
-          "Hello, " +& name
-      | hello(first, last):
-          hello(first +& " " +& last),
-  hello("World"),
-  hello("Inigo", "Montoya"),
-)
-
-@examples(
-  ~label: #false,
-  fun | is_passing(n :: Number): n >= 70
-      | is_passing(pf :: Boolean): pf,
-  is_passing(80) && is_passing(#true)
-)
+@(examples:
+    ~repl:
+      fun | hello(name):
+              "Hello, " +& name
+          | hello(first, last):
+              hello(first +& " " +& last)
+      hello("World")
+      hello("Inigo", "Montoya")
+    ~repl:
+      fun | is_passing(n :: Number): n >= 70
+          | is_passing(pf :: Boolean): pf
+      is_passing(80) && is_passing(#true)
+  )
 
 When a @rhombus(rest) sequence contains @rhombus(& list_binding) or
 @rhombus(repetition_binding $$(@litchar{,}) $$(dots)), then the
@@ -230,27 +221,24 @@ values are collected into a map value to be bound to
 @rhombus(map_binding).
 Only one @rhombus(~& map_binding) can appear in a @rhombus(rest) sequence.
 
-@examples(
-  ~label: #false,
-  fun
-  | is_sorted([]): #true
-  | is_sorted([head]): #true
-  | is_sorted([head, next, & tail]):
-      head <= next && is_sorted([next, & tail]),
-  is_sorted([1, 2, 3, 3, 5]),
-  is_sorted([1, 2, 9, 3, 5])
-)
-
-@examples(
-  ~label: #false,
-  fun
-  | is_sorted([]): #true
-  | is_sorted([head]): #true
-  | is_sorted([head, next, tail, ...]):
-      head <= next && is_sorted([next, tail, ...]),
-  is_sorted([1, 2, 3, 3, 5]),
-  is_sorted([1, 2, 9, 3, 5])
-)
+@(examples:
+    ~repl:
+      fun
+      | is_sorted([]): #true
+      | is_sorted([head]): #true
+      | is_sorted([head, next, & tail]):
+          head <= next && is_sorted([next, & tail])
+      is_sorted([1, 2, 3, 3, 5])
+      is_sorted([1, 2, 9, 3, 5])
+    ~repl:
+      fun
+      | is_sorted([]): #true
+      | is_sorted([head]): #true
+      | is_sorted([head, next, tail, ...]):
+          head <= next && is_sorted([next, tail, ...])
+      is_sorted([1, 2, 3, 3, 5])
+      is_sorted([1, 2, 9, 3, 5])
+  )
 
 }
 
@@ -310,17 +298,17 @@ Only one @rhombus(~& map_binding) can appear in a @rhombus(rest) sequence.
 
  See @secref("namespaces") for information on @rhombus(operator_path).
 
-@examples(
-  operator (x ^^^ y):
-    x +& y +& x,
-  "a" ^^^ "b",
-  operator (x List.(^^^) y):
-    x ++ y ++ x,
-  begin:
-    import: .List open
-    [1, 2] ^^^ [3]
-)
-  
+@(examples:
+    operator (x ^^^ y):
+      x +& y +& x
+    "a" ^^^ "b"
+    operator (x List.(^^^) y):
+      x ++ y ++ x
+    begin:
+      import: .List open
+      [1, 2] ^^^ [3]
+  )
+
 }
 
 
@@ -334,8 +322,8 @@ Only one @rhombus(~& map_binding) can appear in a @rhombus(rest) sequence.
  is a list of values, which is the result of each call to @rhombus(f) in
  order.
 
-@examples(
-  Map.values({"a": 1, "b": 2})
-)
+@(examples:
+    Map.values({"a": 1, "b": 2})
+  )
 
 }

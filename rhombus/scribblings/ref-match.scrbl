@@ -38,13 +38,14 @@
  If no @rhombus(target_expr) produces a true value and there is no
  @rhombus(~else) clause, a run-time exception is raised.
 
-@examples(
-  match 1+2
-  | 3: "three"
-  | ~else: "not three",
-  match [1+2, 3+4]
-  | [x, y]: x+y
-)
+@(examples:
+    match 1+2
+    | 3: "three"
+    | ~else: "not three"
+
+    match [1+2, 3+4]
+    | [x, y]: x+y
+  )
 
 }
 
@@ -54,9 +55,10 @@
 
  Matches any value without binding any identifiers.
 
-@examples(
-  match 1+2
-  | 0: "zero"
-  | _: "nonzero"
-)
+@(examples:
+    match 1+2
+    | 0: "zero"
+    | _: "nonzero"
+  )
+
 }
