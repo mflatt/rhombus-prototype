@@ -49,7 +49,8 @@
  an opaque internal format. The given @rhombus(statinfo_stx) must
  match the form
 
-@(rhombusblock:
+@(
+  rhombusblock:
    (($$(@rhombus(key_id, ~var)), $$(@rhombus(val, ~var))), ...))
 
  Keys for static information are compared based on binding, not merely

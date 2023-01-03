@@ -14,9 +14,10 @@ the use of hierarchical names. Other hierarchical names provided by
 @rhombus(List.cons) via @rhombus(List) (where lists will discussed more
 in @secref("list")):
 
-@(demo:
+@(
+  demo:
     List.length(["a", "b", "c"])
-  )
+)
 
 Use the @rhombus(namespace) form to create a namespace without creating a
 sepaarte module. The identifier after @rhombus(namespace) is bound as a
@@ -24,7 +25,8 @@ namespace, and @rhombus(export) provide forms within the
 @rhombus(namespace) body determine the bindings that can be accessed from the
 name with @rhombus(.).
 
-@(demo:
+@(
+  demo:
     ~eval: ns_eval
     ~defn:
       namespace math:
@@ -46,7 +48,8 @@ module path. Also, @rhombus(import) can be used in nested blocks
 generally, such as a block created with @rhombus(begin) or
 @rhombus(def):
 
-@(demo:
+@(
+  demo:
     ~eval: ns_eval
     ~repl:
       begin:
@@ -58,12 +61,13 @@ generally, such as a block created with @rhombus(begin) or
         tau / 2
     ~repl:
       also_pi
-  )
+)
 
 Naturally, namespaces can be nested further, either by exporting an
 existing namespace or by nesting @rhombus(namespace) forms.
 
-@(demo:
+@(
+  demo:
     ~eval: ns_eval
     ~defn:
       namespace subject:
@@ -79,17 +83,18 @@ existing namespace or by nesting @rhombus(namespace) forms.
       begin:
         import: .subject open
         math.tau             
-  )
+)
 
 A @rhombus(., ~impmod) can be used in an @rhombus(import) form as a shorthand to
 reach a nested binding without making intemediate bindings visible.
 
-@(demo:
+@(
+  demo:
     ~eval: ns_eval
     begin:
       import: rhombus.List open
       length(["a", "b", "c"])
-  )
+)
 
 An existing namespace can be extended by using a dotted name in a
 definition, such as defining @rhombus(math.e) in a context where
@@ -97,13 +102,14 @@ definition, such as defining @rhombus(math.e) in a context where
 namespace; it merely extends the bindings that are available in the
 scope of the extending definition.
 
-@(demo:
+@(
+  demo:
     ~eval: ns_eval
     begin:
       def math.e = 2.71
       math.e
     ~error: math.e
-  )
+)
 
 When a namespace is exported, any extensions of the namespace visible
 at the export site are also exported. Multiple extensions of a

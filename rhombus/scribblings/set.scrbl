@@ -16,7 +16,8 @@ as a map, where the set's elements act as keys and each key's value is
 @rhombus(Map), but @rhombus(Set) accepts just values to include in the
 set. The @rhombus(++) operator effectively unions sets.
 
-@(demo:
+@(
+  demo:
     ~eval: set_eval
     ~defn:
       def friends = {"alice", "bob", "carol"}
@@ -29,7 +30,7 @@ set. The @rhombus(++) operator effectively unions sets.
     ~repl:
       new_friends["david"]
       friends["david"]
-  )
+)
 
 Using @rhombus(Set) explicitly before @litchar("{")...@litchar("}")
 disables the special treatment of @rhombus(:) to indicate a map, and
@@ -47,26 +48,29 @@ Within a set construction using @litchar("{")...@litchar("}"), a
 @rhombus(&) form splice a set into the constructed set, analogous to the
 way @rhombus(&) works for list constructions.
 
-@(demo:
+@(
+  demo:
     ~eval: set_eval
     {"dennis", & friends}
-  )
+)
 
 Also similar to maps, a repetition can be used to construct a set.
 
-@(demo:
+@(
+  demo:
     ~defn:
       def [elem, ...] = ["a", "b", "a", "c", "c"]
     ~repl:
       {elem, ...}
-  )
+)
 
 Set forms work as bindings, too, analogous to map binding forms.
 
-@(demo:
+@(
+  demo:
     ~eval: set_eval
     ~defn:
       def {"carol", other_friend, ...} = friends
     ~repl:
       [other_friend, ...]
-  )
+)

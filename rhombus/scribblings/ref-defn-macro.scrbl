@@ -41,7 +41,8 @@
  See @secref("namespaces") for information about
  @rhombus(identifier_path) and @rhombus(operator_path).
 
-@(examples:
+@(
+  examples:
     ~eval: macro_eval
     defn.macro 'enum:
                   $(id :: Group)
@@ -54,7 +55,7 @@
       b
       c
     b
-  )
+)
 
 }
 
@@ -85,7 +86,8 @@
  See @secref("namespaces") for information about
  @rhombus(identifier_path) and @rhombus(operator_path).
 
-@(examples:
+@(
+  examples:
     ~eval: macro_eval
     defn.sequence_macro 'reverse_defns
                          $defn1
@@ -98,7 +100,7 @@
       def seq_x: seq_y+1
       def seq_y: 10
       seq_x
-  )
+)
 }
 
 @«macro.close_eval»(macro_eval)

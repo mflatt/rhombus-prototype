@@ -26,14 +26,15 @@
  the @rhombus(rule_pattern). The @rhombus(rule_pattern) and
  @rhombus(template) forms are the same as for @rhombus(expr.rule).
 
-@(examples:
+@(
+  examples:
     ~eval: macro_eval
     bind.rule 'many $ann as $id':
       '$id && [_ :: $ann, $('...')]'
     def many Integer as tickets: [1, 2, 3]
     tickets
     ~error: def many String as names: "oops"
-  )
+)
 
 }
 
@@ -69,7 +70,8 @@
  two parts: @rhombus(infoer_id, ~var) and @rhombus(data, ~var),
  combined in the form
 
- @(rhombusblock:
+ @(
+  rhombusblock:
     '($$(@rhombus(infoer_id, ~var)), $$(@rhombus(data, ~var)))')
 
  The @rhombus(infoer_id, ~var) identifier must be bound to a transformer
@@ -133,7 +135,8 @@
 
  The syntax object @rhombus(stx) must have the following shape:
 
- @(rhombusblock:
+ @(
+  rhombusblock:
     '($$(@rhombus(ann_string, ~var)),
       $$(@rhombus(name_identifier, ~var)),
       (($$(@rhombus(static_key, ~var)), $$(@rhombus(static_value, ~var))), ...),
@@ -211,7 +214,8 @@
  Static information is represented by a syntax object that has the
  following shape:
 
- @(rhombusblock:
+ @(
+  rhombusblock:
     '(($$(@rhombus(key_id, ~var)), $$(@rhombus(val, ~var))), ...)')
  
  The result is a syntax object that represents the initial expansion of

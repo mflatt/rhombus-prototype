@@ -21,7 +21,8 @@ not consume.
 For example, here's a @rhombus(thunk) macro that expects a block and
 wraps as a zero-argument function
 
-@(demo:
+@(
+  demo:
     ~eval: macro_eval
     ~defn:
       import:
@@ -32,7 +33,7 @@ wraps as a zero-argument function
     ~repl:
       thunk: 1 + "oops"
       (thunk: 1 + 3)()
-  )
+)
 
 The @rhombus(expr.rule) form expects @rhombus('') to create a pattern
 that matches a sequence of terms. Either the first or second term within
@@ -47,7 +48,8 @@ The @rhombus(expr.rule) form must be imported from
 @rhombusmodname(rhombus/meta), but @rhombus(rule) is available in just
 @rhombusmodname(rhombus):
 
-@(demo:
+@(
+  demo:
     ~defn:
       :
         // no import needed      
@@ -55,14 +57,15 @@ The @rhombus(expr.rule) form must be imported from
           'fun (): $body'
     ~repl:
       (thunk: 1 + 3)()
-  )
+)
 
 A postfix macro can be implemented as an infix operator that consumes no
 additional terms after the operator. For example, a postfix @rhombus(!)
 might be defined (shadowing the normal @rhombus(!) for ``not'') like
 this:
 
-@(demo:
+@(
+  demo:
     ~eval: macro_eval
     ~defn:
       rule '$a !':
@@ -73,7 +76,7 @@ this:
       | factorial(n): n*factorial(n-1)
     ~repl:
       10! + 1
-  )
+)
 
 The @rhombus(expr.rule) or @rhombus(def) form is a shorthand for a more
 general @rhombus(expr.macro) macro form. With @rhombus(expr.macro), the
@@ -90,12 +93,13 @@ expanded expression and the remaining terms that have not been consumed.
 
 For example, the @rhombus(!) macro can be equivalently written like this:
 
-@(demo:
+@(
+  demo:
     ~eval: macro_eval
     ~defn:
       expr.macro '$a ! $tail ...':
         values('factorial($a)', '$tail ...')
-  )
+)
 
 Since an @rhombus(expr.macro) implementation can use arbitrary
 compile-time code, it can inspect the input syntax objects in more way
@@ -113,7 +117,8 @@ disable the special treatment of @rhombus(..., ~bind) at the end of a
 pattern and template sequence and reify the tail as a fresh list---so
 don't do this:
 
-@(demo:
+@(
+  demo:
     ~eval: macro_eval
     ~defn:
       expr.macro '$a ! $(tail :: Term) ...':
@@ -138,7 +143,8 @@ macros provide control over evaluator order. For example, this
 @rhombus(+<=) operator is like @rhombus(+), but evaluates its right-hand
 side before it’s left-hand side:
 
-@(demo:
+@(
+  demo:
     ~defn:
       rule '$a +<= $b':
         ~parsed_right
@@ -146,7 +152,7 @@ side before it’s left-hand side:
     ~repl:
       1 +<= 2
       ~error: (1+"oops") +<= (2+"ouch")  // complains about "ouch", not "oops"
-  )
+)
 
 Declaring @rhombus(~parsed_right) affects a @rhombus(expr.macro) macro
 in a second way: the macro will receive only the left (if any) and right

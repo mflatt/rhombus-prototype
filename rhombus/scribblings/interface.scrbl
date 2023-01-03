@@ -17,7 +17,8 @@ at most one superclass. but it can implement any number of interfaces.
 An interface is never final, so @rhombus(nonfinal, ~class_clause) is
 not needed in an interface.
 
-@(demo:
+@(
+  demo:
     ~defn:
       interface Shape
       interface Dance
@@ -27,13 +28,14 @@ not needed in an interface.
       def s: Square(10)
       s is_a Shape
       s is_a Dance
-  )
+)
 
 Interfaces can @rhombus(extend, ~intf_clause) other interfaces. Unlike
 classes extending at one most superclass, interfaces can extend any
 number of superinterfaces.
 
-@(demo:
+@(
+  demo:
     ~defn:
       interface MailingAddress
       interface Residence
@@ -48,7 +50,7 @@ number of superinterfaces.
         implements:
           HomeAddress
           LawncareClient
-  )
+)
 
 
 @close_eval(subclass_eval)

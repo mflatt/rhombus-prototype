@@ -20,7 +20,8 @@ each iteration. The length of the sequence determines the number of
 iterations. The @rhombus(..) operator creates a sequence of integers
 from a starting integer (inclusive) to an ending integer (exclusive):
 
-@(demo:
+@(
+  demo:
     for:
       each i: 1..4
       displayln(i)
@@ -30,7 +31,8 @@ If a @rhombus(for) body includes multiple @rhombus(each, ~for_clause) clauses, t
 are nested. That is, for each element of the first @rhombus(each, ~for_clause) clause,
 all elements are used for the second @rhombus(each, ~for_clause) clause, and so on.
 
-@(demo:
+@(
+  demo:
     for:
       each friend: ["Alice", "Bob", "Carol"]
       each say: ["Hello", "Goodbye"]
@@ -42,7 +44,8 @@ An advantage of having @rhombus(each, ~for_clause) clauses in the body of
 languages, is that definitions or expressions can be written among
 @rhombus(each, ~for_clause) clauses.
 
-@(demo:
+@(
+  demo:
     for:
       each friend: ["Alice", "Bob", "Carol"]
       def dear_friend = "dear " +& friend
@@ -53,7 +56,8 @@ languages, is that definitions or expressions can be written among
 To draw elements from sequences in parallel, use a block of bindings
 immediately after @rhombus(each, ~for_clause).
 
-@(demo:
+@(
+  demo:
     for:
       each:
         friend: ["Alice", "Bob", "Carol"]
@@ -73,7 +77,8 @@ The @rhombus(for) form acts as a comprehension form when a
 accumulating the values produced by each iteration of the @rhombus(for)
 body.
 
-@(demo:
+@(
+  demo:
     for List:
       each i: 1..4
       "number " +& i
@@ -86,7 +91,8 @@ body.
 If you prefer, you can put the reducer at the end of a @rhombus(for)
 body with @rhombus(~into).
 
-@(demo:
+@(
+  demo:
     for:
       each i: 1..4
       "number " +& i
@@ -97,7 +103,8 @@ body with @rhombus(~into).
 @rhombus(for) form must produce two values for each iteration: a key and
 a value.
 
-@(demo:
+@(
+  demo:
     for Map:
       each:
         friend: ["alice", "bob", "carol"]
@@ -113,7 +120,8 @@ values in the case of the first iteration), and the @rhombus(for) body
 returns as many values as identifiers to provide new values for the
 identifiers.
 
-@(demo:
+@(
+  demo:
     fun sum(l -: List):
       for values(sum = 0):
         each i: l
@@ -128,7 +136,8 @@ following example, @rhombus(ll) is annotated as a list of lists, so both
 the outer and inner iterations are specialized---although that
 specialization is visible only as a change in performance, if at all.
 
-@(demo:
+@(
+  demo:
     fun sum2d(ll -: List.of(List.of(Number))):
       for values(sum = 0):
         each l: ll

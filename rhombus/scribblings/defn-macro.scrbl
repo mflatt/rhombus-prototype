@@ -13,7 +13,8 @@ the macro is used.
 
 Here’s the classic @rhombus(def_five) macro:
 
-@(demo:
+@(
+  demo:
     ~defn:
       import:
         rhombus/meta open
@@ -23,7 +24,7 @@ Here’s the classic @rhombus(def_five) macro:
     ~repl:
       def_five v
       v
-  )
+)
 
 Declarations macros are written with @rhombus(decl.macro), and the
 block produced by expansion can use forms like @rhombus(import) and

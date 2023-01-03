@@ -62,10 +62,11 @@ normally bound to implement function calls.
 
  @see_implicit(@rhombus(#{#%call}), @rhombus(()), "expression", ~is_infix: #true)
 
-@(examples:
+@(
+  examples:
     List.length([1, 2, 3])
     List.length #{#%call} ([1, 2, 3])
-  )
+)
 
 }
 
@@ -134,7 +135,8 @@ normally bound to implement function calls.
 
  See @secref("namespaces") for information on @rhombus(identifier_path).
 
-@(examples:
+@(
+  examples:
     ~repl:
       fun f(x):
         x+1
@@ -150,7 +152,7 @@ normally bound to implement function calls.
         fun(y):
           x + y
       curried_add(1)(2)
-  )
+)
 
  When @litchar{|} is not used, then arguments can have default values
  as specified after a @rhombus(=) or in a block after the argument name.
@@ -164,7 +166,8 @@ normally bound to implement function calls.
  is equivalent to the form @rhombus($keyword: $identifier = $default_expr)
  for the @rhombus($identifier) with the same string form as @rhombus($keyword).
 
-@(examples:
+@(
+  examples:
     ~repl:
       fun f(x, y = x+1):
         [x, y]
@@ -179,14 +182,15 @@ normally bound to implement function calls.
       transform([1, 2])
       transform([1, 2], ~dx: 7)
       transform([1, 2], ~dx: 7, ~scale: 2)
-  )
+)
 
  When alternatives are specified with multiple @litchar{|} clauses, the
  alternatives are tried in order when the function is called. The
  alternatives can differ by number of arguments as well as keywords,
  annotations, and binding patterns.
 
-@(examples:
+@(
+  examples:
     ~repl:
       fun | hello(name):
               "Hello, " +& name
@@ -198,7 +202,7 @@ normally bound to implement function calls.
       fun | is_passing(n :: Number): n >= 70
           | is_passing(pf :: Boolean): pf
       is_passing(80) && is_passing(#true)
-  )
+)
 
 When a @rhombus(rest) sequence contains @rhombus(& list_binding) or
 @rhombus(repetition_binding $$(@litchar{,}) $$(dots)), then the
@@ -221,7 +225,8 @@ values are collected into a map value to be bound to
 @rhombus(map_binding).
 Only one @rhombus(~& map_binding) can appear in a @rhombus(rest) sequence.
 
-@(examples:
+@(
+  examples:
     ~repl:
       fun
       | is_sorted([]): #true
@@ -238,7 +243,7 @@ Only one @rhombus(~& map_binding) can appear in a @rhombus(rest) sequence.
           head <= next && is_sorted([next, tail, ...])
       is_sorted([1, 2, 3, 3, 5])
       is_sorted([1, 2, 9, 3, 5])
-  )
+)
 
 }
 
@@ -298,7 +303,8 @@ Only one @rhombus(~& map_binding) can appear in a @rhombus(rest) sequence.
 
  See @secref("namespaces") for information on @rhombus(operator_path).
 
-@(examples:
+@(
+  examples:
     operator (x ^^^ y):
       x +& y +& x
     "a" ^^^ "b"
@@ -307,7 +313,7 @@ Only one @rhombus(~& map_binding) can appear in a @rhombus(rest) sequence.
     begin:
       import: .List open
       [1, 2] ^^^ [3]
-  )
+)
 
 }
 
@@ -322,8 +328,9 @@ Only one @rhombus(~& map_binding) can appear in a @rhombus(rest) sequence.
  is a list of values, which is the result of each call to @rhombus(f) in
  order.
 
-@(examples:
+@(
+  examples:
     Map.values({"a": 1, "b": 2})
-  )
+)
 
 }

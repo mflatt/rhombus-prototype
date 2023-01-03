@@ -12,7 +12,8 @@
  Returns the result of the @rhombus(body) block, which may include local
  definitions.
 
-@(examples:
+@(
+  examples:
     begin:
       1
       2
@@ -20,7 +21,7 @@
     begin:
       def one: 1
       one + one
-  )
+)
 
 }
 

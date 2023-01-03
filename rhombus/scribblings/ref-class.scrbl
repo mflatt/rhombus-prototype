@@ -264,7 +264,8 @@
 
  See @secref("namespaces") for information on @rhombus(identifier_path).
 
-@(examples:
+@(
+  examples:
     class Posn(x, y)
     Posn(1, 2)
     Posn.x
@@ -286,7 +287,7 @@
       constructor (~side: s):
           super(~width: s, ~height: s)()
     Square(~side: 10)
-  )
+)
 
 }
 
@@ -396,7 +397,8 @@
  interface definitions, so using @rhombus(class.together) does not make
  the class and interface names more available in those terms.
 
-@(examples:
+@(
+  examples:
     class.together:
       class Tree(x :: List.of(Node))
       class Node(val, children :: Tree)
@@ -407,7 +409,7 @@
       class Odd():
         nonfinal
         abstract method get_next() :: Even  
-  )
+)
 
 }
 

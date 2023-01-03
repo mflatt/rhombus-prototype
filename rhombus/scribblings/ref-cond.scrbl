@@ -15,7 +15,8 @@
  @rhombus(#false)), returns the result of the @rhombus(then_body) clause,
  otherwise returns the result of the @rhombus(else_body) clause.
 
-@(examples:
+@(
+  examples:
     if #true
     | "yes"
     | "no"
@@ -24,7 +25,7 @@
     | def yep: "yes"
       yep
     | "no"
-  )
+)
 
 }
 
@@ -65,13 +66,14 @@
  @rhombus(#false)), returns the result of the @rhombus(body) clause,
  otherwise returns @rhombus(#void).
 
-@(examples:
+@(
+  examples:
     when #true
     | displayln("yes")
 
     when #false
     | displayln("no")
-  )
+)
 
 }
 
@@ -84,12 +86,13 @@
  If @rhombus(test_expr) produces @rhombus(#false), returns the result
  of the @rhombus(body) clause, otherwise returns @rhombus(#void).
 
-@(examples:
+@(
+  examples:
     unless #true
     | displayln("yes")
     
     unless #false
     | displayln("no")
-  )
+)
 
 }

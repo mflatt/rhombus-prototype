@@ -28,10 +28,11 @@
  @rhombus(.) and @rhombus(#{#%ref}), for changing mutable components of
  some values.
 
-@(examples:
+@(
+  examples:
     def mutable count: 0
     count := count + 1
     count
-  )
+)
 
 }

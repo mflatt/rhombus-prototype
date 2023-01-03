@@ -110,7 +110,8 @@
  on the left-hand side). Variables bound by the pattern are available
  for use in @rhombus(pattern_body).
 
-@(examples:
+@(
+  examples:
     ~eval: macro.make_for_meta_eval()
     meta:
       syntax.class Arithmetic
@@ -141,6 +142,6 @@
     expr.macro 'average $(e :: NTerms)':
       values(e.average, '')
     average ~two 24 42
-  )
+)
 
 }

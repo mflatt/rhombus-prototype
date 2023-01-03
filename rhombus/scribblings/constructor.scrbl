@@ -12,7 +12,8 @@ both. In that case, the class constructor accepts the argument in
 keyword form, makes the argument optional, or both. Keyword fields are
 printed with their keywords, too.
 
-@(demo:
+@(
+  demo:
     ~defn:
       class Posn(~x: x, ~y: y = x)
     ~repl:
@@ -20,7 +21,7 @@ printed with their keywords, too.
       Posn(~x: 1)
       def Posn(~y: y1, ~x: x1): Posn(~x: 1, ~y: 2)
       y1
-  )
+)
 
 The keyword for a field does not have to match the name of the field as
 it is referenced by the @rhombus(.) operator. Typically, the names are
@@ -28,7 +29,8 @@ the same, and keyword fields support the same shothand as in function
 definitions where a keyword by itself implicitly supplies the
 corresponding identifier.
 
-@(demo:
+@(
+  demo:
     ~defn:
       class Posn(~x, ~y)
     ~repl:
@@ -53,7 +55,8 @@ form, but with @rhombus(constructor, ~class_clause) in place of
 function that is like the default constructor, at least in the case of a
 class without a superclass.
 
-@(demo:
+@(
+  demo:
     ~eval: method_eval
     ~defn:
       class Posn(~x, ~y):
@@ -68,7 +71,7 @@ class without a superclass.
       Posn()
       Posn(~x: 1, ~y: 2)
       Posn(~r: 1, ~θ: 0.79)
-  )
+)
 
 Using the name @rhombus(super) to access an underlying constructor makes
 a kind of sense, but that name can also be misleading: calling
@@ -97,7 +100,8 @@ tagged with a @rhombus(~z) keyword, so the second set of arguments to
 keyword. Meanwhile, the first set of arguments can take any of the forms
 that the @rhombus(Posn) constructor supports.
 
-@(demo:
+@(
+  demo:
     ~eval: method_eval
     ~defn:
       class Posn3D(~z):

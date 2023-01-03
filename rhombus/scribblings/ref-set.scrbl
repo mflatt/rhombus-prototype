@@ -54,14 +54,15 @@ to be included in the set. These uses of square brackets are implemented by
  while @rhombus({}) does not, since @rhombus({}) produces an empty map
  instead.
 
-@(examples:
+@(
+  examples:
     def s: Set{"x", 1, "y", 2}
     s
     s["x"]
     s[1]
     s[42]
     Set("x", 1, "y", 2)
-  )
+)
 
 }
 
@@ -85,7 +86,8 @@ to be included in the set. These uses of square brackets are implemented by
  @rhombus(rest_binding) are bound
  as repetitions.
 
-@(examples:
+@(
+  examples:
     def Set{"x", "y"}: {"x", "y"}
     ~error:
       def Set{"x", "y"}: {"x"}
@@ -94,7 +96,7 @@ to be included in the set. These uses of square brackets are implemented by
     rst
     def Set{"a", val, ...}: {"a", "b", "c"}
     [val, ...]
-  )
+)
 
 }
 
@@ -131,7 +133,8 @@ to be included in the set. These uses of square brackets are implemented by
  Note that @dots_expr and @rhombus(&) are not supported for construction
  mutable sets, only immutable sets.
 
-@(examples:
+@(
+  examples:
     def m: MutableSet{"x", 1, "y", 2}
     m
     m["x"]
@@ -139,7 +142,7 @@ to be included in the set. These uses of square brackets are implemented by
     m
     m["x"] := #true
     m
-  )
+)
 
 }
 
@@ -151,12 +154,13 @@ to be included in the set. These uses of square brackets are implemented by
  An empty set, where the @rhombus(Set.empty, ~bind) binding matches
  only an empty set (mutable or immutable).
 
-@(examples:
+@(
+  examples:
     Set.empty
     match Set()
     | Set.empty: "empty set"
     | _: #false
-  )
+)
 
 }
 
@@ -167,10 +171,11 @@ to be included in the set. These uses of square brackets are implemented by
 
  Returns the number of values in @rhombus(set).
 
-@(examples:
+@(
+  examples:
     Set.length({"a", "b"})
     Set.length(Set())
     {"a", "b"}.length()
-  )
+)
 
 }

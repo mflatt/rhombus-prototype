@@ -17,15 +17,17 @@ right-associative, or non-associative.
 Our example @rhombus(<>) definition did not specify any precedence
 relationships, so it cannot be used next to @rhombus(*):
 
-@(rhombusblock:
+@(
+  rhombusblock:
     1 <> 2 * 3 // not allowed
-  )
+)
 
 In this example, enforestation would report that @rhombus(<>) and
 @rhombus(*) are unrelated, so parentheses are needed somewhere. @Rhombus
 supports precedence declarations through a @rhombus(~weaker_than) keyword:
 
-@(rhombusblock:
+@(
+  rhombusblock:
     operator (x <> y):
       ~weaker_than: * / + -
       Posn(x, y)

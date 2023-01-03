@@ -12,7 +12,8 @@ field using @rhombus(:=). An assignment can appear within methods using
 the field name directly, or it can appear on a @rhombus(.) expression
 that accesses a field in an object.
 
-@(demo:
+@(
+  demo:
     ~eval: method_eval
     ~defn:
       class Posn(mutable x, mutable y):
@@ -25,7 +26,7 @@ that accesses a field in an object.
       p
       p.go_home()
       p
-  )
+)
 
 Extra fields can be added to a class with @rhombus(field, ~class_clause)
 clauses. These fields are not represented the class's constructor, and
@@ -33,7 +34,8 @@ so a @rhombus(field, ~class_clause) has an expression to provide the
 field's initial value. A field added with @rhombus(field, ~class_clause)
 is always mutatble, and @rhombus(:=) can be used to assign to the field.
 
-@(demo:
+@(
+  demo:
     ~eval: method_eval
     ~defn:
       class Posn(x, y):
@@ -42,7 +44,7 @@ is always mutatble, and @rhombus(:=) can be used to assign to the field.
       def p = Posn(3, 4)
       p.name := "Dotty"
       p.name
-  )
+)
 
 Sometimes, you want a value associated to an object that is not stored
 in a field, but is still accessed and assigned with field-like notation.
@@ -56,7 +58,8 @@ A read-only @rhombus(property, ~class_clause) is written similar to a
 @rhombus(method, ~class_clause), possibly with a result annotation, but
 without parentheses for arguments.
 
-@(demo:
+@(
+  demo:
     ~eval: method_eval
     ~defn:
       class Posn(x, y):
@@ -69,7 +72,7 @@ without parentheses for arguments.
       Posn(4, 4).angle
       ~error:
         Posn(4, 4).angle := 0.0
-  )
+)
 
 To define a property that supports assignment, use @litchar{|} similar
 to defining a function with @rhombus(fun) and multiple cases. The first
@@ -79,7 +82,8 @@ assignment form. In the assignment-like form to define a property, the
 part after @rhombus(:=) is a binding position, just like a function or
 method argument.
 
-@(demo:
+@(
+  demo:
     ~eval: method_eval
     ~defn:
       class Posn(mutable x, mutable y):
@@ -99,7 +103,7 @@ method argument.
       p.angle
       p.angle := 0.0
       p
-  )
+)
 
 A property can be a good choice for derived values like
 @rhombus(magnitude) and @rhombus(angle) in a @rhombus(Posn), because

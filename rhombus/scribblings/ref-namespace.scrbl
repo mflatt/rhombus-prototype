@@ -55,7 +55,8 @@ as part of their grammar:
  @rhombus(identifier_path$$(rhombus(.))$$(rhombus(name, ~var))). The name
  @rhombus(identifier_path) also works with @rhombus(import).
 
-@(examples:
+@(
+  examples:
     namespace math:
       export: pi tau
       def pi: 3.14
@@ -64,7 +65,7 @@ as part of their grammar:
     begin:
       import: .math open
       [pi, tau]
-  )
+)
 
 }
 

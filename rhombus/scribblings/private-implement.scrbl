@@ -25,7 +25,8 @@ To privately implement an interface, use
 and override the interfaces methods with
 @rhombus(private, ~class_clause) methods.
 
-@(demo:
+@(
+  demo:
     ~defn:      
       class Posn(x, y):
         private implements: Printable
@@ -40,6 +41,6 @@ and override the interfaces methods with
       Posn(1, 2)
       ~error:
         Posn(1, 2).print(current_output_port())
-  )
+)
 
 @close_eval(method_eval)

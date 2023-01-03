@@ -33,7 +33,8 @@
  use, where each group can be either a another @rhombus(class) clause, an
  expression, a defintion, or an export.
 
-@(examples:
+@(
+  examples:
     ~eval: macro_eval
     class_clause.macro 'lazy_method $id(): $body':
       'private field result: #false
@@ -47,7 +48,7 @@
     def ming: Person("Ming")
     ming.greeting()
     ming.greeting() === ming.greeting()
-  )
+)
 
 }
 

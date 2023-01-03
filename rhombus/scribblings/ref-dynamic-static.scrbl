@@ -17,7 +17,8 @@
  See also @secref("static-lib").
 
 
-@(examples:
+@(
+  examples:
     class Posn(x, y)
     fun (ps -: List.of(Posn)):
       use_static
@@ -25,7 +26,7 @@
     ~error: fun (ps):
               use_static
               ps[0].x
-  )
+)
 
 }
 
@@ -37,12 +38,13 @@
  modes, which allows either static or dynamic resolution of a
  component access or lookup specialization.
 
-@(examples:
+@(
+  examples:
     class Posn(x, y)
     fun (ps):
       use_dynamic
       ps[0].x
-  )
+)
 
 }
 
@@ -57,7 +59,8 @@
  @rhombus(dynamic) around an expression has the effect of discarding
  any static information available for the expression.
 
-@(examples:
+@(
+  examples:
     class Posn(x, y)
     ~error: fun (ps -: List.of(Posn)):
               use_static
@@ -67,6 +70,6 @@
               dynamic(ps[0]).x
     fun (ps -: List.of(Posn)):
       dynamic(dynamic(ps)[0]).x
-  )
+)
 
 }

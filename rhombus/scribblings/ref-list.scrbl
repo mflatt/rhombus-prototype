@@ -55,13 +55,14 @@ to append lists.
 
  @see_implicit(@rhombus(#{#%brackets}), @rhombus([]), "expression")
 
-@(examples:
+@(
+  examples:
     def lst = List(1, 2, 3)
     lst
     lst[0]
     lst ++ [4, 5]
     #{#%brackets} [1, 2, 3]
-  )
+)
 
 }
 
@@ -84,7 +85,8 @@ to append lists.
 
  @see_implicit(@rhombus(#{#%brackets}, ~bind), @rhombus([]), "binding")
 
-@(examples:
+@(
+  examples:
     def List(1, x, y): [1, 2, 3]
     y
     def [1, also_x, also_y]: [1, 2, 3]
@@ -93,7 +95,7 @@ to append lists.
     xs
     def List(1, x, ...): [1, 2, 3]
     [x, ...]
-  )
+)
 
 }
 
@@ -115,10 +117,11 @@ to append lists.
  Like @rhombus(List, ~annot) as an annotation, but matches only non-empty
  lists.
 
-@(examples:
+@(
+  examples:
     [1] :: NonemptyList
     ~error: [] :: NonemptyList
-  )
+)
 
 }
 
@@ -138,9 +141,10 @@ to append lists.
  Creates a list like @rhombus(lst), but with @rhombus(elem) added to
  the front.
 
-@(examples:
+@(
+  examples:
     List.cons(1, [2, 3])
-  )
+)
 
 }
 
@@ -152,11 +156,12 @@ to append lists.
  first element of the list and @rhombus(list_binding) matches the
  rest of the list.
 
-@(examples:
+@(
+  examples:
     def List.cons(x, y): [1, 2, 3]
     x
     y
-  )
+)
 
 }
 
@@ -176,9 +181,10 @@ to append lists.
 
  Returns the first element of @rhombus(lst).
 
-@(examples:
+@(
+  examples:
     List.first(["a", "b", "c"])
-  )
+)
 
 }
 
@@ -188,9 +194,10 @@ to append lists.
 
  Returns a list like @rhombus(lst), but without its first element.
 
-@(examples:
+@(
+  examples:
     List.rest(["a", "b", "c"])
-  )
+)
 
 }
 
@@ -200,11 +207,12 @@ to append lists.
 
  Returns the number of items in @rhombus(lst).
 
-@(examples:
+@(
+  examples:
     List.length([1, 4, 8])
     List.length([])
     [1, 4, 8].length
-  )
+)
 
 }
 
@@ -216,9 +224,10 @@ to append lists.
  Returns a list containing the integers 0 to @rhombus(n) (exclusive) in
  order.
 
-@(examples:
+@(
+  examples:
     List.iota(3)
     List.iota(0)
-  )
+)
 
 }

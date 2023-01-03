@@ -35,7 +35,8 @@ The customization shown below defines @rhombus(_Sandwich) with
 @rhombus(internal, ~class_clause) so that it can be used in the binding
 and annotation expansion:
 
-@(demo:
+@(
+  demo:
     ~eval: method_eval
     ~defn:
       class Sandwich(ingredients):
@@ -56,7 +57,7 @@ and annotation expansion:
       top
       blt is_a Sandwich
       blt is_a Sandwich.of(Number)
-  )
+)
 
 When a class has a superclass, the @rhombus(super) constructor function
 is curried for customizing a subclass constructor. The name bound by
@@ -72,7 +73,8 @@ of the class. A superclass binding or annotation can be combined with an
 internal binding or annotation using the @rhombus(&&, ~bind) binding
 operator or @rhombus(&&, ~annot) annotation operator.
 
-@(demo:
+@(
+  demo:
     ~eval: method_eval
     ~defn:
       class Sub(inches):
@@ -95,7 +97,7 @@ operator or @rhombus(&&, ~annot) annotation operator.
       [stuff, ...]
       blt is_a Sub.of(String)
       Sandwich("pb", "j") is_a Sub.of(String)
-  )
+)
 
 
 @close_eval(method_eval)

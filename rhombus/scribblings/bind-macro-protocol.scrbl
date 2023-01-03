@@ -158,7 +158,8 @@ receives the @rhombus(IF) form name, a @rhombus(success) form, and a @rhombus(fa
 Here's a use of the low-level protocol to implement a @rhombus(fruit) pattern,
 which matches only things that are fruits according to @rhombus(is_fruit):
 
-@(demo:
+@(
+  demo:
     ~eval: bind_eval
     ~defn:
       import: rhombus/meta open
@@ -196,7 +197,7 @@ which matches only things that are fruits according to @rhombus(is_fruit):
       snack
       ~error:
         def fruit(dessert) = "cookie"
-  )
+)
 
 The @rhombus(fruit) binding form assumes (without directly checking)
 that its argument is an identifier, and its infoer discards static
@@ -223,7 +224,8 @@ original builder was given, and possibly extending the @rhombus(success)
 form. A builder must be used in tail position, and it's
 @rhombus(success) position is a tail position.
 
-@(demo:
+@(
+  demo:
     ~eval: bind_eval
     ~defn:
       bind.macro '$a <&> $b':
@@ -271,7 +273,7 @@ form. A builder must be used in tail position, and it's
       def Posn(0, y) <&> Posn(x, 1) : Posn(0, 1)
       x
       y
-  )
+)
 
 One subtlety here is the syntactic category of @rhombus(IF) for a builder
 call. The @rhombus(IF) form might be a definition form, or it might be

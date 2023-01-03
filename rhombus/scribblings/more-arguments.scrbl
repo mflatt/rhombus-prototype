@@ -5,11 +5,12 @@
 
 @(def args_eval = make_rhombus_eval())
 
-@(demo:
+@(
+  demo:
     ~eval: args_eval
     ~hidden:
       class Posn(x, y) 
-  )
+)
 
 @title(~tag: "more-arguments"){More Function Arguments}
 
@@ -25,7 +26,8 @@ For example, in the following definition of @rhombus(add), the argument
 @rhombus(x) is bound as a repetition, which allows any number of
 arguments:
 
-@(demo:
+@(
+  demo:
     ~defn:
       fun add(x -: Number, ...):
         for values(total = 0):
@@ -39,7 +41,7 @@ arguments:
     ~repl:
       def ns = [20, 30, 40]
       add(10, & ns, 50)
-  )
+)
 
 As illustrated in the calls to @rhombus(add), @rhombus(...) and
 @rhombus(&) work for function calls the same way that they work for
@@ -54,14 +56,16 @@ A function doesn't have to accept an arbitrary number of arguments for
 at the total number of spliced arguments matches the number that the
 function expects.
 
-@(demo:
+@(
+  demo:
     expt(& [2, 10])
-  )
+)
 
 The @rhombus(add) function could also be written with @rhombus(&) for
 its argument instead of @rhombus(...), like this:
 
-@(demo:
+@(
+  demo:
     ~eval: args_eval
     ~defn:
       fun add(& xs -: List.of(Number)):
@@ -70,7 +74,7 @@ its argument instead of @rhombus(...), like this:
           total+v
     ~repl:
       add(1, 2, 3, 4)
-  )
+)
 
 Note that the annotation on @rhombus(x) as a repetition refers to an
 individual argument within the repetition, while the annotation on
@@ -81,20 +85,22 @@ use @rhombus(~&) to bind an argument that receives all additional
 keyword arguments. The additional arguments are collected into a map
 with keywords as keys.
 
-@(demo:
+@(
+  demo:
     ~eval: args_eval
     ~defn:
       fun roster(~manager: who, ~& players):
         players
     ~repl:
       roster(~pitcher: "Dave", ~manager: "Phil", ~catcher: "Johnny")
-  )
+)
 
 Similarly, use @rhombus(~&) in a function call to pass keyword arguments
 that are in map. Using @rhombus(~&) to call a function is most useful
 when chaining from one keyword-accepting function to another.
 
-@(demo:
+@(
+  demo:
     ~eval: args_eval
     ~defn:
       fun
@@ -111,7 +117,7 @@ when chaining from one keyword-accepting function to another.
       shape_area(~type: "circle", ~radius: 1)
       shape_area(~type: "circle", ~diameter: 8.5)
       shape_area(~type: "rectangle", ~width: 8.5, ~height: 11)
-  )
+)
 
 A function call can use @rhombus(~&) any number of times, and in any
 order compared to other arguments. A function definition can use
@@ -125,7 +131,8 @@ matching to distinguish calls with the same number of arguments.
 Different cases use @rhombus(&), @rhombus(...), and @rhombus(~&)
 independently.
 
-@(demo:
+@(
+  demo:
     ~eval: args_eval
     ~defn:
       fun

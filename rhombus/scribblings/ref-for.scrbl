@@ -78,7 +78,8 @@
  @rhombus(#void). Example reducers include @rhombus(List, ~reducer),
  @rhombus(Map, ~reducer), and @rhombus(values, ~reducer).
 
-@(examples:
+@(
+  examples:
     ~repl:
       for:
         each v: ["a", "b", "c"]
@@ -139,7 +140,7 @@
       for Map:
         each i: 0..3
         values(i, i +& "!")
-  )
+)
 
 }
 
@@ -180,11 +181,12 @@
 
  The primitive clause forms that are recognized by @rhombus(for).
 
-@(examples:
+@(
+  examples:
     for:
       each v: ["a", "b", "c"]
       skip_when v == "b"
       displayln(v),
-  )
+)
 
 }

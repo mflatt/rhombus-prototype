@@ -11,7 +11,8 @@ introduces an expander layer that is built on shrubberies.
 Here's an example of the kind of language that the expander is meant
 to support:
 
-@(rhombusblock:
+@(
+  rhombusblock:
     import:
       weather
 
@@ -33,7 +34,7 @@ to support:
     | should_take_cab(p :: Posn):
         manhattan_distance(p) > 10 || weather.currently_raining()
     | should_take_cab(#false): #false
-  )
+)
 
 The intent here is that @rhombus(val) and @rhombus(fun) are
 macro-implemented and recognize various forms of definitions, including
@@ -61,12 +62,13 @@ function.
 The Rhombus expander is further meant to a support a language where
 new operators can be defined in a function-like way, like this:
 
-@(rhombusblock:
+@(
+  rhombusblock:
     operator (x <> y):
       Posn(x, y)
 
     1 <> 2 // same as Posn(1, 2)
-  )
+)
 
 Alternatively, operators can be defined in a more general, macro-like
 way. For example, defining @rhombus(->) as an alias for @rhombus(.)
@@ -75,7 +77,8 @@ expression. Using @rhombus('') for ``quote'' and @rhombus($) for ``unquote,''
 the @rhombus(->) operator might be implemented in a pattern-matching
 macro as
 
-@(rhombusblock:
+@(
+  rhombusblock:
     expr.macro '$x -> $y $tail ...':
       values('$x . $y', tail)
 
@@ -92,7 +95,8 @@ hold @rhombus(+ 1)). Macros can work for other contexts, too, such as
 binding positions. Here's a definition that extends the @rhombus(<>)
 operator to make it work in binding positions:
 
-@(rhombusblock:
+@(
+  rhombusblock:
     bind.macro '$x <> $y $tail ...':
       values('Posn($x, $y)', tail)
 
@@ -101,7 +105,7 @@ operator to make it work in binding positions:
       y <> x
 
     flip(1 <> 2) // produces 2 <> 1
-  )
+)
 
 The above examples run in @Rhombus, but the examples are meant only to
 illustrate some of the ingredients that the expander supports. This

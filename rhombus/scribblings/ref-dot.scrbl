@@ -16,13 +16,14 @@
 
  See also @rhombus(use_static).
 
-@(examples:
+@(
+  examples:
     [1, 2, 3].length()
     class Posn(x, mutable y)
     def p: Posn(1, 2)
     p.x
     p.y := 20
     p
-  )
+)
 
 }

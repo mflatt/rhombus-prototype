@@ -26,12 +26,13 @@ to append lists.
 
  Constructs a pair containg @rhombus(fst_v) and @rhombus(rst_v).
 
-@(examples:
+@(
+  examples:
     def pr: Pair(1, 2)
     pr
     pr.first
     pr.rest
-  )
+)
 
 }
 
@@ -42,13 +43,14 @@ to append lists.
  Matches a pair whose first component matches @rhombus(fst_bind) and
  rest component matches @rhombus(rst_bind).
 
-@(examples:
+@(
+  examples:
     def Pair(x, y): Pair(1, 2)
     y
     ~error: def Pair(sx :: String, sy :: String): Pair(1, 2)
     def Pair(lx, ly): [1, 2]
     y
-  )
+)
 
 }
 
@@ -76,10 +78,11 @@ to append lists.
  contrast, @rhombus(Pair.cons) allows any value as its second
  argument---but it creates a list if that argument is a list.
 
-@(examples:
+@(
+  examples:
     Pair.cons(1, 2)
     Pair.cons(1, [2, 3])
-  )
+)
 
 }
 

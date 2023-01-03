@@ -11,7 +11,8 @@ that's roughly a shorthand for starting a new indented line after the
 @litchar{:} or before the @litchar{|}. The complete rules involve more
 terminology, but that's enough to get a sense of the examples.
 
-@(rhombusblock:
+@(
+  rhombusblock:
     def identity(x): x
 
     def fib(n):
@@ -37,7 +38,7 @@ terminology, but that's enough to get a sense of the examples.
             print_sexp(d)
             display(")")
       | v: print_atom(v)
-  )
+)
 
 Forms like @litchar{def}, @litchar{cond}, and @litchar{match} are not
 specified by shrubbery notation, since specifying those forms is up to a

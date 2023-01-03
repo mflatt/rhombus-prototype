@@ -91,13 +91,14 @@
  See @secref("namespaces") for information on @rhombus(identifier_path)
  and @rhombus(operator_path).
 
-@(examples:
+@(
+  examples:
     ~eval: macro_eval
     expr.rule 'thunk: $body':
       'fun (): $body'
     thunk: "ok"
     (thunk: "ok")()
-  )
+)
 
 }
 

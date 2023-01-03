@@ -13,12 +13,13 @@
  values are @rhombus(==) only if they the same object (i.e., mutating one
  has the same effect as mutating the other).
 
-@(examples:
+@(
+  examples:
     "apple" == "apple"
     [1, 2, 3] == 1
     [1, "apple", {"alice": 97}] == [1, "apple", {"alice": 97}]
     1 == 1.0
-  )
+)
 
 }
 
@@ -32,10 +33,11 @@
  modifying one has the same effect as modifying the other. Interned
  values like symbols are @rhombus(===) when they are @rhombus(==).
 
-@(examples:
+@(
+  examples:
     symbol'apple' === symbol'apple'
     symbol'apple' === symbol'banana'
-  )
+)
 
 }
 
@@ -49,11 +51,12 @@
  @rhombus(.=) to itself (but @rhombus(#nan) is @rhombus(==) to
  itself).
 
-@(examples:
+@(
+  examples:
     1 .= 1
     1 .= 2
     1.0 .= 1
-  )
+)
 
 }
 
@@ -63,9 +66,10 @@
 
  Equvalent to @rhombus(!(v1 == v2)).
 
-@(examples:
+@(
+  examples:
     "apple" != "apple"
-  )
+)
 
 }
 

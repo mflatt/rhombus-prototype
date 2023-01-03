@@ -5,13 +5,14 @@
 
 @(def sc_eval = make_rhombus_eval())
 
-@(demo:
+@(
+  demo:
     ~eval: sc_eval
     ~hidden:
       import:
         rhombus/meta open
       class Posn(x, y)
-  )
+)
 
 @title(~tag: "syntax-classes"){Syntax Classes}
 
@@ -22,7 +23,8 @@ variable can match. The syntax classes @rhombus(Term, ~stxclass),
 @rhombus(Group, ~stxclass), and @rhombus(Multi, ~stxclass) are built in,
 among others.
 
-@(demo:
+@(
+  demo:
     ~defn:
       def '$(x :: Term)' = '1'
 )
@@ -31,7 +33,8 @@ Rhombus also supports user-defined syntax classes via
 @rhombus(syntax.class). Use the @rhombus(syntax.class) form with a block
 that contains @rhombus(~pattern) with pattern alternatives:
 
-@(demo:
+@(
+  demo:
     ~defn:
       syntax.class Arithmetic:
        ~pattern
@@ -43,7 +46,8 @@ Equivalently, use a shorthand syntax that omits the use of
 @rhombus(~pattern) and inlines alternatives into the immediate
 @rhombus(syntax.class) form:
 
-@(demo:
+@(
+  demo:
     ~defn:
       syntax.class Arithmetic
       | '$x + $y'
@@ -56,7 +60,8 @@ at the same phase as the referencing pattern. To define a syntax class
 for use in a macro definition, place it inside a
 @rhombus(meta) block.
 
-@(demo:
+@(
+  demo:
     ~eval: sc_eval
     ~defn:
       meta:
@@ -71,7 +76,8 @@ syntax class. Generally, a syntax class can make a sequence of terms,
 so a pattern variable annotated with a syntax class is bound to a
 @tech{repetition} for use with @rhombus(...).
 
-@(demo:
+@(
+  demo:
     ~eval: sc_eval
     ~defn:    
       expr.macro 'add_one_to_expr $(expr :: Arithmetic)':
@@ -86,7 +92,8 @@ The @rhombus($)-escaped variables in a syntax class's patterns bind to
 matched syntax objects as attributes of the class. They can be accessed
 from a pattern variable using dot notation.
 
-@(demo:
+@(
+  demo:
     ~eval: sc_eval
     ~defn:
       expr.macro 'right_operand $(expr :: Arithmetic)':
@@ -99,7 +106,8 @@ from a pattern variable using dot notation.
 An attribute is accessible only when it appears in every pattern
 alternative of a syntax class.
 
-@(demo:
+@(
+  demo:
     ~eval: sc_eval
     ~defn:
       syntax.class Arithmetic

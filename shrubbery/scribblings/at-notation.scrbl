@@ -17,13 +17,15 @@ where @litchar("@") changes the meaning of @litchar("{") and
 @litchar("}") to delimit free-form text instead of shrubbery groups.
 For example,
 
-@(rhombusblock:
+@(
+  rhombusblock:
     @typeset{Write "hello" to C:\greet.txt.}
 )
     
 is equivalent to
 
-@(rhombusblock:
+@(
+  rhombusblock:
     typeset(["Write \"hello\" to C:\\greet.txt."])
 )
 
@@ -84,7 +86,8 @@ blocks, in which case the translation has multiple
 
 More examples:
 
-@(rhombusblock:
+@(
+  rhombusblock:
     @typeset(~style: bold){Write "hello"}
     typeset(~style: bold, ["Write \"hello\""])
 

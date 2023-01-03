@@ -28,9 +28,10 @@ they are equal by @rhombus(==) only when they are equal by
  Produces or matches a symbol whose characters are the same as
  @rhombus(identifier). Parentheses and quotes are interchangeable.
 
-@(examples:
+@(
+  examples:
     symbol'hello'
     symbol'hello' +& " there"
-  )
+)
 
 }

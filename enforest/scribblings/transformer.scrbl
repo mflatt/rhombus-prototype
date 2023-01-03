@@ -46,7 +46,8 @@ consumes no additional terms after the operator. For example, a postfix
 @rhombus(!) might be defined (shadowing the normal @rhombus(!) for
 ``not'') as follows:
 
-@(rhombusblock:
+@(
+  rhombusblock:
     fun
     | factorial(0): 1
     | factorial(n): n*factorial(n-1)
@@ -55,7 +56,7 @@ consumes no additional terms after the operator. For example, a postfix
       values('factorial($a)', tail)
 
     10! + 1 // = 3628801
-  )
+)
 
 Since the Rhombus expander provides a way for macro transformers to
 resume enforestation, all operators could be implemented with the
