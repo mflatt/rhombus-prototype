@@ -21,18 +21,17 @@ not consume.
 For example, here's a @rhombus(thunk) macro that expects a block and
 wraps as a zero-argument function
 
-@(
-  demo:
-    ~eval: macro_eval
-    ~defn:
-      import:
-        rhombus/meta open
+@demo(
+  ~eval: macro_eval
+  ~defn:
+    import:
+      rhombus/meta open
 
-      expr.rule 'thunk: $body':
-        'fun (): $body'
-    ~repl:
-      thunk: 1 + "oops"
-      (thunk: 1 + 3)()
+    expr.rule 'thunk: $body':
+      'fun (): $body'
+  ~repl:
+    thunk: 1 + "oops"
+    (thunk: 1 + 3)()
 )
 
 The @rhombus(expr.rule) form expects @rhombus('') to create a pattern
@@ -48,15 +47,14 @@ The @rhombus(expr.rule) form must be imported from
 @rhombusmodname(rhombus/meta), but @rhombus(rule) is available in just
 @rhombusmodname(rhombus):
 
-@(
-  demo:
-    ~defn:
-      :
-        // no import needed      
-        rule 'thunk: $body':
-          'fun (): $body'
-    ~repl:
-      (thunk: 1 + 3)()
+@demo(
+  ~defn:
+    :
+      // no import needed      
+      rule 'thunk: $body':
+        'fun (): $body'
+  ~repl:
+    (thunk: 1 + 3)()
 )
 
 A postfix macro can be implemented as an infix operator that consumes no
@@ -64,18 +62,17 @@ additional terms after the operator. For example, a postfix @rhombus(!)
 might be defined (shadowing the normal @rhombus(!) for ``not'') like
 this:
 
-@(
-  demo:
-    ~eval: macro_eval
-    ~defn:
-      rule '$a !':
-        'factorial($a)'
-    ~defn:
-      fun
-      | factorial(0): 1
-      | factorial(n): n*factorial(n-1)
-    ~repl:
-      10! + 1
+@demo(
+  ~eval: macro_eval
+  ~defn:
+    rule '$a !':
+      'factorial($a)'
+  ~defn:
+    fun
+    | factorial(0): 1
+    | factorial(n): n*factorial(n-1)
+  ~repl:
+    10! + 1
 )
 
 The @rhombus(expr.rule) or @rhombus(def) form is a shorthand for a more
@@ -93,12 +90,11 @@ expanded expression and the remaining terms that have not been consumed.
 
 For example, the @rhombus(!) macro can be equivalently written like this:
 
-@(
-  demo:
-    ~eval: macro_eval
-    ~defn:
-      expr.macro '$a ! $tail ...':
-        values('factorial($a)', '$tail ...')
+@demo(
+  ~eval: macro_eval
+  ~defn:
+    expr.macro '$a ! $tail ...':
+      values('factorial($a)', '$tail ...')
 )
 
 Since an @rhombus(expr.macro) implementation can use arbitrary
@@ -117,16 +113,15 @@ disable the special treatment of @rhombus(..., ~bind) at the end of a
 pattern and template sequence and reify the tail as a fresh list---so
 don't do this:
 
-@(
-  demo:
-    ~eval: macro_eval
-    ~defn:
-      expr.macro '$a ! $(tail :: Term) ...':
-        values('factorial($a)', '$tail ...')
-    ~repl:
-      :
-        // changing to 2000 `!`s or so makes parsing take noticeably long:
-        0 ! ! ! ! ! ! ! ! ! ! ! !
+@demo(
+  ~eval: macro_eval
+  ~defn:
+    expr.macro '$a ! $(tail :: Term) ...':
+      values('factorial($a)', '$tail ...')
+  ~repl:
+    :
+      // changing to 2000 `!`s or so makes parsing take noticeably long:
+      0 ! ! ! ! ! ! ! ! ! ! ! !
 )
 
 Note that the @rhombus(..., ~bind) operator is not treated specially
@@ -143,15 +138,14 @@ macros provide control over evaluator order. For example, this
 @rhombus(+<=) operator is like @rhombus(+), but evaluates its right-hand
 side before it’s left-hand side:
 
-@(
-  demo:
-    ~defn:
-      rule '$a +<= $b':
-        ~parsed_right
-        '$b + $a'
-    ~repl:
-      1 +<= 2
-      ~error: (1+"oops") +<= (2+"ouch")  // complains about "ouch", not "oops"
+@demo(
+  ~defn:
+    rule '$a +<= $b':
+      ~parsed_right
+      '$b + $a'
+  ~repl:
+    1 +<= 2
+    ~error: (1+"oops") +<= (2+"ouch")  // complains about "ouch", not "oops"
 )
 
 Declaring @rhombus(~parsed_right) affects a @rhombus(expr.macro) macro

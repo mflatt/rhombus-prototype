@@ -19,26 +19,27 @@ element by position (in time proportional to the position) via
 to append lists.
 
 @dispatch_table(
-  "list",
-  @rhombus(List),
-  [lst.length(), List.length(lst)],
-  [lst.first, List.first(lst)],
+  "list"
+  @rhombus(List)
+  [lst.length(), List.length(lst)]
+  [lst.first, List.first(lst)]
   [lst.rest, List.rest(lst)]
+  [lst.reverse(), List.reverse(lst)]
 )
 
 @doc(
-  fun List(v :: Any, ...) :: List,
-  expr.macro '#{#%brackets} [$expr_or_splice, ...]',
-  repet.macro '#{#%brackets} [$repet_or_splice, ...]',
+  fun List(v :: Any, ...) :: List
+  expr.macro '#{#%brackets} [$expr_or_splice, ...]'
+  repet.macro '#{#%brackets} [$repet_or_splice, ...]'
 
   grammar expr_or_splice:
     $expr
     $repetition $$(@litchar{,}) $ellipses
-    & $list_expr,
+    & $list_expr
 
   grammar ellipses:
     $ellipsis
-    $ellipses $$(@litchar{,}) ellipsis,
+    $ellipses $$(@litchar{,}) ellipsis
 
   grammar ellipsis:
     $$(dots_expr)
@@ -55,25 +56,24 @@ to append lists.
 
  @see_implicit(@rhombus(#{#%brackets}), @rhombus([]), "expression")
 
-@(
-  examples:
-    def lst = List(1, 2, 3)
-    lst
-    lst[0]
-    lst ++ [4, 5]
-    #{#%brackets} [1, 2, 3]
+@examples(
+  def lst = List(1, 2, 3)
+  lst
+  lst[0]
+  lst ++ [4, 5]
+  #{#%brackets} [1, 2, 3]
 )
 
 }
 
 @doc(
-  bind.macro 'List($binding, ...)',
-  bind.macro 'List($binding, ..., $rest)',
-  bind.macro '#{#%brackets} [$binding, ...]',
-  bind.macro '#{#%brackets} [$binding, ..., $rest]',
+  bind.macro 'List($binding, ...)'
+  bind.macro 'List($binding, ..., $rest)'
+  bind.macro '#{#%brackets} [$binding, ...]'
+  bind.macro '#{#%brackets} [$binding, ..., $rest]'
   grammar rest:
     $repetition_binding $$(@litchar{,}) $ellipsis
-    & $list_binding,
+    & $list_binding
   grammar ellipsis:
     $$(dots)
 ){
@@ -85,23 +85,22 @@ to append lists.
 
  @see_implicit(@rhombus(#{#%brackets}, ~bind), @rhombus([]), "binding")
 
-@(
-  examples:
-    def List(1, x, y): [1, 2, 3]
-    y
-    def [1, also_x, also_y]: [1, 2, 3]
-    also_y
-    def List(1, & xs): [1, 2, 3]
-    xs
-    def List(1, x, ...): [1, 2, 3]
-    [x, ...]
+@examples(
+  def List(1, x, y): [1, 2, 3]
+  y
+  def [1, also_x, also_y]: [1, 2, 3]
+  also_y
+  def List(1, & xs): [1, 2, 3]
+  xs
+  def List(1, x, ...): [1, 2, 3]
+  [x, ...]
 )
 
 }
 
 @doc(
-  annot.macro 'List',
-  annot.macro 'List.of($annotation)',
+  annot.macro 'List'
+  annot.macro 'List.of($annotation)'
 ){
 
  Matches any list in the form without @rhombus(of). The @rhombus(of)
@@ -110,17 +109,16 @@ to append lists.
 }
 
 @doc(
-  annot.macro 'NonemptyList',
-  annot.macro 'NonemptyList.of($annotation)',
+  annot.macro 'NonemptyList'
+  annot.macro 'NonemptyList.of($annotation)'
 ){
 
  Like @rhombus(List, ~annot) as an annotation, but matches only non-empty
  lists.
 
-@(
-  examples:
-    [1] :: NonemptyList
-    ~error: [] :: NonemptyList
+@examples(
+  [1] :: NonemptyList
+  ~error: [] :: NonemptyList
 )
 
 }
@@ -135,15 +133,14 @@ to append lists.
 }
 
 @doc(
-  fun List.cons(elem :: Any, lst :: List) :: List,
+  fun List.cons(elem :: Any, lst :: List) :: List
 ){
 
  Creates a list like @rhombus(lst), but with @rhombus(elem) added to
  the front.
 
-@(
-  examples:
-    List.cons(1, [2, 3])
+@examples(
+  List.cons(1, [2, 3])
 )
 
 }
@@ -156,11 +153,10 @@ to append lists.
  first element of the list and @rhombus(list_binding) matches the
  rest of the list.
 
-@(
-  examples:
-    def List.cons(x, y): [1, 2, 3]
-    x
-    y
+@examples(
+  def List.cons(x, y): [1, 2, 3]
+  x
+  y
 )
 
 }
@@ -176,58 +172,69 @@ to append lists.
 
 
 @doc(
-  fun List.first(lst :: NonemptyList),
+  fun List.first(lst :: NonemptyList)
 ){
 
  Returns the first element of @rhombus(lst).
 
-@(
-  examples:
-    List.first(["a", "b", "c"])
+@examples(
+  List.first(["a", "b", "c"])
 )
 
 }
 
 @doc(
-  fun List.rest(lst :: NonemptyList) :: List,
+  fun List.rest(lst :: NonemptyList) :: List
 ){
 
  Returns a list like @rhombus(lst), but without its first element.
 
-@(
-  examples:
-    List.rest(["a", "b", "c"])
+@examples(
+  List.rest(["a", "b", "c"])
 )
 
 }
 
 @doc(
-  fun List.length(lst :: List) :: Integer,
+  fun List.length(lst :: List) :: Integer
 ){
 
  Returns the number of items in @rhombus(lst).
 
-@(
-  examples:
-    List.length([1, 4, 8])
-    List.length([])
-    [1, 4, 8].length
+@examples(
+  List.length([1, 4, 8])
+  List.length([])
+  [1, 4, 8].length
 )
 
 }
 
 
 @doc(
-  fun List.iota(n :: NonnegativeInteger) :: List.of(NonnegativeInteger),
+  fun List.reverse(lst :: List) :: List
+){
+
+ Returns a list with the same items as @rhombus(lst). but in reversed
+ order.
+
+@examples(
+  List.reverse([1, 4, 8])
+  [1, 4, 8].reverse
+)
+
+}
+
+
+@doc(
+  fun List.iota(n :: NonnegativeInteger) :: List.of(NonnegativeInteger)
 ){
 
  Returns a list containing the integers 0 to @rhombus(n) (exclusive) in
  order.
 
-@(
-  examples:
-    List.iota(3)
-    List.iota(0)
+@examples(
+  List.iota(3)
+  List.iota(0)
 )
 
 }

@@ -19,19 +19,18 @@ they are equal by @rhombus(==) only when they are equal by
 }
 
 @doc(
-  expr.macro '«symbol'$identifier'»',
-  bind.macro '«symbol'$identifier'»',
-  expr.macro 'symbol($identifier)',
+  expr.macro '«symbol'$identifier'»'
+  bind.macro '«symbol'$identifier'»'
+  expr.macro 'symbol($identifier)'
   bind.macro 'symbol($identifier)'
 ){
 
  Produces or matches a symbol whose characters are the same as
  @rhombus(identifier). Parentheses and quotes are interchangeable.
 
-@(
-  examples:
-    symbol'hello'
-    symbol'hello' +& " there"
+@examples(
+  symbol'hello'
+  symbol'hello' +& " there"
 )
 
 }

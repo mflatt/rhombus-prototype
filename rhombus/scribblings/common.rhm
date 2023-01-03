@@ -32,8 +32,6 @@ fun provided_meta():
 
 // suppressed a label, but `examples` now does that, anyway, so maybe
 // we'll end up removing this alias:
-defn.macro 'demo: $form; ...':
+defn.macro 'demo($form, ...)':
   ~op_stx: self
-  'manual.examples:
-     ~label: #false
-     $form; ...'
+  'manual.examples(~label: #false, $form, ...)'

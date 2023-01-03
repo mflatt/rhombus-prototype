@@ -19,28 +19,26 @@ as used for Rhombus.
 Numbers are decimal, either integer or floating-point, or they’re
 hexadecimal integers written with @litchar{0x}:
 
-@(
-  rhombusblock:
-    0
-    42
-    -42
-    1_048_576
-    3.14157
-    .5
-    6.022e23
-    0xf00ba7ba2
+@rhombusblock(
+  0
+  42
+  -42
+  1_048_576
+  3.14157
+  .5
+  6.022e23
+  0xf00ba7ba2
 )
 
 Identifiers use Unicode alphanumeric characters, @litchar{_}, and
 emoji sequences, with an initial character that is not numeric.
 
-@(
-  rhombusblock:
-    pi
-    scissor7
-    π
-    underscore_case
-    camelCase
+@rhombusblock(
+  pi
+  scissor7
+  π
+  underscore_case
+  camelCase
 )
 
 These characters are used for shrubbery structure and are
@@ -54,13 +52,12 @@ The @litchar{:} and @litchar{|} characters can be used as part of an
 operator, and any other Unicode punctuation or symbol character (but
 not an emoji) is fair game for an operator:
 
-@(
-  rhombusblock:
-    +
-    .
-    ->
-    >=
-    !^$&%$
+@rhombusblock(
+  +
+  .
+  ->
+  >=
+  !^$&%$
 )
 
 To avoid potential confusion with operators alongside numbers, however,
@@ -73,38 +70,35 @@ used by itself as an operator.
 
 Keywords are like identifiers, but prefixed with @litchar{~} and no space:
 
-@(
-  rhombusblock:
+@rhombusblock(
    ~base
    ~stronger_than
 )
 
 Booleans:
 
-@(
-  rhombusblock:
-    #true
-    #false
+@rhombusblock(
+  #true
+  #false
 )
 
 
 Strings and byte strings:
 
-@(
-  rhombusblock:
-    "This is a string, just like you’d expect"
-    #"a byte string"
+@rhombusblock(
+  "This is a string, just like you’d expect"
+  #"a byte string"
 )
 
 Comments are C-style, but block comments are nestable:
 
 @(
-  rhombusblock:«
-    // This is a line comment
+  rhombusblock_etc:«
+  // This is a line comment
 
-    /* This is a multiline
-       comment that /* continues */
-       on further lines */
+  /* This is a multiline
+     comment that /* continues */
+     on further lines */
   »
 )
 
@@ -121,35 +115,34 @@ being indented by half a column, so the @litchar{|}s below are indented
 even when they are written right under @rhombus(if), @rhombus(match), or
 @rhombus(cond):
 
-@(
-  rhombusblock:
-    begin:
-      group within block
-      another group within block
+@rhombusblock(
+  begin:
+    group within block
+    another group within block
 
-    if is_rotten(apple)
-    | get_another()
-    | take_bite()
-      be_happy()
-          
-    match x
-    | 0:
-        def zero: x
-        x + zero
-    | n:
-        n + 1
+  if is_rotten(apple)
+  | get_another()
+  | take_bite()
+    be_happy()
+        
+  match x
+  | 0:
+      def zero: x
+      x + zero
+  | n:
+      n + 1
 
-    cond
-    | // check the weather
-      is_raining():
-        take_umbrella()
-    | // check the destination
-      going_to_beach():
-        wear_sunscreen()
-        take_umbrella()
-    | // assume a hat is enough
-      ~else:
-        wear_hat() 
+  cond
+  | // check the weather
+    is_raining():
+      take_umbrella()
+  | // check the destination
+    going_to_beach():
+      wear_sunscreen()
+      take_umbrella()
+  | // assume a hat is enough
+    ~else:
+      wear_hat()
 )
 
 @aside{Even if you don’t normally use DrRacket, you should probably try it
@@ -186,40 +179,38 @@ new block, anyway. Similarly, a @litchar{|} that starts a block doesn’t
 have to be on a new line. These examples parse the same as the previous
 examples:
 
-@(
-  rhombusblock:
-    begin: group within block
-           another group within block
+@rhombusblock(
+  begin: group within block
+         another group within block
 
-    if is_rotten(apple) | get_another() | take_bite()
-                                          be_happy()
+  if is_rotten(apple) | get_another() | take_bite()
+                                        be_happy()
 
-    match x | 0: def zero: x
-                 x + zero
-            | n: n + 1
+  match x | 0: def zero: x
+               x + zero
+          | n: n + 1
 
-    cond | is_raining(): take_umbrella()
-         | going_to_beach(): wear_sunscreen()
-                             take_umbrella()
-         | ~else: wear_hat()
+  cond | is_raining(): take_umbrella()
+       | going_to_beach(): wear_sunscreen()
+                           take_umbrella()
+       | ~else: wear_hat()
 )
 
 Within a block, a @litchar{;} can be used instead of a new line to start
 a new group, so these examples also parse the same:
 
-@(
-  rhombusblock:
-    begin: group within block; another group within block
+@rhombusblock(
+  begin: group within block; another group within block
 
-    if is_rotten(apple) | get_another() | take_bite(); be_happy()
+  if is_rotten(apple) | get_another() | take_bite(); be_happy()
 
-    match x | 0: def zero: x
-                 x + zero
-            | n: n + 1
+  match x | 0: def zero: x
+               x + zero
+          | n: n + 1
 
-    cond | is_raining(): take_umbrella()
-         | going_to_beach(): wear_sunscreen(); take_umbrella()
-         | ~else: wear_hat()
+  cond | is_raining(): take_umbrella()
+       | going_to_beach(): wear_sunscreen(); take_umbrella()
+       | ~else: wear_hat()
 )
 
 You can add extra @litchar{;}s, such as at the end of lines, since
@@ -234,9 +225,8 @@ a rare case where @litchar{«} and @litchar{»} would be needed to fit on
 a single line. Without @litchar{«} and @litchar{»}, the following form
 would put @rhombus(x + zero) insinde the definition of @rhombus(zero):
 
-@(
-  rhombusblock:
-    match x | 0: def zero:« x »; x + zero | n: n + 1
+@rhombusblock(
+  match x | 0: def zero:« x »; x + zero | n: n + 1
 )
 
 Parentheses @litchar{(} ... @litchar{)}, square brackets @litchar{[} ...
@@ -246,27 +236,25 @@ on one line between the opener and closer. Furthermore, a @litchar{,} is
 @emph{required} to separate groups, even if they’re not on the same line. You
 can’t have extra @litchar{,}s, except after the last group.
 
-@(
-  rhombusblock:
-    f(1, 2,
-      3, 4)
+@rhombusblock(
+  f(1, 2,
+    3, 4)
 
-    ["apples",
-     "bananas",
-     "cookies",
-     "milk"]
+  ["apples",
+   "bananas",
+   "cookies",
+   "milk"]
 
-    map(add_five, [1, 2, 3, 4,])
+  map(add_five, [1, 2, 3, 4,])
 )
 
 Indentation still works for creating blocks within @litchar{(} ... @litchar{)},
 @litchar{[} ... @litchar{]}, or @litchar|{{}| ... @litchar|{}}|:
 
-@(
-  rhombusblock:
-    map(fun (x):
-          x + 5,
-        [1, 2, 3, 4])
+@rhombusblock(
+  map(fun (x):
+        x + 5,
+      [1, 2, 3, 4])
 )
 
 There are some subtleties related to the ``precedence'' of @litchar{:},
@@ -279,10 +267,9 @@ that the content is more like a top-level or block sequence, and
 @litchar{;} is used as a group separator (optional when groups are on
 separate lines).
 
-@(
-  rhombusblock:
-    rule 'thunk: $body':
-      'fun (): $body'
+@rhombusblock(
+  rule 'thunk: $body':
+    'fun (): $body'
 )
 
 Nested quoting sometimes requires the use of @litchar{'} @litchar{«} ...

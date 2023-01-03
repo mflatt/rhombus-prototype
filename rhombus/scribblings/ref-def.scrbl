@@ -4,7 +4,7 @@
 @title{Definitions}
 
 @doc(
-  defn.macro 'def $binding = $expr',
+  defn.macro 'def $binding = $expr'
   defn.macro 'def $binding:
                 $body
                 ...'
@@ -19,29 +19,28 @@
  with a binding operator, such as a pattern form or @rhombus(::) for
  annotations.
 
-@(
-  examples:
-    ~repl:
-      def pi = 3.14
-      pi
-    ~repl:
-      def pi:
-        def tau = 6.28
-        tau/2
-      pi
-    ~repl:
-      def [x, y, z] = [1+2, 3+4, 5+6]
-      y
-    ~repl:
-      def ns :: List = [1+2, 3+4, 5+6]
-      ns
+@examples(
+  ~repl:
+    def pi = 3.14
+    pi
+  ~repl:
+    def pi:
+      def tau = 6.28
+      tau/2
+    pi
+  ~repl:
+    def [x, y, z] = [1+2, 3+4, 5+6]
+    y
+  ~repl:
+    def ns :: List = [1+2, 3+4, 5+6]
+    ns
 )
 
 }
 
 
 @doc(
-  defn.macro 'let $binding = $expr',
+  defn.macro 'let $binding = $expr'
   defn.macro 'let $binding:
                 $body
                 ...'
@@ -51,20 +50,19 @@
  @rhombus(let) form within its definition context. The @rhombus(let) form
  cannot be used in a top-level context outside of a module or local block.
 
-@(
-  examples:
-    begin:
-      let v = 1
-      fun get_v(): v
-      let v = v+1
-      [get_v(), v]
+@examples(
+  begin:
+    let v = 1
+    fun get_v(): v
+    let v = v+1
+    [get_v(), v]
 )
 
 }
 
 
 @doc(
-  bind.macro '$identifier_path . $identifier',
+  bind.macro '$identifier_path . $identifier'
  
   grammar identifier_path:
     $identifier
@@ -81,13 +79,12 @@
  See @secref("namespaces") for more information about extending
  namespaces.
 
-@(
-  examples:
-    namespace math:
-      export: pi
-      def pi: 3.14
-    def math.tau: 2 * math.pi
-    math.tau
+@examples(
+  namespace math:
+    export: pi
+    def pi: 3.14
+  def math.tau: 2 * math.pi
+  math.tau
 )
 
 }

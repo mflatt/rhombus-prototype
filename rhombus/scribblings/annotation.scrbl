@@ -5,13 +5,12 @@
 
 @(def ann_eval = make_rhombus_eval())
 
-@(
-  demo:
-    ~eval: ann_eval
-    ~hidden:
-      class Posn(x, y)
-      fun flip(p -: Posn): Posn(p.y, p.x)
-      def origin = Posn(0, 0)
+@demo(
+  ~eval: ann_eval
+  ~hidden:
+    class Posn(x, y)
+    fun flip(p -: Posn): Posn(p.y, p.x)
+    def origin = Posn(0, 0)
 )
 
 @title(~tag: "annotation"){Annotations and the Dot Operator}
@@ -31,13 +30,12 @@ right-hand annotation, otherwise a run-time exception is raised. The
 produces a boolean result indicating whether the result of the left-hand
 expression matches the annotation.
 
-@(
-  demo:
-    ~eval: ann_eval
-    (flip(origin) -: Posn).x
-    ~error: (1 :: Posn)
-    origin is_a Posn
-    1 is_a Posn
+@demo(
+  ~eval: ann_eval
+  (flip(origin) -: Posn).x
+  ~error: (1 :: Posn)
+  origin is_a Posn
+  1 is_a Posn
 )
 
 When @rhombus(class) defines a new class, an annotation can be
@@ -45,28 +43,26 @@ associated with each field. When the annotation is written with
 @rhombus(::), then the annotation is checked when an instance is
 created.
 
-@(
-  demo:
-    ~eval: ann_eval
-    ~defn:
-      class Posn(x :: Integer, y :: Integer)
-    ~repl:
-      Posn(1, 2)
-      ~error: Posn(1, "2")
+@demo(
+  ~eval: ann_eval
+  ~defn:
+    class Posn(x :: Integer, y :: Integer)
+  ~repl:
+    Posn(1, 2)
+    ~error: Posn(1, "2")
 )
 
 Naturally, class annotations can be used as field annotations, and then
 the @rhombus(.) operator can be chained for efficient access:
 
-@(
-  demo:
-    ~eval: ann_eval
-    ~defn:
-      class Line(p1 -: Posn, p2 -: Posn)
-      def l1 :: Line:
-        Line(Posn(1, 2), Posn(3, 4))
-    ~repl:
-      l1.p2.x
+@demo(
+  ~eval: ann_eval
+  ~defn:
+    class Line(p1 -: Posn, p2 -: Posn)
+    def l1 :: Line:
+      Line(Posn(1, 2), Posn(3, 4))
+  ~repl:
+    l1.p2.x
 )
 
 More generally, @rhombus(.) access is efficient when the left-hand side
@@ -91,14 +87,13 @@ error. The @rhombus(use_dynamic) form binds @rhombus(.) to the
 default @rhombus(.), which allows dynamic field lookup if the left-hand
 side is not a dot provider, namespace, or import prefix.
 
-@(
-  demo:
-    ~eval: ann_eval
-    ~defn:
-      use_static
-    ~repl:
-      l1.p2.x
-      ~error: (1).x
+@demo(
+  ~eval: ann_eval
+  ~defn:
+    use_static
+  ~repl:
+    l1.p2.x
+    ~error: (1).x
 )
 
 @aside{Using @rhombus(.) to reach an imported binding, as in

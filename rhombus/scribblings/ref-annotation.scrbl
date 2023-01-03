@@ -10,9 +10,8 @@
  Checks that the value of @rhombus(expr) satisifies
  @rhombus(annotation), and returns the value if so.
 
-@(
-  examples:
-    [1, 2, 3] :: List
+@examples(
+  [1, 2, 3] :: List
 )
 
 }
@@ -24,9 +23,8 @@
  Binds the same as @rhombus(binding), but first checks that the value to
  be bound satisfies @rhombus(annotation).
 
-@(
-  examples:
-    def x :: List: [1, 2, 3]
+@examples(
+  def x :: List: [1, 2, 3]
 )
 
 }
@@ -47,10 +45,9 @@
  @rhombus(::), but performs no run-time check on the value of
  @rhombus(expr).
 
-@(
-  examples:
-    [1, 2, 3] -: List
-    "oops" -: List
+@examples(
+  [1, 2, 3] -: List
+  "oops" -: List
 )
 
 }
@@ -62,10 +59,9 @@
  Associates static information to @rhombus(binding) the same as
  @rhombus(::, ~bind), but performs no run-time check.
 
-@(
-  examples:
-    def x -: List: [1, 2, 3]
-    def x -: List: "oops"
+@examples(
+  def x -: List: [1, 2, 3]
+  def x -: List: "oops"
 )
 
 }
@@ -78,10 +74,9 @@
  Produces @rhombus(#true) if the value of @rhombus(expr)
  satisfies @rhombus(annotation), @rhombus(#false) otherwise.
 
-@(
-  examples:
-    [1, 2, 3] is_a List
-    "oops" is_a List
+@examples(
+  [1, 2, 3] is_a List
+  "oops" is_a List
 )
 
 }
@@ -95,10 +90,9 @@
  corresponds to the set of values for which @rhombus(binding) would
  match.
 
-@(
-  examples:
-    def x :: matching([_, 10]): [9, 10]
-    ~error: def y :: matching([_, 10]): [9, 11]
+@examples(
+  def x :: matching([_, 10]): [9, 10]
+  ~error: def y :: matching([_, 10]): [9, 11]
 )
 
 }

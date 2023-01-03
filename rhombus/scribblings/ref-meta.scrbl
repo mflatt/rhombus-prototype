@@ -17,16 +17,15 @@
 
  See also the @rhombus(meta, ~impmod) import modifier.
 
-@(
-  examples:
-    ~eval: macro.make_for_meta_eval()
-    meta:
-      syntax.class Arithmetic
-      | '$x + $y'
-      | '$x - $y'
-    expr.macro 'right_operand $(exp :: Arithmetic)':
-      values(exp.y, '')
-    right_operand 1 + 2
+@examples(
+  ~eval: macro.make_for_meta_eval()
+  meta:
+    syntax.class Arithmetic
+    | '$x + $y'
+    | '$x - $y'
+  expr.macro 'right_operand $(exp :: Arithmetic)':
+    values(exp.y, '')
+  right_operand 1 + 2
 )
 
 }

@@ -11,40 +11,37 @@ The @rhombus(class) and @rhombus(interface) forms define names that can
 be used as annotations, but the rules about defining annotations before
 using them can be subtle. For example, this works:
 
-@(
-  demo:
-    begin:
-      def make:
-        fun () :: Posn:
-          Posn(1, 2)
-      class Posn(x, y)
-      make()
+@demo(
+  begin:
+    def make:
+      fun () :: Posn:
+        Posn(1, 2)
+    class Posn(x, y)
+    make()
 )
 
 But this does not:
 
-@(
-  demo:
-    ~error:
-      begin:
-        fun make() :: Posn:
-          Posn(1, 2)
-        class Posn(x, y)
+@demo(
+  ~error:
+    begin:
+      fun make() :: Posn:
+        Posn(1, 2)
+      class Posn(x, y)
 )
 
 The reason the first example above works, however, is the same as the
 reason this one does not:
 
-@(
-  demo:
-    ~error:
-      begin:
-        def make:
-          fun () :: Posn:
-            Posn(1, 2)
-        class Posn(x, y)
-        use_static  // causes the next line to fail
-        make().x
+@demo(
+  ~error:
+    begin:
+      def make:
+        fun () :: Posn:
+          Posn(1, 2)
+      class Posn(x, y)
+      use_static  // causes the next line to fail
+      make().x
 )
 
 When you use @rhombus(fun) as a definition form to bind a function
@@ -60,29 +57,27 @@ For this small example, the solution is straightforward, and similar to
 the one in @secref("class-namespace"): define @rhombus(Posn) before
 trying to use it:
 
-@(
-  demo:
-    begin:
-      class Posn(x, y)
-      fun make() :: Posn:
-        Posn(1, 2)
-      use_static
-      make().x
+@demo(
+  begin:
+    class Posn(x, y)
+    fun make() :: Posn:
+      Posn(1, 2)
+    use_static
+    make().x
 )
 
 This ``just define it before'' strategy does not work, however, when you
 have two classes that need to refer to each other.
 
-@(
-  demo:
-    ~error:
-      begin:
-        class Posn2D(x, y):
-          method inject() :: Posn3D:
-            Posn3D(x, y, 0)
-        class Posn3D(x, y, z):
-          method project() :: Posn2D:
-            Posn2D(x, y)        
+@demo(
+  ~error:
+    begin:
+      class Posn2D(x, y):
+        method inject() :: Posn3D:
+          Posn3D(x, y, 0)
+      class Posn3D(x, y, z):
+        method project() :: Posn2D:
+          Posn2D(x, y)        
 )
 
 The problem here is that the annotation facet of @rhombus(class) is
@@ -90,18 +85,17 @@ bundled together with the method-declaration facet of @rhombus(class), so
 they canot be ordered differently. To enable mutual references, use the
 @rhombus(class.together) form to combine the definitions.
 
-@(
-  demo:
-    begin:
-      class.together:
-        class Posn2D(x, y):
-          method inject() :: Posn3D:
-            Posn3D(x, y, 0)
-        class Posn3D(x, y, z):
-          method project() :: Posn2D:
-            Posn2D(x, y)
-      use_static
-      Posn2D(1, 2).inject().project()
+@demo(
+  begin:
+    class.together:
+      class Posn2D(x, y):
+        method inject() :: Posn3D:
+          Posn3D(x, y, 0)
+      class Posn3D(x, y, z):
+        method project() :: Posn2D:
+          Posn2D(x, y)
+    use_static
+    Posn2D(1, 2).inject().project()
 )
 
 The @rhombus(class.together) form can also be used when references among

@@ -13,9 +13,9 @@ element by position (in time proportional to the position) via
 to append lists.
 
 @dispatch_table(
-  "pair",
-  @rhombus(Pair),
-  [pr.first, Pair.first(pr)],
+  "pair"
+  @rhombus(Pair)
+  [pr.first, Pair.first(pr)]
   [pr.rest, Pair.rest(pr)]
 
 )
@@ -26,37 +26,35 @@ to append lists.
 
  Constructs a pair containg @rhombus(fst_v) and @rhombus(rst_v).
 
-@(
-  examples:
-    def pr: Pair(1, 2)
-    pr
-    pr.first
-    pr.rest
+@examples(
+  def pr: Pair(1, 2)
+  pr
+  pr.first
+  pr.rest
 )
 
 }
 
 @doc(
-  bind.macro 'Pair($fst_bind, $rst_bind)',
+  bind.macro 'Pair($fst_bind, $rst_bind)'
 ){
 
  Matches a pair whose first component matches @rhombus(fst_bind) and
  rest component matches @rhombus(rst_bind).
 
-@(
-  examples:
-    def Pair(x, y): Pair(1, 2)
-    y
-    ~error: def Pair(sx :: String, sy :: String): Pair(1, 2)
-    def Pair(lx, ly): [1, 2]
-    y
+@examples(
+  def Pair(x, y): Pair(1, 2)
+  y
+  ~error: def Pair(sx :: String, sy :: String): Pair(1, 2)
+  def Pair(lx, ly): [1, 2]
+  y
 )
 
 }
 
 @doc(
-  annot.macro 'Pair',
-  annot.macro 'Pair.of($fst_annotation, $rst_annotation)',
+  annot.macro 'Pair'
+  annot.macro 'Pair.of($fst_annotation, $rst_annotation)'
 ){
 
  Matches any pair in the form without @rhombus(of). The @rhombus(of)
@@ -66,8 +64,8 @@ to append lists.
 }
 
 @doc(
-  fun Pair.cons(fst :: Any, rst :: Any) :: Pair,
-  bind.macro 'Pair.cons($fst_bind, $rst_bind)',
+  fun Pair.cons(fst :: Any, rst :: Any) :: Pair
+  bind.macro 'Pair.cons($fst_bind, $rst_bind)'
 ){
 
  Aliases for @rhombus(Pair) in expression and binding positions.
@@ -78,10 +76,9 @@ to append lists.
  contrast, @rhombus(Pair.cons) allows any value as its second
  argument---but it creates a list if that argument is a list.
 
-@(
-  examples:
-    Pair.cons(1, 2)
-    Pair.cons(1, [2, 3])
+@examples(
+  Pair.cons(1, 2)
+  Pair.cons(1, [2, 3])
 )
 
 }

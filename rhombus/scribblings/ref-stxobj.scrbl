@@ -39,18 +39,18 @@ Metadata for a syntax object can include a source location and the raw
  suffix corresponds to text after the closer.
 
 @dispatch_table(
-  "syntax-object",
-  @rhombus(Syntax),
-  [stx.unwrap(), Syntax.unwrap(stx)],
-  [stx.unwrap_group(), Syntax.unwrap_group(stx)],
-  [stx.unwrap_sequence(), Syntax.unwrap_sequence(stx)],
-  [stx.strip(), Syntax.strip(stx)],
-  [stx.relocate(like_stx), Syntax.relocate(stx, like_stx)],
-  [stx.relocate_span(like_stxes), Syntax.relocate(stx, like_stxes)],
+  "syntax-object"
+  @rhombus(Syntax)
+  [stx.unwrap(), Syntax.unwrap(stx)]
+  [stx.unwrap_group(), Syntax.unwrap_group(stx)]
+  [stx.unwrap_sequence(), Syntax.unwrap_sequence(stx)]
+  [stx.strip(), Syntax.strip(stx)]
+  [stx.relocate(like_stx), Syntax.relocate(stx, like_stx)]
+  [stx.relocate_span(like_stxes), Syntax.relocate(stx, like_stxes)]
 )
 
 @doc(
-  expr.macro '«#{#%quotes} '$term ...; ...'»',
+  expr.macro '«#{#%quotes} '$term ...; ...'»'
   repet.macro '«#{#%quotes} '$term ...; ...'»'
 ){
 
@@ -62,13 +62,12 @@ Metadata for a syntax object can include a source location and the raw
 
  @see_implicit(@rhombus(#{#%quotes}), @rhombus(''), "expression")
 
-@(
-  examples:
-    '1'
-    'pi'
-    '1 + 2'
-    '1 + 2
-     3 + 4'
+@examples(
+  '1'
+  'pi'
+  '1 + 2'
+  '1 + 2
+   3 + 4'
 )
 
  A @rhombus($) as a @rhombus(term,~var) escapes a following expression
@@ -77,11 +76,10 @@ Metadata for a syntax object can include a source location and the raw
  to a syntax object. Nested @rhombus('') forms are allowed around
  @rhombus($) and do @emph{not} change whether the @rhombus($) escapes.
 
-@(
-  examples:
-    'x $(if #true | 'y' | 'why') z'
-    'x $(1 + 2) z'
-    '« x '$(1 + 2)' z »'
+@examples(
+  'x $(if #true | 'y' | 'why') z'
+  'x $(1 + 2) z'
+  '« x '$(1 + 2)' z »'
 )
 
  A @dots as a @rhombus(term,~var) must follow a
@@ -90,10 +88,9 @@ Metadata for a syntax object can include a source location and the raw
  preceding term is replaced as many times as the repetition supplies
  values.
 
-@(
-  examples:
-    def [x, ...] = [1, 2, 3]
-    '(1 + $x) ...'
+@examples(
+  def [x, ...] = [1, 2, 3]
+  '(1 + $x) ...'
 )
 
  Multiple escapes can appear in the term before @dots, in which the
@@ -108,10 +105,9 @@ Metadata for a syntax object can include a source location and the raw
  the repetition is the amount of repetition depth left over from the
  deepest escape.
 
-@(
-  examples:
-    def [[x, ...], ...] = [[1, 2, 3], [4], [5, 6]]
-    ['[$x, ...]', ...]
+@examples(
+  def [[x, ...], ...] = [[1, 2, 3], [4], [5, 6]]
+  ['[$x, ...]', ...]
 )
 
 }
@@ -133,16 +129,15 @@ Metadata for a syntax object can include a source location and the raw
 
  @see_implicit(@rhombus(#{#%quotes}, ~bind), @rhombus(''), "binding")
 
-@(
-  examples:
-    match '1 + 2'
-    | '$n + $m': [n, m]
-    match '(1/1) (2/1) (3/1)'
-    | '($x/1) ...': [x, ...]
-    match '1 + 2 * 3'
-    | '$x ... * 3': [x, ...]
-    match '1 + 2 * 3'
-    | '$x ... * $y ...': values([x, ...], [y, ...])
+@examples(
+  match '1 + 2'
+  | '$n + $m': [n, m]
+  match '(1/1) (2/1) (3/1)'
+  | '($x/1) ...': [x, ...]
+  match '1 + 2 * 3'
+  | '$x ... * 3': [x, ...]
+  match '1 + 2 * 3'
+  | '$x ... * $y ...': values([x, ...], [y, ...])
 )
 
 }
@@ -166,8 +161,8 @@ Metadata for a syntax object can include a source location and the raw
 
 
 @doc(
-  bind.macro '$ $identifier',
-  bind.macro '$ ($identifier :: $syntax_class)',
+  bind.macro '$ $identifier'
+  bind.macro '$ ($identifier :: $syntax_class)'
 ){
 
  Only allowed within a @rhombus('', ~bind) binding pattern, escapes so that
@@ -182,14 +177,14 @@ Metadata for a syntax object can include a source location and the raw
 }
 
 @doc(
-  syntax.class Term,
-  syntax.class Id,
-  syntax.class Op,
-  syntax.class Id_Op,
-  syntax.class Keyw,
-  syntax.class Group,
-  syntax.class Multi,
-  syntax.class Block,
+  syntax.class Term
+  syntax.class Id
+  syntax.class Op
+  syntax.class Id_Op
+  syntax.class Keyw
+  syntax.class Group
+  syntax.class Multi
+  syntax.class Block
 ){
 
  Syntax classes, all of which imply a single-term match except for
@@ -216,7 +211,7 @@ Metadata for a syntax object can include a source location and the raw
 
 
 @doc(
-  expr.macro '«Syntax.literal '$term ...; ...'»',
+  expr.macro '«Syntax.literal '$term ...; ...'»'
   expr.macro 'Syntax.literal ($term ..., ...)'
 ){
 
@@ -234,18 +229,17 @@ Metadata for a syntax object can include a source location and the raw
  @rhombus(term) sequence, but not any metadat that might be on the
  group as a whole when the @rhombus(term)s form a single group.
 
-@(
-  examples:
-    Syntax.literal 'x'
-    Syntax.literal (x)
-    Syntax.literal '1 ... 2'
-    Syntax.literal '$ $ $'
+@examples(
+  Syntax.literal 'x'
+  Syntax.literal (x)
+  Syntax.literal '1 ... 2'
+  Syntax.literal '$ $ $'
 )
 
 }
 
 @doc(
-  expr.macro '«Syntax.literal_group '$term ...'»',
+  expr.macro '«Syntax.literal_group '$term ...'»'
   expr.macro 'Syntax.literal_group ($term ...)'
 ){
 
@@ -272,12 +266,11 @@ Metadata for a syntax object can include a source location and the raw
  group, respectively, and those syntax objects left as-is within the
  result.
 
-@(
-  examples:
-    Syntax.make(1.0)
-    Syntax.make([symbol'parens', '1.0', '2', '"c"'])
-    Syntax.make([symbol'alts', ': result1', ': result2'])
-    ~error: Syntax.make(['1.0', '2', '"c"'])
+@examples(
+  Syntax.make(1.0)
+  Syntax.make([symbol'parens', '1.0', '2', '"c"'])
+  Syntax.make([symbol'alts', ': result1', ': result2'])
+  ~error: Syntax.make(['1.0', '2', '"c"'])
 )
 
 }
@@ -289,11 +282,10 @@ Metadata for a syntax object can include a source location and the raw
  Converts a nonempty list of terms, each convertible by @rhombus(Syntax.make),
  into a group syntax object.
 
-@(
-  examples:
-    Syntax.make_group([1.0, 2, "c"])
-    Syntax.make_group(['if', 'test', [symbol'alts', ': result1', ': result2']])
-    ~error: Syntax.make_group(['1 2'])
+@examples(
+  Syntax.make_group([1.0, 2, "c"])
+  Syntax.make_group(['if', 'test', [symbol'alts', ': result1', ': result2']])
+  ~error: Syntax.make_group(['1 2'])
 )
 
 }
@@ -305,9 +297,8 @@ Metadata for a syntax object can include a source location and the raw
  Converts a list of groups, each convertible by
  @rhombus(Syntax.make_group), into a multi-group syntax object.
 
-@(
-  examples:
-    Syntax.make_sequence(['1 2 3', 'a b'])
+@examples(
+  Syntax.make_sequence(['1 2 3', 'a b'])
 )
 
 }
@@ -321,13 +312,12 @@ Metadata for a syntax object can include a source location and the raw
  brackets, braces, block, or alternatives, where the first element of
  the list reflects the specific shape.
 
-@(
-  examples:
-    Syntax.unwrap('1.0')
-    Syntax.unwrap('(a, "b", ~c)')
-    Syntax.unwrap(': b; c')
-    Syntax.unwrap('| a | b')
-    ~error: Syntax.unwrap('1 2 3')
+@examples(
+  Syntax.unwrap('1.0')
+  Syntax.unwrap('(a, "b", ~c)')
+  Syntax.unwrap(': b; c')
+  Syntax.unwrap('| a | b')
+  ~error: Syntax.unwrap('1 2 3')
 )
 
 }
@@ -342,12 +332,11 @@ Metadata for a syntax object can include a source location and the raw
  Following the usual coercion conventions, a term syntax object for
  @rhombus(stx) is acceptable as a group syntax object.
 
-@(
-  examples:
-    Syntax.unwrap_group('1.0')
-    Syntax.unwrap_group('1 2 3')
-    Syntax.unwrap_group('a: b; c')
-    ~error: Syntax.unwrap_group('1; 2; 3')
+@examples(
+  Syntax.unwrap_group('1.0')
+  Syntax.unwrap_group('1 2 3')
+  Syntax.unwrap_group('a: b; c')
+  ~error: Syntax.unwrap_group('1; 2; 3')
 )
 
 }
@@ -363,11 +352,10 @@ Metadata for a syntax object can include a source location and the raw
  object for @rhombus(stx) is acceptable as a multi-group syntax
  object.
 
-@(
-  examples:
-    Syntax.unwrap_sequence('1.0')
-    Syntax.unwrap_sequence('1 2 3')
-    Syntax.unwrap_sequence('1; 2; 3')
+@examples(
+  Syntax.unwrap_sequence('1.0')
+  Syntax.unwrap_sequence('1 2 3')
+  Syntax.unwrap_sequence('1; 2; 3')
 )
 
 }

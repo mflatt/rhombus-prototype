@@ -49,7 +49,7 @@
                                "")]
                      [prompt (if (syntax-e #'no-prompt) "" "> ")]
                      [prompt-indent (if (syntax-e #'no-prompt) 0 2)])
-         #'(rhombus-expression (group rhombusblock
+         #'(rhombus-expression (group rhombusblock_etc
                                       (parens (group #:prompt (block (group (parsed prompt))))
                                               (group #:indent (block (group (parsed prompt-indent))))
                                               (group #:inset (block (group (parsed #f)))))

@@ -10,7 +10,7 @@ export:
   make_rhombus_eval
   close_eval
 
-expr.macro 'examples: $form; ...':
+expr.macro 'examples($form, ...)':
   ~op_stx: self
   fun split(forms):
     match forms
