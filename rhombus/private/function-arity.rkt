@@ -72,21 +72,25 @@
          (car norm-a)
          (list (car norm-a) required-kws allowed-kws))]))
 
-(define-for-syntax (check-arity head a n kws rsts kwrsts)
+(define-for-syntax (check-arity head a n kws rsts kwrsts kind)
   (let loop ([kws kws] [n n] [needed-kws #f] [allowed-kws #f])
     (cond
       [(null? kws)
        (unless rsts
          (when (zero? (bitwise-and (arithmetic-shift 1 n) (if (pair? a) (car a) a)))
            (raise-syntax-error #f
-                               (string-append "wrong number of "
-                                              (if needed-kws "by-position " "")
-                                              "arguments in function call")
+                               (case kind
+                                 [(property)
+                                  "property does not support assignment"]
+                                 [else
+                                  (string-append "wrong number of "
+                                                 (if needed-kws "by-position " "")
+                                                 "arguments in " (symbol->string kind) " call")])
                                head)))
        (unless kwrsts
          (when (and needed-kws ((hash-count needed-kws) . > . 0))
            (raise-syntax-error #f
-                               (string-append "missing keyword argument in function call\n"
+                               (string-append "missing keyword argument in " (symbol->string kind) " call\n"
                                               "  keyword: ~"
                                               (keyword->string (hash-iterate-key needed-kws (hash-iterate-first needed-kws))))
                                head)))]
@@ -107,7 +111,7 @@
        (when (and allowed
                   (not (hash-ref allowed kw #f)))
          (raise-syntax-error #f
-                             (string-append "keyword argument not recognized by called function\n"
+                             (string-append "keyword argument not recognized by called " (symbol->string kind) "\n"
                                             "  keyword: ~"
                                             (keyword->string kw))
                              head))

@@ -20,6 +20,7 @@
          "var-decl.rkt"
          (only-in "assign.rkt" :=)
          (only-in "function.rkt" fun)
+         (submod "function.rkt" for-method)
          (only-in "implicit.rkt" #%body)
          (only-in "begin.rkt"
                   [begin rhombus-begin]))
@@ -202,7 +203,6 @@
                      final-property final-override-property
                      private-property private-override-property))
       id rhs maybe-ret)
-     #:with (_ e-arity::entry-point-arity) #'rhs
      (define-values (body replace disposition kind)
        (case (syntax-e #'tag)
          [(method) (values 'method 'method 'abstract 'method)]
@@ -229,8 +229,7 @@
                                                     replace
                                                     disposition
                                                     kind
-                                                    (and (syntax-e #'e-arity.parsed)
-                                                         (shift-arity #'e-arity.parsed)))
+                                                    (extract-arity #'rhs))
                                       (hash-ref options 'methods null)))]
     [((~and tag (~or abstract abstract-property abstract-override abstract-override-property))
       id rhs maybe-ret)
@@ -246,22 +245,26 @@
                                                     #'rhs
                                                     #'maybe-ret
                                                     (and (or (pair? (syntax-e #'maybe-ret))
-                                                             #f)
+                                                             (syntax-e #'e-arity.parsed))
                                                          (car (generate-temporaries #'(id))))
                                                     'abstract
                                                     replace
                                                     'abstract
                                                     kind
-                                                    #f)
+                                                    (extract-arity #'rhs))
                                       (hash-ref options 'methods null)))]
     [_
      (raise-syntax-error #f "unrecognized clause" orig-stx clause)]))
 
-(define-for-syntax (shift-arity arity)
-  (define a (syntax->datum arity))
-  (if (exact-integer? a)
-      (* 2 a)
-      (cons (* 2 (car a)) (cdr a))))
+(define-for-syntax (extract-arity rhs)
+  (syntax-parse rhs
+    [(_ e-arity::entry-point-arity)
+     (and (syntax-e #'e-arity.parsed)
+          (let ([a (syntax->datum #'e-arity.parsed)])
+            (if (exact-integer? a)
+                (* 2 a)
+                (cons (* 2 (car a)) (cdr a)))))]
+    [_ #f]))
 
 (define-for-syntax (class-clause-accum forms)
   ;; early processing of a clause to accumulate information of `class-data`;
@@ -533,7 +536,7 @@
                    (~and rhs (_::block . _)))
              #:attr form (wrap-class-clause #`(#,mode id
                                                (block
-                                                (group fun
+                                                (group fun/read-only-property
                                                        (alts
                                                         (block (group (parens) rhs))
                                                         (block (group (parens (group ignored))
@@ -546,7 +549,7 @@
                             (~and rhs (_::block . _))))))
              #:attr form (wrap-class-clause #`(#,mode id
                                                (block
-                                                (group fun
+                                                (group fun/read-only-property
                                                        (alts
                                                         (block (group (parens) rhs))
                                                         (block (group (parens (group ignored))
@@ -574,7 +577,10 @@
     #:description "proper declaration"
     #:attributes (id rhs maybe-ret)
     (pattern (~seq id:identifier ret::maybe-ret)
-             #:attr rhs #'#f
+             #:attr rhs #'(block (group fun (alts (block (parens))) (alts (block (parens _)))))
+             #:attr maybe-ret #'ret.seq)
+    (pattern (~seq (alts (block id:identifier ret::maybe-ret)))
+             #:attr rhs #'(block (group fun (parens)))
              #:attr maybe-ret #'ret.seq)))
 
 (define-syntax constructor

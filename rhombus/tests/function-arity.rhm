@@ -40,6 +40,24 @@ check:
   ~eval
   use_static
   class Posn(x, y):
+    nonfinal
+    method m(): x
+  Posn.m()
+  ~raises "wrong number of arguments"
+
+check:
+  ~eval
+  use_static
+  class Posn(x, y):
+    nonfinal
+    method m(): x
+  Posn.m(1, 2)
+  ~raises "wrong number of arguments"
+
+check:
+  ~eval
+  use_static
+  class Posn(x, y):
     method m(): x
   Posn(1, 2).m(0)
   ~raises "wrong number of arguments"
@@ -90,3 +108,39 @@ check:
   Posn(1, 2).m(0)
   ~raises "wrong number of arguments"
 
+check:
+  ~eval
+  class Posn(x, y):
+    property | p: 10
+  Posn(1, 2).p := 11
+  ~raises "property does not support assignment"
+  
+check:
+  ~eval
+  class Posn(x, y):
+    property | p: 10
+  Posn.p(Posn(1, 2), 11)
+  ~raises "wrong number of arguments in function call"
+
+check:
+  ~eval
+  class Posn(x, y):
+    property | p: 10
+    method m(): p := 11
+  ~raises "property does not support assignment"
+  
+check:
+  ~eval
+  class Posn(x, y):
+    nonfinal
+    property | p: 10
+  fun (): Posn(1, 2).p := 11
+  ~raises "property does not support assignment"
+  
+check:
+  ~eval
+  class Posn(x, y):
+    nonfinal
+    property | p: 10
+  fun (): Posn.p(Posn(1, 2), 11)
+  ~raises "wrong number of arguments in function call"

@@ -13,7 +13,6 @@
          "entry-point.rkt"
          "class-this.rkt"
          "class-method-result.rkt"
-         "function-arity-key.rkt"
          "dot-provider-key.rkt"
          "static-info.rkt"
          (submod "dot.rkt" for-dot-provider)
@@ -476,6 +475,12 @@
              #:literals (:=)
              [(head (op :=) . tail)
               #:with e::infix-op+expression+tail #'(:= . tail)
+              (define r (and (syntax-e result-id)
+                             (syntax-local-method-result result-id)))
+              (when (and r (eqv? 2 (method-result-arity r)))
+                (raise-syntax-error #f
+                                    "property does not support assignment"
+                                    rator))
               (values #`(#,rator id e.parsed)
                       #'e.tail)]
              [(head . tail)
@@ -499,7 +504,7 @@
                              (syntax-local-method-result result-id)))
               (define-values (call new-tail)
                 (parse-function-call rator (list #'id) #'(head args)
-                                     #:rator-arity (and r (method-result-arity r))))
+                                     #:rator-arity+kind (cons (and r (method-result-arity r)) 'method)))
               (define wrapped-call (add-method-result call r))
               (values wrapped-call #'tail)])]
           [(head . _)

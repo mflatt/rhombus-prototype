@@ -201,7 +201,7 @@
                (build-interface-property internal-name
                                          #'(name prop:name name? name-ref
                                                  prop:internal-name internal-name? internal-name-ref))
-               (build-interface-dot-handling method-mindex method-vtable
+               (build-interface-dot-handling method-mindex method-vtable method-results
                                              internal-name
                                              expression-macro-rhs
                                              #'(name name-instance name-ref

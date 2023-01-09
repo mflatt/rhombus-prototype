@@ -262,6 +262,14 @@ check:
   ~raises "no such field"
 
 check:
+  use_static
+  class Posn(x, y):
+    nonfinal
+    method m() :: Posn: Posn(1, 2)
+  Posn.m(Posn(1, 2)).x
+  ~is 1
+
+check:
   class Posn(x, y):
     nonfinal
     private field q: 1
