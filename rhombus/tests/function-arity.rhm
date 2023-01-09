@@ -144,3 +144,25 @@ check:
     property | p: 10
   fun (): Posn.p(Posn(1, 2), 11)
   ~raises "wrong number of arguments in function call"
+
+check:
+  ~eval
+  use_static
+  class Posn(x, y):
+    nonfinal
+    method m(): 0
+  class Posn3D(z):
+    extends Posn
+    method n(): super.m(1)
+  ~raises "wrong number of arguments in method call"
+
+check:
+  ~eval
+  use_static
+  class Posn(x, y):
+    nonfinal
+    property | p: 0
+  class Posn3D(z):
+    extends Posn
+    method n(): super.p := 1
+  ~raises "property does not support assignment"

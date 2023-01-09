@@ -528,7 +528,8 @@
                                          ([field-name field-argument maybe-set-name-field!] ...)))
                (build-method-results added-methods
                                      method-mindex method-vtable method-private
-                                     method-results))))
+                                     method-results
+                                     final?))))
            #`(begin . #,defns)))])))
 
 (define-for-syntax (build-class-struct super

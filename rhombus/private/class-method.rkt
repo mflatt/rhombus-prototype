@@ -291,19 +291,23 @@
 
 (define-for-syntax (build-method-results added-methods
                                          method-mindex method-vtable method-private
-                                         method-results)
+                                         method-results
+                                         in-final?)
   (for/list ([added (in-list added-methods)]
              #:when (added-method-result-id added))
     #`(define-method-result-syntax #,(added-method-result-id added)
         #,(added-method-maybe-ret added)
         #,(cdr (hash-ref method-results (syntax-e (added-method-id added)) '(none)))
         ;; When calls do not go through vtable, also add static info
-        ;; as #%call-result to binding:
+        ;; as #%call-result to binding; non-vtable calls include final methods
+        ;; and `super` calls to non-final methods:
         #,(or (let ([id/property (hash-ref method-private (syntax-e (added-method-id added)) #f)])
                 (if (pair? id/property) (car id/property) id/property))
-              (let ([mix (hash-ref method-mindex (syntax-e (added-method-id added)) #f)])
-                (and (mindex-final? mix)
-                     (vector-ref method-vtable (mindex-index mix)))))
+              (and (not (eq? (added-method-body added) 'abstract))
+                   (let ([mix (hash-ref method-mindex (syntax-e (added-method-id added)) #f)])
+                     (and (or (mindex-final? mix)
+                              (not in-final?))
+                          (vector-ref method-vtable (mindex-index mix))))))
         #,(added-method-kind added)
         #,(added-method-arity added))))
           
@@ -402,13 +406,15 @@
                  (syntax-parse #'tail
                    #:datum-literals (op)
                    #:literals (:=)
-                   [((op :=) rhs ...)
-                    #:with e::infix-op+expression+tail #'(:= . tail)
-                    (values (datum->syntax #'here (list impl #'id #'e.parsed) #'head #'head)
+                   [((op :=) . rhs)
+                    #:with e::infix-op+expression+tail #'(:= . rhs)
+                    (define-values (call new-tail)
+                      (parse-function-call impl (list #'id #'e.parsed) #'(method-id (parens)) #:rator-kind 'property))
+                    (values call
                             #'e.tail)]
                    [_
                     (define-values (call new-tail)
-                      (parse-function-call impl (list #'id) #'(method-id (parens))))
+                      (parse-function-call impl (list #'id) #'(method-id (parens)) #:rator-kind 'property))
                     (values call
                             #'tail)])]
                 [else
@@ -416,7 +422,7 @@
                  (syntax-parse #'tail
                    [((~and args (tag::parens arg ...)) . tail)
                     (define-values (call new-tail)
-                      (parse-function-call impl (list #'id) #'(method-id args)))
+                      (parse-function-call impl (list #'id) #'(method-id args) #:rator-kind 'method))
                     (values call #'tail)])])])])]))))
 
 (define-for-syntax (get-private-table desc)
@@ -504,7 +510,8 @@
                              (syntax-local-method-result result-id)))
               (define-values (call new-tail)
                 (parse-function-call rator (list #'id) #'(head args)
-                                     #:rator-arity+kind (cons (and r (method-result-arity r)) 'method)))
+                                     #:rator-arity (and r (method-result-arity r))
+                                     #:rator-kind 'method))
               (define wrapped-call (add-method-result call r))
               (values wrapped-call #'tail)])]
           [(head . _)
@@ -587,7 +594,8 @@
              #,@(for/list ([added (in-list added-methods)]
                            #:when (eq? 'abstract (added-method-body added))
                            #:when (syntax-e (added-method-rhs added)))
-                  #`(void (rhombus-expression #,(added-method-rhs added))))
+                  #`(void (rhombus-expression #,(syntax-parse (added-method-rhs added)
+                                                  [(_ rhs) #'rhs]))))
              (values
               #,@(for/list ([added (in-list added-methods)]
                             #:when (not (eq? 'abstract (added-method-body added))))

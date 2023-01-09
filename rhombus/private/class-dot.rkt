@@ -178,8 +178,7 @@
                        (syntax-local-method-result ret-info-id)))
         (define-values (call new-tail)
           (parse-function-call rator (list obj-id) #`(#,obj-id (tag arg ...))
-                               #:rator-arity+kind (and r
-                                                       (cons (method-result-arity r) 'function))))
+                               #:rator-arity (and r (method-result-arity r))))
         (values (let ([call #`(let ([#,obj-id (rhombus-expression self)])
                                 #,call)])
                   (if r
@@ -323,7 +322,8 @@
                           call-e)))]))
        (define-values (call-stx empty-tail)
          (parse-function-call rator (list obj-e) #`(#,obj-e #,args)
-                              #:rator-arity+kind (cons arity (if property? 'property 'method))))
+                              #:rator-arity arity
+                              #:rator-kind (if property? 'property 'method)))
        (success (wrap call-stx)
                 new-tail)]
       [else

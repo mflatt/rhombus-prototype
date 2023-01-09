@@ -214,7 +214,8 @@
                                              prop:internal-name internal-name? internal-name-ref))
                (build-method-results added-methods
                                      method-mindex method-vtable method-private
-                                     method-results))))
+                                     method-results
+                                     #f))))
            #`(begin . #,defns)))])))
 
 (define-for-syntax (build-interface-property internal-name names)

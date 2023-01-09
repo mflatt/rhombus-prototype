@@ -23,11 +23,12 @@
 
   (define (check-entry-point-result form proc)
     (unless (syntax? form)
-      (raise-result-error (proc-name proc) rhombus-realm "Entry_Point_Syntax" form))
+      (raise-result-error* (proc-name proc) rhombus-realm "Entry_Point_Syntax" form))
     form)
 
   (define (check-entry-point-arity-result form proc)
-    (unless (or (exact-integer? form)
+    (unless (or (not form)
+                (exact-integer? form)
                 (and (list? form)
                      (= 3 (length form))
                      (exact-integer? (car form))
@@ -36,7 +37,7 @@
                      (or (not (caddr form))
                          (and (list? (caddr form))
                               (andmap keyword? (caddr form))))))
-      (raise-result-error (proc-name proc) rhombus-realm "Entry_Point_Arity" form))
+      (raise-result-error* (proc-name proc) rhombus-realm "Entry_Point_Arity" form))
     (datum->syntax #f form))
 
   (define in-entry-point-space (make-interned-syntax-introducer/add 'rhombus/entry_point))

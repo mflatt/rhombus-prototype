@@ -521,8 +521,8 @@
     #:description "method declaration"
     #:attributes (id rhs maybe-ret)
     (pattern (~seq id:identifier (tag::parens arg ...) ret::maybe-ret)
-             #:attr rhs #'(group fun (tag arg ...)
-                                 (block (group (parsed (void)))))
+             #:attr rhs #'(block (group fun (tag arg ...)
+                                        (block (group (parsed (void))))))
              #:attr maybe-ret #'ret.seq)
     (pattern (~seq id:identifier ret::maybe-ret)
              #:attr rhs #'#f
@@ -577,10 +577,11 @@
     #:description "proper declaration"
     #:attributes (id rhs maybe-ret)
     (pattern (~seq id:identifier ret::maybe-ret)
-             #:attr rhs #'(block (group fun (alts (block (parens))) (alts (block (parens _)))))
+             #:attr rhs #'(block (group fun (alts (block (group (parens) (block (group (parsed (void))))))
+                                                  (block (group (parens (group _)) (block (group (parsed (void)))))))))
              #:attr maybe-ret #'ret.seq)
     (pattern (~seq (alts (block id:identifier ret::maybe-ret)))
-             #:attr rhs #'(block (group fun (parens)))
+             #:attr rhs #'(block (group fun (parens) (block (group (parsed (void))))))
              #:attr maybe-ret #'ret.seq)))
 
 (define-syntax constructor
