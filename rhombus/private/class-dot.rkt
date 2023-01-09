@@ -286,18 +286,21 @@
         [else (vector-ref (syntax-e (desc-method-vtable desc)) pos/id*)]))
     (cond
       [args
-       (define-values (rator obj-e wrap)
+       (define-values (rator obj-e arity wrap)
          (cond
            [(identifier? pos/id)
-            (values pos/id form1 (lambda (e) e))]
+            (values pos/id form1 #f (lambda (e) e))]
            [else
             (define obj-id #'obj)
+            (define r (and ret-info-id
+                           (syntax-local-method-result ret-info-id)))
             (define static-infos
               (or (and ret-info-id
-                       (method-result-static-infos (syntax-local-method-result ret-info-id)))
+                       (method-result-static-infos r))
                   #'()))
             (values #`(method-ref #,(desc-ref-id desc) #,obj-id #,pos/id)
                     obj-id
+                    (and r (method-result-arity r))
                     (lambda (e)
                       (define call-e #`(let ([#,obj-id #,form1])
                                          #,e))
@@ -305,7 +308,8 @@
                           (wrap-static-info* call-e static-infos)
                           call-e)))]))
        (define-values (call-stx empty-tail)
-         (parse-function-call rator (list obj-e) #`(#,obj-e #,args)))
+         (parse-function-call rator (list obj-e) #`(#,obj-e #,args)
+                              #:rator-arity arity))
        (success (wrap call-stx)
                 new-tail)]
       [else

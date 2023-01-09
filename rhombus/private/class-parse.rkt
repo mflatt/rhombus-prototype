@@ -111,7 +111,8 @@
                          body        ; 'method, 'abstract
                          replace     ; 'method, 'override
                          disposition ; 'abstract, 'final, 'private
-                         kind))      ; 'method, 'property
+                         kind        ; 'method, 'property
+                         arity))     ; #f, integer, or (list integer required-list allowed-list)
 
 ;; used for a table produced by `extract-method-tables`
 (struct mindex (index final? property?))

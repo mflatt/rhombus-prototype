@@ -7,7 +7,8 @@
          (only-in "annotation.rkt" ::)
          (submod "annotation.rkt" for-class)
          "static-info.rkt"
-         "call-result-key.rkt")
+         "call-result-key.rkt"
+         "function-arity-key.rkt")
 
 (provide define-method-result-syntax)
 
@@ -17,7 +18,7 @@
            syntax-local-method-result))
 
 (begin-for-syntax
-  (struct method-result (predicate-expr static-infos))
+  (struct method-result (predicate-expr static-infos arity))
   (define (method-result-ref v)
     (and (method-result? v) v))
 
@@ -28,7 +29,16 @@
 (define-syntax (define-method-result-syntax stx)
   (syntax-parse stx
     #:datum-literals (op)
-    [(_ id ((op mode) ret ...) (super-result-id ...) maybe-final-id kind)
+    [(_ id () _ maybe-final-id kind arity)
+     (define def
+       #'(define-syntax id (method-result #f #'() (quote arity))))
+     (cond
+       [(syntax-e #'maybe-final-id)
+        #`(begin
+            #,def
+            (define-static-info-syntax maybe-final-id (#%function-arity arity)))]
+       [else def])]
+    [(_ id ((op mode) ret ...) (super-result-id ...) maybe-final-id kind arity)
      #:with c::annotation (no-srcloc #`(#,group-tag ret ...))
      #:with c-parsed::annotation-form #'c.parsed
      #:do [(define super-results (map syntax-local-method-result
@@ -51,13 +61,17 @@
        #`(define-syntax id (method-result #,(if (syntax-e #'pred)
                                                 #'(quote-syntax pred)
                                                 #'#f)
-                                          (quote-syntax all-static-infos))))
+                                          (quote-syntax all-static-infos)
+                                          (quote arity))))
      (cond
-       [(and (pair? (syntax-e #'all-static-infos))
-             (syntax-e #'maybe-final-id))
+       [(syntax-e #'maybe-final-id)
         #`(begin
             #,def
-            (define-static-info-syntax maybe-final-id #,(if (eq? (syntax-e #'kind) 'property)
-                                                            #`(#%call-results-at-arities ((1 all-static-infos)))
-                                                            #`(#%call-result all-static-infos))))]
+            (define-static-info-syntax maybe-final-id
+              #,(if (eq? (syntax-e #'kind) 'property)
+                    #`(#%call-results-at-arities ((1 all-static-infos)))
+                    #`(#%call-result all-static-infos))
+              #,@(if (syntax-e #'arity)
+                     #`((#%function-arity arity))
+                     #'())))]
        [else def])]))

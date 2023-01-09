@@ -297,7 +297,7 @@
              #:when (added-method-result-id added))
     #`(define-method-result-syntax #,(added-method-result-id added)
         #,(added-method-maybe-ret added)
-        #,(cdr (hash-ref method-results (syntax-e (added-method-id added))))
+        #,(cdr (hash-ref method-results (syntax-e (added-method-id added)) '(none)))
         ;; When calls do not go through vtable, also add static info
         ;; as #%call-result to binding:
         #,(or (let ([id/property (hash-ref method-private (syntax-e (added-method-id added)) #f)])
@@ -305,7 +305,8 @@
               (let ([mix (hash-ref method-mindex (syntax-e (added-method-id added)) #f)])
                 (and (mindex-final? mix)
                      (vector-ref method-vtable (mindex-index mix)))))
-        #,(added-method-kind added))))
+        #,(added-method-kind added)
+        #,(added-method-arity added))))
           
 (define-for-syntax (build-method-result-expression method-result)
   #`(hasheq
@@ -456,6 +457,10 @@
                    #'tail)])]))))
 
 (define-for-syntax (make-method-syntax id index/id result-id kind)
+  (define (add-method-result call r)
+    (if r
+        (wrap-static-info* call (method-result-static-infos r))
+        call))
   (cond
     [(eq? kind 'property)
      (expression-transformer
@@ -477,9 +482,7 @@
               (define call #`(#,rator id))
               (define r (and (syntax-e result-id)
                              (syntax-local-method-result result-id)))
-              (values (if r
-                          (wrap-static-info* call (method-result-static-infos r))
-                          call)
+              (values (add-method-result call r)
                       #'tail)])])))]
     [else
      (expression-transformer
@@ -492,14 +495,12 @@
               (define rator (if (identifier? index/id)
                                 index/id
                                 #`(vector-ref (prop-methods-ref id) #,index/id)))
-              (define-values (call new-tail)
-                (parse-function-call rator (list #'id) #'(head args)))
               (define r (and (syntax-e result-id)
                              (syntax-local-method-result result-id)))
-              (define wrapped-call
-                (if r
-                    (wrap-static-info* call (method-result-static-infos r))
-                    call))
+              (define-values (call new-tail)
+                (parse-function-call rator (list #'id) #'(head args)
+                                     #:rator-arity (and r (method-result-arity r))))
+              (define wrapped-call (add-method-result call r))
               (values wrapped-call #'tail)])]
           [(head . _)
            (raise-syntax-error #f

@@ -1,0 +1,92 @@
+#lang rhombus
+
+check:
+  ~eval
+  use_static
+  fun f(x): x
+  f()
+  ~raises "wrong number of arguments"
+
+check:
+  ~eval
+  use_static
+  fun f(x): x
+  f(1, 2)
+  ~raises "wrong number of arguments"
+
+check:
+  ~eval
+  use_static
+  fun f(x): x
+  f(1, ~flavor: "vanilla")
+  ~raises "keyword argument not recognized"
+
+check:
+  ~eval
+  use_static
+  fun f(x, ~flavor): x
+  f(1)
+  ~raises "required keyword argument not supplied"
+
+check:
+  ~eval
+  use_static
+  class Posn(x, y):
+    method m(): x
+  Posn.m()
+  ~raises "wrong number of arguments"
+
+check:
+  ~eval
+  use_static
+  class Posn(x, y):
+    method m(): x
+  Posn(1, 2).m(0)
+  ~raises "wrong number of arguments"
+
+check:
+  ~eval
+  use_static
+  class Posn(x, y):
+    method m(): x
+    method n(): m(1)
+  ~raises "wrong number of arguments"
+  
+check:
+  ~eval
+  use_static
+  class Posn(x, y):
+    nonfinal
+    method m(): x
+  Posn(1, 2).m(0)
+  ~raises "wrong number of arguments"
+
+check:
+  ~eval
+  use_static
+  class Posn(x, y):
+    nonfinal
+    method m(): x
+  class Posn3D(z):
+    extends Posn
+  Posn3D(1, 2, 3).m(0)
+  ~raises "wrong number of arguments"
+
+check:
+  ~eval
+  use_static
+  interface Pointy:
+    method m(): 0
+    method n(): m(1)
+  ~raises "wrong number of arguments"
+
+check:
+  ~eval
+  use_static
+  interface Pointy:
+    method m(): 0
+  class Posn(x, y):
+    implements Pointy
+  Posn(1, 2).m(0)
+  ~raises "wrong number of arguments"
+

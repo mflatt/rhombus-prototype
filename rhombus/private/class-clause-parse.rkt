@@ -12,6 +12,7 @@
          "interface-clause.rkt"
          (only-in "annotation.rkt" :: -:)
          (submod "annotation.rkt" for-class)
+         "entry-point.rkt"
          "parens.rkt"
          "name-root.rkt"
          "name-root-ref.rkt"
@@ -201,6 +202,7 @@
                      final-property final-override-property
                      private-property private-override-property))
       id rhs maybe-ret)
+     #:with (_ e-arity::entry-point-arity) #'rhs
      (define-values (body replace disposition kind)
        (case (syntax-e #'tag)
          [(method) (values 'method 'method 'abstract 'method)]
@@ -220,12 +222,15 @@
                                                     (car (generate-temporaries #'(id)))
                                                     #'rhs
                                                     #'maybe-ret
-                                                    (and (pair? (syntax-e #'maybe-ret))
+                                                    (and (or (pair? (syntax-e #'maybe-ret))
+                                                             (syntax-e #'e-arity.parsed))
                                                          (car (generate-temporaries #'(id))))
                                                     body
                                                     replace
                                                     disposition
-                                                    kind)
+                                                    kind
+                                                    (and (syntax-e #'e-arity.parsed)
+                                                         (shift-arity #'e-arity.parsed)))
                                       (hash-ref options 'methods null)))]
     [((~and tag (~or abstract abstract-property abstract-override abstract-override-property))
       id rhs maybe-ret)
@@ -240,15 +245,23 @@
                                                     '#:abstract
                                                     #'rhs
                                                     #'maybe-ret
-                                                    (and (pair? (syntax-e #'maybe-ret))
+                                                    (and (or (pair? (syntax-e #'maybe-ret))
+                                                             #f)
                                                          (car (generate-temporaries #'(id))))
                                                     'abstract
                                                     replace
                                                     'abstract
-                                                    kind)
+                                                    kind
+                                                    #f)
                                       (hash-ref options 'methods null)))]
     [_
      (raise-syntax-error #f "unrecognized clause" orig-stx clause)]))
+
+(define-for-syntax (shift-arity arity)
+  (define a (syntax->datum arity))
+  (if (exact-integer? a)
+      (* 2 a)
+      (cons (* 2 (car a)) (cdr a))))
 
 (define-for-syntax (class-clause-accum forms)
   ;; early processing of a clause to accumulate information of `class-data`;

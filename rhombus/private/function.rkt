@@ -87,14 +87,17 @@
         [else #f])))))
 
 (begin-for-syntax
-  (define-syntax-class :non-...-binding
+  (define-syntax-class :non-...
+    #:attributes ()
     (pattern form
              #:when (syntax-parse #'form
                       #:datum-literals (group op)
                       #:literals (& ~&)
                       [(group (op (~literal rhombus...))) #f]
                       [(group (op (~or & ~&)) . _) #f]
-                      [_ #t])
+                      [_ #t])))
+  (define-syntax-class :non-...-binding
+    (pattern form::non-...
              #:with arg::binding #'form
              #:with parsed #'arg.parsed))
   
@@ -114,6 +117,16 @@
     (pattern arg::non-...-binding
              #:attr kw #'#f
              #:attr parsed #'arg.parsed))
+
+  ;; used when just extracting an arity:
+  (define-syntax-class :kw-arity-arg
+    #:attributes [kw]
+    #:datum-literals (op block group)
+    #:literals (rhombus...)
+    (pattern (group kw:keyword . _))
+    (pattern (group kw:keyword))
+    (pattern arg::non-...
+             #:attr kw #'#f))
   
   (define-syntax-class :kw-opt-binding
     #:attributes [kw parsed default]
@@ -143,6 +156,27 @@
              #:attr kw #'#f
              #:attr parsed #'arg.parsed)
     (pattern ::kw-binding
+             #:attr default #'#f))
+
+  ;; used when just extracting an arity:
+  (define-syntax-class :kw-opt-arity-arg
+    #:attributes [kw default]
+    #:datum-literals (op block group)
+    #:literals (rhombus...)
+    (pattern (group kw:keyword (block (group _::not-equal ...+ _::equal _ ...+)))
+             #:with default #'#t)
+    (pattern (group kw:keyword (block (group _ ...+ (b-tag::block . _))))
+             #:with default #'#t)
+    (pattern (group kw:keyword _::equal _ ...+)
+             #:with default #'#t)
+    (pattern (group _::not-equal ...+ _::equal _ ...+)
+             #:with default #'#t
+             #:attr kw #'#f)
+    (pattern (group a ...+ (b-tag::block . _))
+             #:with (~not (_:keyword)) #'(a ...)
+             #:with default #'#t
+             #:attr kw #'#f)
+    (pattern ::kw-arity-arg
              #:attr default #'#f))
 
   (define-syntax-class :not-block
@@ -198,6 +232,30 @@
               (~alt (~optional ::pos-rest #:defaults ([arg #'#f] [parsed #'#f]))
                     (~optional ::kwp-rest #:defaults ([kwarg #'#f] [kwparsed #'#f])))
               ...)))
+  
+  ;; used when just extracting an arity:
+  (define-splicing-syntax-class :pos-arity-rest
+    #:attributes [rest?]
+    #:datum-literals (group op)
+    #:literals (& rhombus...)
+    (pattern (~seq (group (op &) _ ...))
+             #:attr rest? #t)
+    (pattern (~seq _::non-... (group (op rhombus...)))
+             #:attr rest? #t))
+  (define-splicing-syntax-class :kwp-arity-rest
+    #:attributes [kwrest?]
+    #:datum-literals (group op)
+    #:literals (~&)
+    (pattern (~seq (group (op ~&) _ ...))
+             #:attr kwrest? #'#t))
+  (define-splicing-syntax-class :maybe-rest-arity-arg
+    #:attributes [rest? kwrest?]
+    #:datum-literals (group op)
+    #:literals (& ~& rhombus...)
+    (pattern (~seq
+              (~alt (~optional ::pos-arity-rest #:defaults ([rest? #'#f]))
+                    (~optional ::kwp-arity-rest #:defaults ([kwrest? #'#f])))
+              ...)))
 
   (struct entry-point+expression+definition-transformer (cbl exp def)
     #:property prop:entry-point-transformer (lambda (self) (entry-point+expression+definition-transformer-cbl self))
@@ -209,13 +267,17 @@
 (define-syntax fun
   (make-entry-point+expression+definition-transformer
    (entry-point-transformer
+    ;; parse function:
     (lambda (stx adjustments)
       (define-values (term tail) (parse-anonymous-function stx adjustments #t))
       (syntax-parse tail
         [() term]
         [_ (raise-syntax-error #f
                                "unexpected extra terms"
-                               tail)])))
+                               tail)]))
+    ;; extract arity:
+    (lambda (stx)
+      (parse-anonymous-function-arity stx)))
    (expression-transformer
     #'fun
     (lambda (stx)
@@ -314,6 +376,23 @@
                              fun)])
                fun)
              #'tail)]))
+
+(define-for-syntax (parse-anonymous-function-arity stx)
+  (syntax-parse stx
+    #:datum-literals (group block alts)
+    [(form-id (alts-tag::alts
+               (block (group (_::parens arg::kw-arity-arg ... rest::maybe-rest-arity-arg)
+                             . _))
+               ...+))
+     (union-arity-summaries
+      (for/list ([arg-kws (in-list (syntax->list #'((arg.kw ...) ...)))]
+                 [rest? (in-list (syntax->list #'(rest.rest? ...)))]
+                 [kw-rest? (in-list (syntax->list #'(rest.kwrest? ...)))])
+        (define kws (syntax->list arg-kws))
+        (summarize-arity arg-kws (datum->syntax #f (map (lambda (x) #f) kws)) (syntax-e rest?) (syntax-e kw-rest?))))]
+    [(form-id (parens-tag::parens arg::kw-opt-arity-arg ... rest::maybe-rest-arity-arg) . _)
+     (summarize-arity #'(arg.kw ...) #'(arg.default ...) (syntax-e #'rest.rest?) (syntax-e #'rest.kwrest?))]
+    [_ #f]))
 
 (begin-for-syntax
   (define (get-local-name who)
@@ -743,13 +822,17 @@
     (pattern exp
              #:attr kw #'#f)))
 
-(define-for-syntax (parse-function-call rator-in extra-args stxes #:repetition? [repetition? #f])
+(define-for-syntax (parse-function-call rator-in extra-args stxes
+                                        #:repetition? [repetition? #f]
+                                        #:rator-arity [rator-arity #f])
   (syntax-parse stxes
     #:datum-literals (group op)
     #:literals (& ~& rhombus...)
     [(_ (head::parens rand ...) . tail)
      #:when (complex-argument-splice? #'(rand ...))
-     (values (complex-argument-splice-call rator-in #'head extra-args #'(rand ...) #:repetition? repetition?)
+     (values (complex-argument-splice-call rator-in #'head extra-args #'(rand ...)
+                                           #:repetition? repetition?
+                                           rator-arity)
              #'tail)]
     [(_ (head::parens rand ...
                       (group (op &) rst ...)
@@ -758,7 +841,8 @@
      (generate-call rator-in #'head extra-args #'(rand ...) #'(group rst ...) #f
                     #'(group kwrst ...) #t
                     #'tail
-                    #:repetition? repetition?)]
+                    #:repetition? repetition?
+                    rator-arity)]
     [(_ (head::parens rand ...
                       rep (group (op (~and dots rhombus...)))
                       (group (op ~&) kwrst ...))
@@ -766,18 +850,28 @@
      (generate-call rator-in #'head #'(rand ...) #'rep #'dots
                     #'(group kwrst ...)
                     #'tail
-                    #:repetition? repetition?)]
+                    #:repetition? repetition?
+                    rator-arity)]
     [(_ (head::parens rand ... (group (op &) rst ...)) . tail)
-     (generate-call rator-in #'head extra-args #'(rand ...) #'(group rst ...) #f #f #'tail #:repetition? repetition?)]
+     (generate-call rator-in #'head extra-args #'(rand ...) #'(group rst ...) #f #f #'tail
+                    #:repetition? repetition?
+                    rator-arity)]
     [(_ (head::parens rand ... rep (group (op (~and dots rhombus...)))) . tail)
-     (generate-call rator-in #'head extra-args #'(rand ...) #'rep #'dots #f #'tail #:repetition? repetition?)]
+     (generate-call rator-in #'head extra-args #'(rand ...) #'rep #'dots #f #'tail
+                    #:repetition? repetition?
+                    rator-arity)]
     [(_ (head::parens rand ... (group (op ~&) kwrst ...)) . tail)
-     (generate-call rator-in #'head extra-args #'(rand ...) #f #f #'(group kwrst ...) #'tail #:repetition? repetition?)]
+     (generate-call rator-in #'head extra-args #'(rand ...) #f #f #'(group kwrst ...) #'tail
+                    #:repetition? repetition?
+                    rator-arity)]
     [(_ (head::parens rand ...) . tail)
-     (generate-call rator-in #'head extra-args #'(rand ...) #f #f #f #'tail #:repetition? repetition?)]))
+     (generate-call rator-in #'head extra-args #'(rand ...) #f #f #f #'tail
+                    #:repetition? repetition?
+                    rator-arity)]))
 
 (define-for-syntax (generate-call rator-in head extra-rands rands rsts dots kwrsts tail
-                                  #:repetition? repetition?)
+                                  #:repetition? repetition?
+                                  rator-arity)
   (values
    (with-syntax-parse ([(rand::kw-argument ...) rands])
      (handle-repetition
@@ -789,9 +883,10 @@
       (lambda (rator args rest-args kwrest-args rator-static-info)
         (define kws (syntax->list #'(rand.kw ...)))
         (when (or (not kwrsts) (not rsts))
-          (let ([a (rator-static-info #'#%function-arity)])
+          (let ([a (or rator-arity
+                       (rator-static-info #'#%function-arity))])
             (when a
-              (check-arity rator-in (syntax->datum a) kws args rsts kwrsts))))
+              (check-arity rator-in (if (syntax? a) (syntax->datum a) a) (length extra-rands) kws rsts kwrsts))))
         (define num-rands (length (syntax->list #'(rand.kw ...))))
         (with-syntax-parse ([((arg-form ...) ...) (for/list ([kw kws]
                                                              [arg (in-list args)])
@@ -916,7 +1011,8 @@
       [(_ . gs) (loop #'gs)])))
 
 (define-for-syntax (complex-argument-splice-call rator head extra-args gs-stx
-                                                 #:repetition? repetition?)
+                                                 #:repetition? repetition?
+                                                 rator-arity)
   (define (gen-id) (car (generate-temporaries '(arg))))
   (let loop ([gs-stx gs-stx]
              [rev-args '()])
@@ -968,7 +1064,8 @@
                                       [(null? (cdr kwss)) #`(group (parsed #,(car kwss)))]
                                       [else #`(group (parsed (merge-keyword-argument-maps #,@kwss)))]))
                                   #'#f
-                                  #:repetition? repetition?))
+                                  #:repetition? repetition?
+                                  rator-arity))
                  term))]
       [(((~and tag group) (op &) rand ...+) . gs)
        (loop #'gs

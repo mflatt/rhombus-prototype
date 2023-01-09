@@ -2,6 +2,7 @@
 (require (for-syntax racket/base))
 
 (provide (for-syntax summarize-arity
+                     union-arity-summaries
                      check-arity))
 
 (define-for-syntax (summarize-arity kws defaults rest? kw-rest?)
@@ -42,8 +43,37 @@
              allowed-kws
              required-kws)])))
 
-(define-for-syntax (check-arity head a kws args rsts kwrsts)
-  (let loop ([kws kws] [args args] [n 0] [needed-kws #f] [allowed-kws #f])
+(define-for-syntax (union-arity-summaries as)
+  (cond
+    [(null? as) #f]
+    [(= 1 (length as)) (car as)]
+    [else
+     (define (list->set l) (for/hasheq ([v (in-list l)]) (values v #t)))
+     (define (set->list s) (sort (for/list ([v (in-hash-keys s)]) v) keyword<?))
+     (define (set-intersect a b) (for/hasheq ([k (in-hash-keys b)]
+                                              #:when (hash-ref a k #f))
+                                   (values b #t)))
+     (define (set-union a b) (for/fold ([a a]) ([k (in-hash-keys b)])
+                               (hash-set a k #t)))
+     (define (normalize a)
+       (if (pair? a)
+           (list (car a) (list->set (cadr a)) (and (caddr a) (list->set (caddr a))))
+           (list a #hasheq() #hasheq())))
+     (define norm-a
+       (for/fold ([new-a (normalize (car as))]) ([a (in-list (cdr as))])
+         (let ([a (normalize a)])
+           (list (bitwise-ior (car new-a) (car a))
+                 (set-intersect (cadr new-a) (cadr a))
+                 (and (caddr new-a) (caddr a) (set-union (caddr new-a) (caddr a)))))))
+     (define required-kws (set->list (cadr norm-a)))
+     (define allowed-kws (and (caddr norm-a) (set->list (caddr norm-a))))
+     (if (and (null? required-kws)
+              (null? allowed-kws))
+         (car norm-a)
+         (list (car norm-a) required-kws allowed-kws))]))
+
+(define-for-syntax (check-arity head a n kws rsts kwrsts)
+  (let loop ([kws kws] [n n] [needed-kws #f] [allowed-kws #f])
     (cond
       [(null? kws)
        (unless rsts
@@ -81,6 +111,6 @@
                                             "  keyword: ~"
                                             (keyword->string kw))
                              head))
-       (loop (cdr kws) (cdr args) n needed allowed)]
+       (loop (cdr kws) n needed allowed)]
       [else
-       (loop (cdr kws) (cdr args) (add1 n) needed-kws allowed-kws)])))
+       (loop (cdr kws) (add1 n) needed-kws allowed-kws)])))
