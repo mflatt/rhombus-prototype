@@ -836,11 +836,13 @@
              #:attr kw #'#f)))
 
 (define-for-syntax (parse-function-call rator-in extra-args stxes
+                                        #:static? [static? #f]
                                         #:repetition? [repetition? #f]
                                         #:rator-kind [rator-kind (if repetition? 'repetition 'function)]
                                         #:rator-arity [rator-arity #f])
   (define (generate rator-in head extra-rands rands rsts dots kwrsts tail)
     (generate-call rator-in head extra-rands rands rsts dots kwrsts tail
+                   #:static? static?
                    #:repetition? repetition?
                    #:rator-kind rator-kind
                    #:rator-arity rator-arity))
@@ -850,6 +852,7 @@
     [(_ (head::parens rand ...) . tail)
      #:when (complex-argument-splice? #'(rand ...))
      (values (complex-argument-splice-call rator-in #'head extra-args #'(rand ...)
+                                           #:static? static?
                                            #:repetition? repetition?
                                            #:rator-kind rator-kind
                                            #:rator-arity rator-arity)
@@ -874,6 +877,7 @@
      (generate rator-in #'head extra-args #'(rand ...) #f #f #f #'tail)]))
 
 (define-for-syntax (generate-call rator-in head extra-rands rands rsts dots kwrsts tail
+                                  #:static? static?
                                   #:repetition? repetition?
                                   #:rator-kind rator-kind
                                   #:rator-arity rator-arity)
@@ -887,12 +891,13 @@
       kwrsts
       (lambda (rator args rest-args kwrest-args rator-static-info)
         (define kws (syntax->list #'(rand.kw ...)))
-        (when (or (not kwrsts) (not rsts))
-          (let ([a (or rator-arity
-                       (rator-static-info #'#%function-arity))])
-            (when a
-              (let ([a (if (syntax? a) (syntax->datum a) a)])
-                (check-arity rator-in a (length extra-rands) kws rsts kwrsts rator-kind)))))
+        (when static?
+          (when (or (not kwrsts) (not rsts))
+            (let ([a (or rator-arity
+                         (rator-static-info #'#%function-arity))])
+              (when a
+                (let ([a (if (syntax? a) (syntax->datum a) a)])
+                  (check-arity rator-in a (length extra-rands) kws rsts kwrsts rator-kind))))))
         (define num-rands (length (syntax->list #'(rand.kw ...))))
         (with-syntax-parse ([((arg-form ...) ...) (for/list ([kw kws]
                                                              [arg (in-list args)])
@@ -1017,6 +1022,7 @@
       [(_ . gs) (loop #'gs)])))
 
 (define-for-syntax (complex-argument-splice-call rator head extra-args gs-stx
+                                                 #:static? static?
                                                  #:repetition? repetition?
                                                  #:rator-kind rator-kind
                                                  #:rator-arity rator-arity)

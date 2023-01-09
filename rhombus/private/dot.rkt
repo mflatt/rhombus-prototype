@@ -35,7 +35,8 @@
   (provide set-builtin->accessor-ref!))
 
 (module+ for-dynamic-static
-  (provide (for-syntax make-|.|)))
+  (provide |.|
+           static-|.|))
 
 (begin-for-syntax
   (property dot-provider (handler))
@@ -149,6 +150,7 @@
 
 
 (define-syntax |.| (make-|.| #f))
+(define-syntax static-|.| (make-|.| #t))
 
 (define-syntax (define-dot-provider-syntax stx)
   (syntax-parse stx

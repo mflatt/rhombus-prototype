@@ -86,7 +86,7 @@
     [(op o) #'o]
     [_ ctx-stx-in]))
 
-(define (do-make who v tail? group?)
+(define (do-make who v ctx-stx tail? group?)
   ;; assume that any syntax objects are well-formed, while list structure
   ;; needs to be validated
   (define (invalid)
@@ -167,10 +167,10 @@
       [(syntax? v) (or (unpack-term v #f #f)
                        (invalid))]
       [else v]))
-  (datum->syntax #f (if group? (group v) (loop v tail?))))
+  (datum->syntax ctx-stx (if group? (group v) (loop v tail?))))
 
-(define (make v)
-  (do-make 'Syntax.make v #t #f))
+(define (make v [ctx-stx #f])
+  (do-make 'Syntax.make v ctx-stx #t #f))
 
 (define (make_group v)
   (unless (and (pair? v)

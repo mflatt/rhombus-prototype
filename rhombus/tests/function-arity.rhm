@@ -1,125 +1,109 @@
-#lang rhombus
+#lang rhombus/and_meta
 
-check:
-  ~eval
-  use_static
+defn.macro 'static $check: $form; ...; $raises $msg':
+  '$check:
+     ~eval
+     use_static
+     $form; ...
+     $raises $msg
+   $check:
+     ~eval
+     $form; ...
+     $(Syntax.make(#'~completes, raises))'
+
+static check:
   fun f(x): x
-  f()
+  fun (): f()
   ~raises "wrong number of arguments"
 
-check:
-  ~eval
-  use_static
+static check:
   fun f(x): x
-  f(1, 2)
+  fun (): f(1, 2)
   ~raises "wrong number of arguments"
 
-check:
-  ~eval
-  use_static
+static check:
   fun f(x): x
-  f(1, ~flavor: "vanilla")
+  fun (): f(1, ~flavor: "vanilla")
   ~raises "keyword argument not recognized"
 
-check:
-  ~eval
-  use_static
+static check:
   fun f(x, ~flavor): x
-  f(1)
-  ~raises "required keyword argument not supplied"
+  fun (): f(1)
+  ~raises "missing keyword argument in function call"
 
-check:
-  ~eval
-  use_static
+static check:
   class Posn(x, y):
     method m(): x
-  Posn.m()
+  fun (): Posn.m()
   ~raises "wrong number of arguments"
 
-check:
-  ~eval
-  use_static
+// broken
+static check:
   class Posn(x, y):
     nonfinal
     method m(): x
-  Posn.m()
+  fun (): Posn.m()
   ~raises "wrong number of arguments"
 
-check:
-  ~eval
-  use_static
+static check:
   class Posn(x, y):
     nonfinal
     method m(): x
-  Posn.m(1, 2)
+  fun (): Posn.m(1, 2)
   ~raises "wrong number of arguments"
 
-check:
-  ~eval
-  use_static
+static check:
   class Posn(x, y):
     method m(): x
-  Posn(1, 2).m(0)
+  fun (): Posn(1, 2).m(0)
   ~raises "wrong number of arguments"
 
-check:
-  ~eval
-  use_static
+static check:
   class Posn(x, y):
     method m(): x
     method n(): m(1)
   ~raises "wrong number of arguments"
   
-check:
-  ~eval
-  use_static
+static check:
   class Posn(x, y):
     nonfinal
     method m(): x
-  Posn(1, 2).m(0)
+  fun (): Posn(1, 2).m(0)
   ~raises "wrong number of arguments"
 
-check:
-  ~eval
-  use_static
+static check:
   class Posn(x, y):
     nonfinal
     method m(): x
   class Posn3D(z):
     extends Posn
-  Posn3D(1, 2, 3).m(0)
+  fun (): Posn3D(1, 2, 3).m(0)
   ~raises "wrong number of arguments"
 
-check:
-  ~eval
-  use_static
+static check:
   interface Pointy:
     method m(): 0
     method n(): m(1)
   ~raises "wrong number of arguments"
 
-check:
-  ~eval
-  use_static
+static check:
   interface Pointy:
     method m(): 0
   class Posn(x, y):
     implements Pointy
-  Posn(1, 2).m(0)
+  fun (): Posn(1, 2).m(0)
   ~raises "wrong number of arguments"
 
-check:
-  ~eval
+static check:
   class Posn(x, y):
     property | p: 10
-  Posn(1, 2).p := 11
+  fun (): Posn(1, 2).p := 11
   ~raises "property does not support assignment"
   
-check:
-  ~eval
+static check:
   class Posn(x, y):
     property | p: 10
-  Posn.p(Posn(1, 2), 11)
+  fun (): Posn.p(Posn(1, 2), 11)
   ~raises "wrong number of arguments in function call"
 
 check:
@@ -129,25 +113,21 @@ check:
     method m(): p := 11
   ~raises "property does not support assignment"
   
-check:
-  ~eval
+static check:
   class Posn(x, y):
     nonfinal
     property | p: 10
   fun (): Posn(1, 2).p := 11
   ~raises "property does not support assignment"
   
-check:
-  ~eval
+static check:
   class Posn(x, y):
     nonfinal
     property | p: 10
   fun (): Posn.p(Posn(1, 2), 11)
   ~raises "wrong number of arguments in function call"
 
-check:
-  ~eval
-  use_static
+static check:
   class Posn(x, y):
     nonfinal
     method m(): 0
@@ -156,9 +136,7 @@ check:
     method n(): super.m(1)
   ~raises "wrong number of arguments in method call"
 
-check:
-  ~eval
-  use_static
+static check:
   class Posn(x, y):
     nonfinal
     property | p: 0

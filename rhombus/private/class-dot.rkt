@@ -21,7 +21,9 @@
          "name-root.rkt"
          "parse.rkt"
          (submod "function.rkt" for-call)
-         (for-syntax "class-transformer.rkt"))
+         (for-syntax "class-transformer.rkt")
+         (only-in (submod "implicit.rkt" for-dynamic-static)
+                  static-#%call))
 
 (provide (for-syntax build-class-dot-handling
                      build-interface-dot-handling
@@ -178,6 +180,8 @@
                        (syntax-local-method-result ret-info-id)))
         (define-values (call new-tail)
           (parse-function-call rator (list obj-id) #`(#,obj-id (tag arg ...))
+                               #:static? (free-identifier=? (datum->syntax #'tag '#%call)
+                                                            #'static-#%call)
                                #:rator-arity (and r (method-result-arity r))))
         (values (let ([call #`(let ([#,obj-id (rhombus-expression self)])
                                 #,call)])
@@ -186,6 +190,8 @@
                       call))
                 #'tail)]
        [(head (tag::parens) . _)
+        #:when (free-identifier=? (datum->syntax #'tag '#%call)
+                                  #'static-#%call)
         (raise-syntax-error #f
                             "wrong number of arguments in function call"
                             #'head)]
@@ -322,6 +328,7 @@
                           call-e)))]))
        (define-values (call-stx empty-tail)
          (parse-function-call rator (list obj-e) #`(#,obj-e #,args)
+                              #:static? more-static?
                               #:rator-arity arity
                               #:rator-kind (if property? 'property 'method)))
        (success (wrap call-stx)

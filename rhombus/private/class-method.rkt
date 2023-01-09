@@ -19,6 +19,8 @@
          "assign.rkt"
          "parens.rkt"
          (submod "function.rkt" for-call)
+         (only-in (submod "implicit.rkt" for-dynamic-static)
+                  static-#%call)
          "realm.rkt")
 
 (provide (for-syntax extract-method-tables
@@ -381,7 +383,7 @@
           [(id dp . super-ids)
            (syntax-parse stxs
              #:datum-literals (op |.|)
-             [(head (op |.|) method-id:identifier . tail)
+             [(head (op (~and dot-op |.|)) method-id:identifier . tail)
               (define super+pos
                 (for/or ([super-id (in-list (syntax->list #'super-ids))])
                   (define super (syntax-local-value* (in-class-desc-space super-id)
@@ -400,6 +402,8 @@
               (when (eq? (syntax-e impl) '#:abstract)
                 (raise-syntax-error #f "method is abstract in superclass" #'head #'method-id))
               (define shape (vector-ref (super-method-shapes super) pos))
+              (define static? (free-identifier=? (datum->syntax #'dot-op '#%call)
+                                                 #'static-#%call))
               (cond
                 [(pair? shape)
                  ;; a property
@@ -409,12 +413,16 @@
                    [((op :=) . rhs)
                     #:with e::infix-op+expression+tail #'(:= . rhs)
                     (define-values (call new-tail)
-                      (parse-function-call impl (list #'id #'e.parsed) #'(method-id (parens)) #:rator-kind 'property))
+                      (parse-function-call impl (list #'id #'e.parsed) #'(method-id (parens))
+                                           #:static? static?
+                                           #:rator-kind 'property))
                     (values call
                             #'e.tail)]
                    [_
                     (define-values (call new-tail)
-                      (parse-function-call impl (list #'id) #'(method-id (parens)) #:rator-kind 'property))
+                      (parse-function-call impl (list #'id) #'(method-id (parens))
+                                           #:static? static?
+                                           #:rator-kind 'property))
                     (values call
                             #'tail)])]
                 [else
@@ -422,7 +430,9 @@
                  (syntax-parse #'tail
                    [((~and args (tag::parens arg ...)) . tail)
                     (define-values (call new-tail)
-                      (parse-function-call impl (list #'id) #'(method-id args) #:rator-kind 'method))
+                      (parse-function-call impl (list #'id) #'(method-id args)
+                                           #:static? static?
+                                           #:rator-kind 'method))
                     (values call #'tail)])])])])]))))
 
 (define-for-syntax (get-private-table desc)
@@ -510,6 +520,8 @@
                              (syntax-local-method-result result-id)))
               (define-values (call new-tail)
                 (parse-function-call rator (list #'id) #'(head args)
+                                     #:static? (free-identifier=? (datum->syntax #'tag '#%call)
+                                                                  #'static-#%call)
                                      #:rator-arity (and r (method-result-arity r))
                                      #:rator-kind 'method))
               (define wrapped-call (add-method-result call r))
