@@ -39,7 +39,8 @@
          (submod "dot.rkt" for-dot-provider)
          "dot-parse.rkt"
          "realm.rkt"
-         "compound-repetition.rkt")
+         "compound-repetition.rkt"
+         "function-arity.rkt")
 
 (provide fun
          Function
@@ -232,35 +233,37 @@
          (define names (syntax->list #'(name.name ...)))
          (define the-name (car names))
          (check-consistent stx names "name")
+         (define-values (proc arity)
+           (build-case-function no-adjustments
+                                the-name
+                                #'((arg.kw ...) ...)
+                                #'((arg ...) ...) #'((arg.parsed ...) ...)
+                                #'(rest.arg ...) #'(rest.parsed ...)
+                                #'(rest.kwarg ...) #'(rest.kwparsed ...)
+                                #'(ret.predicate ...)
+                                #'(rhs ...)
+                                #'form-id #'alts-tag))
          (maybe-add-function-result-definition
-          the-name (syntax->list #'(ret.static-infos ...))
+          the-name (syntax->list #'(ret.static-infos ...)) arity
           (list
-           #`(define #,the-name
-               #,(build-case-function no-adjustments
-                                      the-name
-                                      #'((arg.kw ...) ...)
-                                      #'((arg ...) ...) #'((arg.parsed ...) ...)
-                                      #'(rest.arg ...) #'(rest.parsed ...)
-                                      #'(rest.kwarg ...) #'(rest.kwparsed ...)
-                                      #'(ret.predicate ...)
-                                      #'(rhs ...)
-                                      #'form-id #'alts-tag))))]
+           #`(define #,the-name #,proc)))]
         [(form-id name-seq::dotted-identifier-sequence (parens-tag::parens arg::kw-opt-binding ... rest::maybe-arg-rest)
                   ret::ret-annotation
                   (~and rhs (_::block body ...)))
          #:with name::dotted-identifier #'name-seq
+         (define-values (proc arity)
+           (build-function no-adjustments
+                           #'name.name
+                           #'(arg.kw ...) #'(arg ...) #'(arg.parsed ...) #'(arg.default ...)
+                           #'rest.arg #'rest.parsed
+                           #'rest.kwarg #'rest.kwparsed
+                           #'ret.predicate
+                           #'rhs
+                           #'form-id #'parens-tag))
          (maybe-add-function-result-definition
-          #'name.name (list #'ret.static-infos)
+          #'name.name (list #'ret.static-infos) arity
           (list
-           #`(define name.name
-               #,(build-function no-adjustments
-                                 #'name.name
-                                 #'(arg.kw ...) #'(arg ...) #'(arg.parsed ...) #'(arg.default ...)
-                                 #'rest.arg #'rest.parsed
-                                 #'rest.kwarg #'rest.kwparsed
-                                 #'ret.predicate
-                                 #'rhs
-                                 #'form-id #'parens-tag))))]
+           #`(define name.name #,proc)))]
         ;; definition form didn't match, so try parsing as a `fun` expression:
         [(_ (~or (_::parens _ ...)
                  (_::alts (block (group (parens _ ...) . _)) ...+))
@@ -277,21 +280,24 @@
                              (~and rhs (_::block body ...))))
                ...+)
               . tail)
-     (values
-      (build-case-function adjustments
-                           (get-local-name #'form-id)
-                           #'((arg.kw ...) ...)
-                           #'((arg ...) ...) #'((arg.parsed ...) ...)
-                           #'(rest.arg ...) #'(rest.parsed ...)
-                           #'(rest.kwarg ...) #'(rest.kwparsed ...)
-                           #'(ret.predicate ...)
-                           #'(rhs ...)
-                           #'form-id #'alts-tag)
-      #'tail)]
+     (define-values (proc arity)
+       (build-case-function adjustments
+                            (get-local-name #'form-id)
+                            #'((arg.kw ...) ...)
+                            #'((arg ...) ...) #'((arg.parsed ...) ...)
+                            #'(rest.arg ...) #'(rest.parsed ...)
+                            #'(rest.kwarg ...) #'(rest.kwparsed ...)
+                            #'(ret.predicate ...)
+                            #'(rhs ...)
+                            #'form-id #'alts-tag))
+     (values (if arity
+                 (wrap-static-info proc #'#%function-arity arity)
+                 proc)
+             #'tail)]
     [(form-id (parens-tag::parens arg::kw-opt-binding ... rest::maybe-arg-rest) ret::ret-annotation
               (~and rhs (_::block body ...))
               . tail)
-     (define fun
+     (define-values (fun arity)
        (build-function adjustments
                        (get-local-name #'form-id)
                        #'(arg.kw ...) #'(arg ...) #'(arg.parsed ...) #'(arg.default ...)
@@ -300,9 +306,13 @@
                        #'ret.predicate
                        #'rhs
                        #'form-id #'parens-tag))
-     (values (if (pair? (syntax-e #'ret.static-infos))
-                 (wrap-static-info fun #'#%call-result #'ret.static-infos)
-                 fun)
+     (values (let* ([fun (if (pair? (syntax-e #'ret.static-infos))
+                             (wrap-static-info fun #'#%call-result #'ret.static-infos)
+                             fun)]
+                    [fun (if arity
+                             (wrap-static-info fun #'#%function-arity arity)
+                             fun)])
+               fun)
              #'tail)]))
 
 (begin-for-syntax
@@ -382,15 +392,18 @@
           (define (adjust-args args)
             (append (entry-point-adjustments-prefix-arguments adjustments)
                     args))
-          (relocate
-           (span-srcloc start end)
-           (if (syntax-e kwrest-arg)
-               #`(lambda/kwrest
-                  #,(adjust-args #'(arg-form ... ...))
-                  maybe-rest-tmp* ... maybe-kwrest-tmp ...
-                  #,body)
-               #`(lambda #,(adjust-args #'(arg-form ... ... . maybe-rest-tmp))
-                   #,body)))))))
+          (define arity (summarize-arity kws defaults (syntax-e rest-arg) (syntax-e kwrest-arg)))               
+          (values
+           (relocate
+            (span-srcloc start end)
+            (if (syntax-e kwrest-arg)
+                #`(lambda/kwrest
+                   #,(adjust-args #'(arg-form ... ...))
+                   maybe-rest-tmp* ... maybe-kwrest-tmp ...
+                   #,body)
+                #`(lambda #,(adjust-args #'(arg-form ... ... . maybe-rest-tmp))
+                    #,body)))
+           arity)))))
 
   (define (build-case-function adjustments
                                function-name
@@ -441,105 +454,110 @@
               #,(arity->mask-syntax pos-arity)
               '#,required-kws
               '#,allowed-kws))]))
-    (relocate
-     (span-srcloc start end)
-     (reduce-keyword-arity
-      #`(case-lambda/kwrest
-         #,@(for/list ([n+same (in-list n+sames)])
-              (define n (car n+same))
-              (define same (cdr n+same))
-              (with-syntax ([(try-next pos-arg-id ...) (generate-temporaries
-                                                        (cons 'try-next
-                                                              (fcase-pos fcase-args (find-matching-case n same))))]
-                            [(maybe-rest-tmp ...) (if (negative? n)
-                                                      #'(#:rest rest-tmp)
-                                                      #'())]
-                            [maybe-rest-tmp-use (if (negative? n)
-                                                    #'rest-tmp
-                                                    #'null)]
-                            [(maybe-kwrest-tmp ...) (if kws?
-                                                        #'(#:kwrest kwrest-tmp)
-                                                        #'())]
-                            [maybe-kwrest-tmp-use (if kws?
-                                                      #'kwrest-tmp
-                                                      #''#hashalw())])
-                #`[(#,@(entry-point-adjustments-prefix-arguments adjustments) pos-arg-id ...)
-                   maybe-rest-tmp ... maybe-kwrest-tmp ...
-                   #,(let loop ([same same])
-                       (cond
-                         [(null? same)
-                          #`(cases-failure '#,function-name maybe-rest-tmp-use maybe-kwrest-tmp-use pos-arg-id ...)]
-                         [else
-                          (define fc (car same))
-                          (define-values (this-args wrap-adapted-arguments)
-                            (adapt-arguments-for-count fc n #'(pos-arg-id ...) #'rest-tmp
-                                                       (and kws? #'kwrest-tmp)
-                                                       #'try-next))
-                          (with-syntax-parse ([(arg ...) (fcase-args fc)]
-                                              [(arg-parsed::binding-form ...) (fcase-arg-parseds fc)]
-                                              [(arg-impl::binding-impl ...) #'((arg-parsed.infoer-id () arg-parsed.data) ...)]
-                                              [(arg-info::binding-info ...) #'(arg-impl.info ...)]
-                                              [(this-arg-id ...) this-args]
-                                              [pred (fcase-pred fc)]
-                                              [rhs (fcase-rhs fc)]
-                                              [(maybe-match-rest (maybe-bind-rest-seq ...) (maybe-bind-rest ...))
-                                               (cond
-                                                 [(syntax-e (fcase-rest-arg fc))
-                                                  (define rest-parsed (fcase-rest-arg-parsed fc))
-                                                  (with-syntax-parse ([rest::binding-form rest-parsed]
-                                                                      [rest-impl::binding-impl #'(rest.infoer-id () rest.data)]
-                                                                      [rest-info::binding-info #'rest-impl.info])
-                                                    #`((rest-tmp rest-info #,(fcase-rest-arg fc) #f)
-                                                       ((rest-info.committer-id rest-tmp rest-info.data)
-                                                        (rest-info.binder-id rest-tmp rest-info.data))
-                                                       ((define-static-info-syntax/maybe rest-info.bind-id rest-info.bind-static-info ...)
-                                                        ...)))]
-                                                 [else
-                                                  #'(#f () ())])]
-                                              [(maybe-match-kwrest (maybe-bind-kwrest-seq ...) (maybe-bind-kwrest ...))
-                                               (cond
-                                                 [(syntax-e (fcase-kwrest-arg fc))
-                                                  (define kwrest-parsed (fcase-kwrest-arg-parsed fc))
-                                                  (with-syntax-parse ([kwrest::binding-form kwrest-parsed]
-                                                                      [kwrest-impl::binding-impl #'(kwrest.infoer-id () kwrest.data)]
-                                                                      [kwrest-info::binding-info #'kwrest-impl.info])
-                                                    #`((kwrest-tmp kwrest-info #,(fcase-kwrest-arg fc) #f)
-                                                       ((kwrest-info.committer-id kwrest-tmp kwrest-info.data)
-                                                        (kwrest-info.binder-id kwrest-tmp kwrest-info.data))
-                                                       ((define-static-info-syntax/maybe kwrest-info.bind-id kwrest-info.bind-static-info ...)
-                                                        ...)))]
-                                                 [else
-                                                  #'(#f () ())])])
-                            #`(let ([try-next (lambda () #,(loop (cdr same)))])
-                                #,(wrap-adapted-arguments
-                                   #`(nested-bindings
-                                      #,function-name
-                                      try-next
-                                      argument-binding-failure
-                                      (this-arg-id arg-info arg #f)
-                                      ...
-                                      maybe-match-rest
-                                      maybe-match-kwrest
-                                      (begin
-                                        (arg-info.committer-id this-arg-id arg-info.data) ...
-                                        (arg-info.binder-id this-arg-id arg-info.data) ...
-                                        (begin
-                                          (define-static-info-syntax/maybe arg-info.bind-id arg-info.bind-static-info ...)
-                                          ...)
-                                        ...
-                                        maybe-bind-rest-seq ...
-                                        maybe-bind-rest ...
-                                        maybe-bind-kwrest-seq ...
-                                        maybe-bind-kwrest ...
-                                        #,((entry-point-adjustments-wrap-body adjustments)
-                                           ((if (syntax-e (fcase-rest-arg fc)) arity-at-least values)
-                                            (length (fcase-args fc)))
-                                           #`(add-annotation-check
-                                              #,function-name
-                                              pred
-                                              (rhombus-body-expression rhs))))))))]))]))))))
+    (define arity (if (null? allowed-kws)
+                      (arity->mask-syntax pos-arity)
+                      `(,(arity->mask-syntax pos-arity) ,required-kws ,allowed-kws)))
+    (values
+     (relocate
+      (span-srcloc start end)
+      (reduce-keyword-arity
+       #`(case-lambda/kwrest
+          #,@(for/list ([n+same (in-list n+sames)])
+               (define n (car n+same))
+               (define same (cdr n+same))
+               (with-syntax ([(try-next pos-arg-id ...) (generate-temporaries
+                                                         (cons 'try-next
+                                                               (fcase-pos fcase-args (find-matching-case n same))))]
+                             [(maybe-rest-tmp ...) (if (negative? n)
+                                                       #'(#:rest rest-tmp)
+                                                       #'())]
+                             [maybe-rest-tmp-use (if (negative? n)
+                                                     #'rest-tmp
+                                                     #'null)]
+                             [(maybe-kwrest-tmp ...) (if kws?
+                                                         #'(#:kwrest kwrest-tmp)
+                                                         #'())]
+                             [maybe-kwrest-tmp-use (if kws?
+                                                       #'kwrest-tmp
+                                                       #''#hashalw())])
+                 #`[(#,@(entry-point-adjustments-prefix-arguments adjustments) pos-arg-id ...)
+                    maybe-rest-tmp ... maybe-kwrest-tmp ...
+                    #,(let loop ([same same])
+                        (cond
+                          [(null? same)
+                           #`(cases-failure '#,function-name maybe-rest-tmp-use maybe-kwrest-tmp-use pos-arg-id ...)]
+                          [else
+                           (define fc (car same))
+                           (define-values (this-args wrap-adapted-arguments)
+                             (adapt-arguments-for-count fc n #'(pos-arg-id ...) #'rest-tmp
+                                                        (and kws? #'kwrest-tmp)
+                                                        #'try-next))
+                           (with-syntax-parse ([(arg ...) (fcase-args fc)]
+                                               [(arg-parsed::binding-form ...) (fcase-arg-parseds fc)]
+                                               [(arg-impl::binding-impl ...) #'((arg-parsed.infoer-id () arg-parsed.data) ...)]
+                                               [(arg-info::binding-info ...) #'(arg-impl.info ...)]
+                                               [(this-arg-id ...) this-args]
+                                               [pred (fcase-pred fc)]
+                                               [rhs (fcase-rhs fc)]
+                                               [(maybe-match-rest (maybe-bind-rest-seq ...) (maybe-bind-rest ...))
+                                                (cond
+                                                  [(syntax-e (fcase-rest-arg fc))
+                                                   (define rest-parsed (fcase-rest-arg-parsed fc))
+                                                   (with-syntax-parse ([rest::binding-form rest-parsed]
+                                                                       [rest-impl::binding-impl #'(rest.infoer-id () rest.data)]
+                                                                       [rest-info::binding-info #'rest-impl.info])
+                                                     #`((rest-tmp rest-info #,(fcase-rest-arg fc) #f)
+                                                        ((rest-info.committer-id rest-tmp rest-info.data)
+                                                         (rest-info.binder-id rest-tmp rest-info.data))
+                                                        ((define-static-info-syntax/maybe rest-info.bind-id rest-info.bind-static-info ...)
+                                                         ...)))]
+                                                  [else
+                                                   #'(#f () ())])]
+                                               [(maybe-match-kwrest (maybe-bind-kwrest-seq ...) (maybe-bind-kwrest ...))
+                                                (cond
+                                                  [(syntax-e (fcase-kwrest-arg fc))
+                                                   (define kwrest-parsed (fcase-kwrest-arg-parsed fc))
+                                                   (with-syntax-parse ([kwrest::binding-form kwrest-parsed]
+                                                                       [kwrest-impl::binding-impl #'(kwrest.infoer-id () kwrest.data)]
+                                                                       [kwrest-info::binding-info #'kwrest-impl.info])
+                                                     #`((kwrest-tmp kwrest-info #,(fcase-kwrest-arg fc) #f)
+                                                        ((kwrest-info.committer-id kwrest-tmp kwrest-info.data)
+                                                         (kwrest-info.binder-id kwrest-tmp kwrest-info.data))
+                                                        ((define-static-info-syntax/maybe kwrest-info.bind-id kwrest-info.bind-static-info ...)
+                                                         ...)))]
+                                                  [else
+                                                   #'(#f () ())])])
+                             #`(let ([try-next (lambda () #,(loop (cdr same)))])
+                                 #,(wrap-adapted-arguments
+                                    #`(nested-bindings
+                                       #,function-name
+                                       try-next
+                                       argument-binding-failure
+                                       (this-arg-id arg-info arg #f)
+                                       ...
+                                       maybe-match-rest
+                                       maybe-match-kwrest
+                                       (begin
+                                         (arg-info.committer-id this-arg-id arg-info.data) ...
+                                         (arg-info.binder-id this-arg-id arg-info.data) ...
+                                         (begin
+                                           (define-static-info-syntax/maybe arg-info.bind-id arg-info.bind-static-info ...)
+                                           ...)
+                                         ...
+                                         maybe-bind-rest-seq ...
+                                         maybe-bind-rest ...
+                                         maybe-bind-kwrest-seq ...
+                                         maybe-bind-kwrest ...
+                                         #,((entry-point-adjustments-wrap-body adjustments)
+                                            ((if (syntax-e (fcase-rest-arg fc)) arity-at-least values)
+                                             (length (fcase-args fc)))
+                                            #`(add-annotation-check
+                                               #,function-name
+                                               pred
+                                               (rhombus-body-expression rhs))))))))]))])))))
+     arity))
 
-  (define (maybe-add-function-result-definition name static-infoss defns)
+  (define (maybe-add-function-result-definition name static-infoss arity defns)
     (define (same-expression? a b)
       (cond
         [(identifier? a) (and (identifier? b)
@@ -550,15 +568,22 @@
                         (same-expression? (car a) (car b))
                         (same-expression? (cdr a) (cdr b)))]
         [else (equal? a b)]))
-    (cond
-      [(and (pair? static-infoss)
-            (pair? (syntax-e (car static-infoss)))
-            (for/and ([static-infos (in-list (cdr static-infoss))])
-              (same-expression? (car static-infoss) static-infos)))
-       (cons
-        #`(define-static-info-syntax #,name (#%call-result #,(car static-infoss)))
-        defns)]
-      [else defns]))
+    (define result-info?
+      (and (pair? static-infoss)
+           (pair? (syntax-e (car static-infoss)))
+           (for/and ([static-infos (in-list (cdr static-infoss))])
+             (same-expression? (car static-infoss) static-infos))))
+    (if (or result-info? arity)
+        (cons #`(define-static-info-syntax #,name
+                  #,@(append
+                      (if result-info?
+                          (list #`(#%call-result #,(car static-infoss)))
+                          null)
+                      (if arity
+                          (list #`(#%function-arity #,arity))
+                          null)))
+              defns)
+        defns))
 
   ;; returns (listof (cons n (listof fcase)))
   ;; where `n` is the argument count, and a negative
@@ -762,8 +787,13 @@
       rsts dots
       kwrsts
       (lambda (rator args rest-args kwrest-args rator-static-info)
+        (define kws (syntax->list #'(rand.kw ...)))
+        (when (or (not kwrsts) (not rsts))
+          (let ([a (rator-static-info #'#%function-arity)])
+            (when a
+              (check-arity rator-in (syntax->datum a) kws args rsts kwrsts))))
         (define num-rands (length (syntax->list #'(rand.kw ...))))
-        (with-syntax-parse ([((arg-form ...) ...) (for/list ([kw (in-list (syntax->list #'(rand.kw ...)))]
+        (with-syntax-parse ([((arg-form ...) ...) (for/list ([kw kws]
                                                              [arg (in-list args)])
                                                     (if (syntax-e kw)
                                                         (list kw arg)

@@ -548,9 +548,9 @@
  result annotation within an @tech{entry point}, in contrast, does not
  apply to subclasses. To enable that propagation, a
  @rhombus(maybe_res_ann) is scoped differently than argument annotations
- of the both of a method: the environment of a @rhombus(maybe_res_ann) is
- the same as the @rhombus(class) or @rhombus(interace) form, and not the
- body block of the @rhombus(class) or @rhombus(interace) form.
+ and the body of a method: the environment of a @rhombus(maybe_res_ann) is
+ the same as the @rhombus(class) or @rhombus(interface) form, and not the
+ body block of the @rhombus(class) or @rhombus(interface) form.
 
  A @rhombus(property, ~class_clause) clause declares or overrides a
  @tech{property}, which is like a method in that using the property evaluates a
