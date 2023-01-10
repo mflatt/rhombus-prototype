@@ -6,7 +6,8 @@
                      "class-parse.rkt"
                      "interface-parse.rkt"
                      "tag.rkt"
-                     "srcloc.rkt")
+                     "srcloc.rkt"
+                     "statically-str.rkt")
          racket/stxparam
          "expression.rkt"
          "parse.rkt"
@@ -429,6 +430,7 @@
                     (define-values (call new-tail)
                       (parse-function-call impl (list #'id #'e.parsed) #'(method-id (parens))
                                            #:static? static?
+                                           #:rator-stx #'head
                                            #:rator-kind 'property
                                            #:rator-arity shape-arity))
                     (values call
@@ -437,6 +439,7 @@
                     (define-values (call new-tail)
                       (parse-function-call impl (list #'id) #'(method-id (parens))
                                            #:static? static?
+                                           #:rator-stx #'head
                                            #:rator-kind 'property
                                            #:rator-arity shape-arity))
                     (values call
@@ -448,6 +451,7 @@
                     (define-values (call new-tail)
                       (parse-function-call impl (list #'id) #'(method-id args)
                                            #:static? static?
+                                           #:rator-stx #'head
                                            #:rator-kind 'method
                                            #:rator-arity shape-arity))
                     (values call #'tail)])])])])]))))
@@ -499,10 +503,10 @@
       id
       (lambda (stx)
         (syntax-parse (syntax-parameter-value #'this-id)
-          [(id . _)
+          [(obj-id . _)
            (define rator (if (identifier? index/id)
                              index/id
-                             #`(vector-ref (prop-methods-ref id) #,index/id)))
+                             #`(vector-ref (prop-methods-ref obj-id) #,index/id)))
            (syntax-parse stx
              #:datum-literals (op)
              #:literals (:=)
@@ -512,12 +516,12 @@
                              (syntax-local-method-result result-id)))
               (when (and r (eqv? 2 (method-result-arity r)))
                 (raise-syntax-error #f
-                                    "property does not support assignment"
-                                    rator))
+                                    (string-append "property does not support assignment" statically-str)
+                                    id))
               (values #`(#,rator id e.parsed)
                       #'e.tail)]
              [(head . tail)
-              (define call #`(#,rator id))
+              (define call #`(#,rator obj-id))
               (define r (and (syntax-e result-id)
                              (syntax-local-method-result result-id)))
               (values (add-method-result call r)
@@ -539,13 +543,14 @@
                 (parse-function-call rator (list #'id) #'(head args)
                                      #:static? (free-identifier=? (datum->syntax #'tag '#%call)
                                                                   #'static-#%call)
+                                     #:rator-stx #'head
                                      #:rator-arity (and r (method-result-arity r))
                                      #:rator-kind 'method))
               (define wrapped-call (add-method-result call r))
               (values wrapped-call #'tail)])]
           [(head . _)
            (raise-syntax-error #f
-                               "method must be called"
+                               (string-append "method must be called" statically-str)
                                #'head)])))]))
     
 

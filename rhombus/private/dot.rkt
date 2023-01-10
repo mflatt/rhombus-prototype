@@ -4,7 +4,8 @@
                      enforest/property
                      enforest/syntax-local
                      "operator-parse.rkt"
-                     "tag.rkt")
+                     "tag.rkt"
+                     "statically-str.rkt")
          "definition.rkt"
          "expression.rkt"
          "static-info.rkt"
@@ -118,10 +119,8 @@
   (define (generic)
     (if more-static?
         (raise-syntax-error #f
-                            "static operator not supported for left-hand side"
-                            dot-name
-                            #f
-                            (list form1))
+                            (string-append "no such field or method" statically-str)
+                            field-id)
         (syntax-parse tail
           #:datum-literals (op)
           #:literals (:=)

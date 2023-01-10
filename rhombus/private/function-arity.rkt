@@ -1,5 +1,7 @@
 #lang racket/base
-(require (for-syntax racket/base))
+(require (for-syntax racket/base
+                     shrubbery/property
+                     "statically-str.rkt"))
 
 (provide (for-syntax summarize-arity
                      union-arity-summaries
@@ -72,11 +74,15 @@
          (car norm-a)
          (list (car norm-a) required-kws allowed-kws))]))
 
-(define-for-syntax (check-arity stx a n kws rsts kwrsts kind)
+(define-for-syntax (check-arity stx fallback-stx a n kws rsts kwrsts kind)
   (define orig-needed (if (pair? a)
                           (for/hasheq ([kw (in-list (cadr a))])
                             (values kw #t))
                           #hasheq()))
+  (define (error-stx) (or stx (let ([s (syntax-raw-property fallback-stx)])
+                                (if (string? s)
+                                    (datum->syntax #f (string->symbol s) fallback-stx)
+                                    fallback-stx))))
   (let loop ([kws kws] [n n] [needed-kws #f] [allowed-kws #f])
     (cond
       [(null? kws)
@@ -85,20 +91,22 @@
            (raise-syntax-error #f
                                (case kind
                                  [(property)
-                                  "property does not support assignment"]
+                                  (string-append "property does not support assignment" statically-str)]
                                  [else
                                   (string-append "wrong number of "
                                                  (if needed-kws "by-position " "")
-                                                 "arguments in " (symbol->string kind) " call")])
-                               stx)))
+                                                 "arguments in " (symbol->string kind) " call"
+                                                 statically-str)])
+                               (error-stx))))
        (unless kwrsts
          (define needed (or needed-kws orig-needed))
          (when (and needed ((hash-count needed) . > . 0))
            (raise-syntax-error #f
-                               (string-append "missing keyword argument in " (symbol->string kind) " call\n"
+                               (string-append "missing keyword argument in " (symbol->string kind) " call"
+                                              statically-str "\n"
                                               "  keyword: ~"
                                               (keyword->string (hash-iterate-key needed (hash-iterate-first needed))))
-                               stx)))]
+                               (error-stx))))]
       [(syntax-e (car kws))
        (define kw (syntax-e (car kws)))
        (define needed (hash-remove (or needed-kws orig-needed) kw))
@@ -111,10 +119,11 @@
        (when (and allowed
                   (not (hash-ref allowed kw #f)))
          (raise-syntax-error #f
-                             (string-append "keyword argument not recognized by called " (symbol->string kind) "\n"
+                             (string-append "keyword argument not recognized by called " (symbol->string kind)
+                                            statically-str "\n"
                                             "  keyword: ~"
                                             (keyword->string kw))
-                             stx))
+                             (error-stx)))
        (loop (cdr kws) n needed allowed)]
       [else
        (loop (cdr kws) (add1 n) needed-kws allowed-kws)])))

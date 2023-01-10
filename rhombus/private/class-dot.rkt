@@ -5,7 +5,8 @@
                      "srcloc.rkt"
                      "tag.rkt"
                      "class-parse.rkt"
-                     "interface-parse.rkt")
+                     "interface-parse.rkt"
+                     "statically-str.rkt")
          "class-method.rkt"
          "class-method-result.rkt"
          (submod "dot.rkt" for-dot-provider)
@@ -145,7 +146,8 @@
                (list* #`(define #,proc-id
                           (make-method-accessor '#,name #,name-ref-id #,(mindex-index mix)))
                       #`(define-syntax #,stx-id
-                          (make-method-accessor-transformer (quote-syntax #,stx-id)
+                          (make-method-accessor-transformer '#,name
+                                                            (quote-syntax #,stx-id)
                                                             (quote-syntax #,name-ref-id)
                                                             #,(mindex-index mix)
                                                             (quote-syntax #,proc-id)
@@ -167,13 +169,13 @@
       (apply (method-ref ref obj idx) obj args)))
    name))
 
-(define-for-syntax (make-method-accessor-transformer id name-ref-id idx proc-id ret-info-id)
+(define-for-syntax (make-method-accessor-transformer name id name-ref-id idx proc-id ret-info-id)
   (expression-transformer
    id
    (lambda (stx)
      (syntax-parse stx
        #:datum-literals (op)
-       [(_ (~and args (tag::parens self arg ...)) . tail)
+       [(rator-id (~and args (tag::parens self arg ...)) . tail)
         (define obj-id #'this)
         (define rator #`(method-ref #,name-ref-id #,obj-id #,idx))
         (define r (and ret-info-id
@@ -182,6 +184,7 @@
           (parse-function-call rator (list obj-id) #`(#,obj-id (tag arg ...))
                                #:static? (free-identifier=? (datum->syntax #'tag '#%call)
                                                             #'static-#%call)
+                               #:rator-stx (datum->syntax #f name #'rator-id)
                                #:rator-arity (and r (method-result-arity r))))
         (values (let ([call #`(let ([#,obj-id (rhombus-expression self)])
                                 #,call)])
@@ -194,7 +197,7 @@
                                   #'static-#%call)
         (raise-syntax-error #f
                             "wrong number of arguments in function call"
-                            #'head)]
+                            (datum->syntax #f name #'head))]
        [(_ . tail)
         (values proc-id #'tail)]))))
 
@@ -329,6 +332,7 @@
                           call-e)))]))
        (define-values (call-stx empty-tail)
          (parse-function-call rator (list obj-e) #`(#,obj-e #,args)
+                              #:rator-stx field-id
                               #:static? more-static?
                               #:rator-arity arity
                               #:rator-kind (if property? 'property 'method)))
@@ -338,8 +342,8 @@
        (when (and more-static?
                   (not property?))
          (raise-syntax-error #f
-                             "method must be called for static mode"
-                             (no-srcloc #`(#,form1 #,dot #,field-id))))
+                             (string-append "method must be called" statically-str)
+                             field-id))
        (cond
          [(identifier? pos/id)
           (success #`(curry-method #,pos/id #,form1) new-tail)]
@@ -379,7 +383,7 @@
               (do-field id/fld)))]
     [more-static?
      (raise-syntax-error #f
-                         "no such public field or method"
+                         (string-append "no such field or method" statically-str)
                          field-id)]
     [else (failure)]))
 
