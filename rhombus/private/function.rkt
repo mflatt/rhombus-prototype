@@ -243,9 +243,9 @@
     #:datum-literals (group op)
     #:literals (& rhombus...)
     (pattern (~seq (group (op &) _ ...))
-             #:attr rest? #t)
+             #:attr rest? #'#t)
     (pattern (~seq _::non-... (group (op rhombus...)))
-             #:attr rest? #t))
+             #:attr rest? #'#t))
   (define-splicing-syntax-class :kwp-arity-rest
     #:attributes [kwrest?]
     #:datum-literals (group op)

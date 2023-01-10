@@ -8,8 +8,8 @@
                      check-arity))
 
 (define-for-syntax (summarize-arity kws defaults rest? kw-rest?)
-  (let loop ([kws (syntax->list kws)]
-             [defaults (syntax->list defaults)]
+  (let loop ([kws (if (syntax? kws) (syntax->list kws) kws)]
+             [defaults (if (syntax? defaults) (syntax->list defaults) defaults)]
              [bit 1]
              [mask 0]
              [allowed-kws #hasheq()]
@@ -26,15 +26,16 @@
                a
                `(,a ,(sort (hash-keys required-kws) keyword<?)
                     ,(sort (hash-keys allowed-kws) keyword<?))))]
-      [(syntax-e (car kws))
+      [(if (syntax? (car kws)) (syntax-e (car kws)) (car kws))
+       (define kw (if (syntax? (car kws)) (syntax-e (car kws)) (car kws)))
        (loop (cdr kws)
              (cdr defaults)
              bit
              mask
-             (hash-set allowed-kws (syntax-e (car kws)) #t)
+             (hash-set allowed-kws kw #t)
              (if (syntax-e (car defaults))
                  required-kws
-                 (hash-set required-kws (syntax-e (car kws)) #t)))]
+                 (hash-set required-kws kw #t)))]
       [else
        (loop (cdr kws)
              (cdr defaults)

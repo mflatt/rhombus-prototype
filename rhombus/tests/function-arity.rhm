@@ -5,7 +5,7 @@ defn.macro 'static $check: $form; ...; $raises $msg':
      ~eval
      use_static
      $form; ...
-     $raises $msg
+     $raises values($msg, "static")
    $check:
      ~eval
      $form; ...
@@ -37,7 +37,6 @@ static check:
   fun (): Posn.m()
   ~raises "wrong number of arguments"
 
-// broken
 static check:
   class Posn(x, y):
     nonfinal
@@ -144,3 +143,10 @@ static check:
     extends Posn
     method n(): super.p := 1
   ~raises "property does not support assignment"
+
+static check:
+  class Posn(x, y):
+    constructor (z):
+      super(z+1, z-1)
+  fun (): Posn(1, 2)
+  ~raises "wrong number of arguments in function call"

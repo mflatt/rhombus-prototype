@@ -500,6 +500,11 @@
                                                  [export ...]))
                (build-class-static-infos exposed-internal-id
                                          super
+                                         given-constructor-rhs
+                                         (append super-keywords constructor-public-keywords)
+                                         (append super-defaults constructor-public-defaults)
+                                         (append super-keywords constructor-private-keywords)
+                                         (append super-defaults constructor-private-defaults)
                                          #'(name constructor-name name-instance
                                                  internal-name-instance make-internal-name
                                                  [name-field ...]

@@ -2,6 +2,7 @@
 (require (for-syntax racket/base
                      syntax/parse
                      enforest/syntax-local
+                     shrubbery/property
                      "srcloc.rkt"
                      "tag.rkt"
                      "class-parse.rkt"
@@ -196,21 +197,25 @@
         #:when (free-identifier=? (datum->syntax #'tag '#%call)
                                   #'static-#%call)
         (raise-syntax-error #f
-                            "wrong number of arguments in function call"
+                            (string-append "wrong number of arguments in function call" statically-str)
                             (datum->syntax #f name #'head))]
        [(_ . tail)
         (values proc-id #'tail)]))))
 
 (define-for-syntax (class-expression-transformer id make-id)
+  (define (re head id)
+    (syntax-raw-property (relocate head id) (or (syntax-raw-property head)
+                                                (symbol->string (syntax-e head)))))
   (make-expression+repetition-transformer
    id
    (lambda (stx)
      (syntax-parse stx
-       [(_ . tail) (values make-id #'tail)]))
+       [(head . tail) (values (re #'head make-id)
+                           #'tail)]))
    (lambda (stx)
      (syntax-parse stx
-       [(_ . tail) (values (identifier-repetition-use make-id)
-                           #'tail)]))))
+       [(head . tail) (values (identifier-repetition-use (re #'head make-id))
+                              #'tail)]))))
 
 (define-for-syntax (desc-method-shapes desc)
   (if (class-desc? desc)
