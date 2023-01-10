@@ -93,11 +93,13 @@
         (define new-rhs (let ([rhs (vector-ref super-vtable super-i)])
                           (if (eq? (syntax-e rhs) '#:abstract) '#:abstract rhs)))
         (define-values (key val)
-          (let* ([property? (pair? shape)]
+          (let* ([arity (and (vector? shape) (vector-ref shape 1))]
+                 [shape (if (vector? shape) (vector-ref shape 0) shape)]
+                 [property? (pair? shape)]
                  [shape (if (pair? shape) (car shape) shape)]
                  [final? (not (box? shape))]
                  [shape (if (box? shape) (unbox shape) shape)])
-            (values shape (cons (mindex i final? property?) shape))))
+            (values shape (cons (mindex i final? property? arity) shape))))
         (define old-val (or (hash-ref ht key #f)
                             (hash-ref priv-ht key #f)))
         (cond
@@ -124,8 +126,9 @@
                        (hash-remove priv-ht key)
                        (hash-set vtable-ht i new-rhs)))]
           [private?
+           (define (property-shape? shape) (or (pair? shape) (and (vector? shape) (pair? (vector-ref shape 0)))))
            (values ht
-                   (hash-set priv-ht key (if (pair? shape) ; => property
+                   (hash-set priv-ht key (if (property-shape? shape)
                                              (list new-rhs)
                                              new-rhs))
                    vtable-ht)]
@@ -179,11 +182,15 @@
                  (when (mindex-final? mix)
                    (raise-syntax-error #f (format "cannot override ~a's final method" super-str) stx id))
                  (check-consistent-property (mindex-property? mix))
-                 (values (if (eq? (added-method-disposition added) 'final)
-                             (let ([property? (eq? (added-method-kind added) 'property)])
-                               (hash-set ht (syntax-e id) (cons (mindex mix #t property?) id)))
+                 (define idx (mindex-index mix))
+                 (define final? (eq? (added-method-disposition added) 'final))
+                 (values (if (or final?
+                                 (not (equal? (added-method-arity added) (mindex-arity mix))))
+                             (let ([property? (eq? (added-method-kind added) 'property)]
+                                   [arity (added-method-arity added)])
+                               (hash-set ht (syntax-e id) (cons (mindex idx final? property? arity) id)))
                              ht)
-                         (hash-set vtable-ht (mindex-index mix) (added-method-rhs-id added))
+                         (hash-set vtable-ht idx (added-method-rhs-id added))
                          priv-ht
                          new-here-ht)]
                 [else
@@ -217,7 +224,8 @@
                               (cons (mindex pos
                                             (or final?
                                                 (eq? (added-method-disposition added) 'final))
-                                            (eq? (added-method-kind added) 'property))
+                                            (eq? (added-method-kind added) 'property)
+                                            (added-method-arity added))
                                     id))
                     (hash-set vtable-ht pos (added-method-rhs-id added))
                     priv-ht
@@ -263,7 +271,8 @@
 
 (define-for-syntax (build-interface-vtable intf method-mindex method-vtable method-names method-private)
   (for/list ([shape (in-vector (interface-desc-method-shapes intf))])
-    (define name (let* ([shape (if (pair? shape) (car shape) shape)]
+    (define name (let* ([shape (if (vector? shape) (vector-ref shape 0) shape)]
+                        [shape (if (pair? shape) (car shape) shape)]
                         [shape (if (box? shape) (unbox shape) shape)])
                    shape))
     (cond
@@ -281,9 +290,12 @@
   (for/vector ([i (in-range (vector-length method-vtable))])
     (define name (hash-ref method-names i))
     (define mix (hash-ref method-mindex (if (syntax? name) (syntax-e name) name)))
-    ((if (mindex-property? mix) list values)
-     ((if (mindex-final? mix) values box)
-      name))))
+    (define sym ((if (mindex-property? mix) list values)
+                 ((if (mindex-final? mix) values box)
+                  name)))
+    (if (mindex-arity mix)
+        (vector sym (mindex-arity mix))
+        sym)))
 
 (define-for-syntax (build-quoted-private-method-list mode method-private)
   (sort (for/list ([(sym v) (in-hash method-private)]
@@ -401,7 +413,9 @@
               (define impl (vector-ref (super-method-vtable super) pos))
               (when (eq? (syntax-e impl) '#:abstract)
                 (raise-syntax-error #f "method is abstract in superclass" #'head #'method-id))
-              (define shape (vector-ref (super-method-shapes super) pos))
+              (define shape+arity (vector-ref (super-method-shapes super) pos))
+              (define shape (if (vector? shape+arity) (vector-ref shape+arity 0) shape+arity))
+              (define shape-arity (and (vector? shape+arity) (vector-ref shape+arity 1)))
               (define static? (free-identifier=? (datum->syntax #'dot-op '#%call)
                                                  #'static-#%call))
               (cond
@@ -415,14 +429,16 @@
                     (define-values (call new-tail)
                       (parse-function-call impl (list #'id #'e.parsed) #'(method-id (parens))
                                            #:static? static?
-                                           #:rator-kind 'property))
+                                           #:rator-kind 'property
+                                           #:rator-arity shape-arity))
                     (values call
                             #'e.tail)]
                    [_
                     (define-values (call new-tail)
                       (parse-function-call impl (list #'id) #'(method-id (parens))
                                            #:static? static?
-                                           #:rator-kind 'property))
+                                           #:rator-kind 'property
+                                           #:rator-arity shape-arity))
                     (values call
                             #'tail)])]
                 [else
@@ -432,7 +448,8 @@
                     (define-values (call new-tail)
                       (parse-function-call impl (list #'id) #'(method-id args)
                                            #:static? static?
-                                           #:rator-kind 'method))
+                                           #:rator-kind 'method
+                                           #:rator-arity shape-arity))
                     (values call #'tail)])])])])]))))
 
 (define-for-syntax (get-private-table desc)

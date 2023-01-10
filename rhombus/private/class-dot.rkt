@@ -281,7 +281,7 @@
                                  static-infos))
     (success (wrap-static-info* full-e all-static-infos)
              new-tail))
-  (define (do-method pos/id* ret-info-id nonfinal? property?)
+  (define (do-method pos/id* ret-info-id nonfinal? property? shape-arity)
     (define-values (args new-tail)
       (if property?
           (syntax-parse tail
@@ -319,7 +319,8 @@
                   #'()))
             (values #`(method-ref #,(desc-ref-id desc) #,obj-id #,pos/id)
                     obj-id
-                    (and r (method-result-arity r))
+                    (or shape-arity
+                        (and r (method-result-arity r)))
                     (lambda (e)
                       (define call-e #`(let ([#,obj-id #,form1])
                                          #,e))
@@ -353,12 +354,15 @@
     [(hash-ref (desc-method-map desc) (syntax-e field-id) #f)
      => (lambda (pos)
           (define shape (vector-ref (desc-method-shapes desc) pos))
+          (define shape-symbol (and shape (if (vector? shape) (vector-ref shape 0) shape)))
+          (define shape-arity (and shape (vector? shape) (vector-ref shape 1)))
           (do-method pos
                      (hash-ref (desc-method-result desc) (syntax-e field-id) #f)
                      ;; non-final?
-                     (or (box? shape) (and (pair? shape) (box? (car shape))))
+                     (or (box? shape-symbol) (and (pair? shape-symbol) (box? (car shape-symbol))))
                      ;; property?
-                     (pair? shape)))]
+                     (pair? shape-symbol)
+                     shape-arity))]
     [(hash-ref internal-fields (syntax-e field-id) #f)
      => (lambda (fld) (do-field fld))]
     [(hash-ref internal-methods (syntax-e field-id) #f)
@@ -367,11 +371,11 @@
                          id/property
                          (car (syntax-e id/property))))
           (define property? (pair? (syntax-e id/property)))
-          (do-method id #f #f property?))]
+          (do-method id #f #f property? #f))]
     [(hash-ref (get-private-table desc) (syntax-e field-id) #f)
      => (lambda (id/fld)
           (if (identifier? id/fld)
-              (do-method id/fld #f #f #f)
+              (do-method id/fld #f #f #f #f)
               (do-field id/fld)))]
     [more-static?
      (raise-syntax-error #f

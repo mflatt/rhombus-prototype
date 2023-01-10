@@ -283,16 +283,23 @@
     v))
 
 (define-for-syntax (class-clause-extract who accum key)
-  (define (method id vis)
+  (define (method id rhs vis)
     (case key
       [(method_names) (list id)]
+      [(method_arities) (list (extract-arity rhs))]
       [(method_visibilities) (list vis)]
       [else null]))
-  (define (property id vis)
+  (define (property id rhs vis)
     (case key
       [(property_names) (list id)]
+      [(property_arities) (list (extract-arity rhs))]
       [(property_visibilities) (list vis)]
       [else null]))
+  (define (extract-arity e)
+    (syntax-parse e
+      [(_ e-arity::entry-point-arity)
+       (syntax->datum #'e-arity.parsed)]
+      [_ #f]))
   (for/list ([a (in-list (reverse (syntax->list accum)))]
              #:do [(define v
                      (syntax-parse a
@@ -319,19 +326,19 @@
                        [((~literal internal) id) (case key
                                                    [(internal_names) (list #'id)]
                                                    [else null])]
-                       [((~literal method) id . _) (method #'id 'public)]
-                       [((~literal override) id . _) (method #'id 'public)]
-                       [((~literal private) id . _) (method #'id 'private)]
-                       [((~literal private-override) id . _) (method #'id 'private)]
-                       [((~literal final) id . _) (method #'id 'public)]
-                       [((~literal final-override) id . _) (method #'id 'public)]
-                       [((~literal property) id . _) (property #'id 'public)]
-                       [((~literal override-property) id . _) (property #'id 'public)]
-                       [((~literal final-property) id . _) (property #'id 'public)]
-                       [((~literal final-overrode-property) id . _) (property #'id 'public)]
-                       [((~literal private-property) id . _) (property #'id 'private)]
-                       [((~literal private-override-property) id . _) (property #'id 'private)]
-                       [((~literal private-override-property) id . _) (property #'id 'private)]
+                       [((~literal method) id rhs . _) (method #'id #'rhs 'public)]
+                       [((~literal override) id rhs . _) (method #'id #'rhs 'public)]
+                       [((~literal private) id rhs . _) (method #'id #'rhs 'private)]
+                       [((~literal private-override) id rhs . _) (method #'id #'rhs 'private)]
+                       [((~literal final) id rhs . _) (method #'id #'rhs 'public)]
+                       [((~literal final-override) id rhs . _) (method #'id #'rhs 'public)]
+                       [((~literal property) id rhs . _) (property #'id #'rhs 'public)]
+                       [((~literal override-property) id rhs . _) (property #'id #'rhs 'public)]
+                       [((~literal final-property) id rhs . _) (property #'id #'rhs 'public)]
+                       [((~literal final-overrode-property) id rhs . _) (property #'id #'rhs 'public)]
+                       [((~literal private-property) id rhs . _) (property #'id #'rhs 'private)]
+                       [((~literal private-override-property) id rhs . _) (property #'id #'rhs 'private)]
+                       [((~literal private-override-property) id rhs . _) (property #'id #'rhs 'private)]
                        [((~literal constructor) . _) (if (eq? key 'uses_default_constructor) '(#f) null)]
                        [((~literal expression) . _) (if (eq? key 'uses_default_constructor) '(#f) null)]
                        [((~literal binding) . _) (if (eq? key 'uses_default_binding) '(#f) null)]
@@ -341,32 +348,56 @@
     e))
 
 (define-for-syntax (method-shape-extract shapes private-methods private-properties key)
+  (define (unwrap a) (if (vector? a) (vector-ref a 0) a))
+  (define (unshift-arity a) (and a (if (integer? a)
+                                       (quotient a 2)
+                                       (cons (quotient (car a) 2) (cdr a)))))
   (case key
     [(method_names)
      (append
       private-methods
-      (for/list ([m (in-vector shapes)]
+      (for/list ([ma (in-vector shapes)]
+                 #:do [(define m (unwrap ma))]
                  #:unless (pair? m))
         (datum->syntax #f (if (box? m) (unbox m) m))))]
+    [(method_arities)
+     (append
+      (for/list ([m (in-list private-methods)])
+        #f)
+      (for/list ([ma (in-vector shapes)]
+                 #:do [(define m (unwrap ma))]
+                 #:unless (pair? m))
+        (unshift-arity (and (vector? ma) (vector-ref ma 1)))))]
     [(method_visibilities)
      (append
       (for/list ([m (in-list private-methods)])
         'private)
-      (for/list ([m (in-vector shapes)]
+      (for/list ([ma (in-vector shapes)]
+                 #:do [(define m (unwrap ma))]
                  #:unless (pair? m))
         'public))]
     [(property_names)
      (append
       private-properties
-      (for ([m (in-vector shapes)]
+      (for ([ma (in-vector shapes)]
+            #:do [(define m (unwrap ma))]
             #:when (pair? m))
         (let ([m (car m)])
           (datum->syntax #f (if (box? m) (unbox m) m)))))]
+    [(property_arities)
+     (append
+      (for/list ([m (in-list private-methods)])
+        #f)
+      (for/list ([ma (in-vector shapes)]
+                 #:do [(define m (unwrap ma))]
+                 #:when (pair? m))
+        (unshift-arity (and (vector? ma) (vector-ref ma 1)))))]
     [(property_visibilities)
      (append
       (for/list ([m (in-list private-properties)])
         'private)
-      (for/list ([m (in-vector shapes)]
+      (for/list ([ma (in-vector shapes)]
+                 #:do [(define m (unwrap ma))]
                  #:when (pair? m))
         'public))]))
 
