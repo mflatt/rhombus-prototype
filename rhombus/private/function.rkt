@@ -1077,6 +1077,7 @@
                                       [(null? (cdr kwss)) #`(group (parsed #,(car kwss)))]
                                       [else #`(group (parsed (merge-keyword-argument-maps #,@kwss)))]))
                                   #'#f
+                                  #:static? static?
                                   #:repetition? repetition?
                                   #:rator-kind rator-kind
                                   #:rator-arity rator-arity))
