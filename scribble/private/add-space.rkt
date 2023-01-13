@@ -20,6 +20,7 @@
                      [(class_clause) 'rhombus/class_clause]
                      [(intf_clause) 'rhombus/interface_clause]
                      [(entry_point) 'rhombus/entry_point]
+                     [(syntax_pattern_binding) 'rhombus/syntax_pattern_binding]
                      [(#f) 'rhombus/expr]
                      [else #f]))
      (if space
