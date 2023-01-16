@@ -9,37 +9,58 @@
 @title{Syntax Classes}
 
 @doc(
-  defn.macro '«syntax.class $name $maybe_args
-               | $clause
-               | ...»'
-  defn.macro '«syntax.class $name $maybe_args:
-                $option; ...
-                ~pattern
-                | $clause
-                | ...»'
+  ~literal: kind pattern description field error_mode
+            matching_also matching_when matching_unless
+  defn.macro 'syntax.class $name $maybe_args
+              | $pattern_case
+              | ...'
+  defn.macro 'syntax.class $name $maybe_args:
+                $class_clause'
+
   grammar maybe_args:
     ($identifier_binding, ...)
     ($identifier_binding, ..., & $rest_identifier)
     #,(epsilon)
 
-  grammar option:
-    ~description: $body; ...
-    $kind
-  grammar kind:
+  grammar class_clause:
+    pattern | $pattern_case | ...
+    description: $body; ...
+    error_mode $error_mode_keyword
+    error_mode: $error_mode_keyword
+    kind $kind_keyword
+    kind: $kind_keyword
+    fields: $identifier ...; ...
+                 
+  grammar pattern_case:
+    $syntax_pattern
+    $syntax_pattern: $pattern_body; ...
+
+  grammar kind_keyword:
     ~term
     ~sequence
     ~group
     ~multi
     ~block
-  grammar clause:
-    $syntax_pattern
-    $syntax_pattern: $pattern_body; ...
+
+  grammar error_mode_keyword:
+    ~opaque
+    ~transparent
+
   grammar pattern_body:
+    field $identifier_maybe_rep: $body; ...
+    field $identifier_maybe_rep = $expr
+    matching_also '$pattern': $body; ...
+    matching_also '$pattern' = $expr
+    matching_when $expr
+    matching_when: $body; ...
+    matching_unless $expr
+    matching_unless $body; ...
     $body
-    ~attr $identifier_maybe_rep: $body; ...
+
   grammar identifier_maybe_rep:
     $identifier
     [$identifier_maybe_rep, $ellipsis]
+
   grammar ellipsis:
     #,(dots)
 ){
@@ -52,21 +73,25 @@
  and general pattern matching are not supported). Identifiers bound as arguments
  are visible in @rhombus(clause) bodies.
 
- Syntax forms matched by the syntax class are described by @rhombus(clause) alternatives.
- The @rhombus(~pattern) subform is optional in the sense
+ Syntax forms matched by the syntax class are described by
+ @rhombus(pattern_case) alternatives.
+ The @rhombus(pattern) clause is optional in the sense
  that pattern alternatives can be inlined directly in the
- @rhombus(syntax.class) form, but the @rhombus(~pattern) subform makes
- room for additional @rhombus(option)s. Each @rhombus(option) alternative
- can be supplied at most once.
+ @rhombus(syntax.class) form, but the @rhombus(pattern) subform makes
+ room for additional options as clauses. Each kind of @rhombus(class_clause)
+ alternative can be supplied at most once, and @rhombus(pattern) is
+ required.
 
- An optional @rhombus(~description) subform provides a description of
- the syntax class which is used to produce clearer error messages when
- a term is rejected by the syntax class. The result of the
- @rhombus(block) block must be a string or @rhombus(#false), where
- @rhombus(#false) is equivalent to not specifying a
- @rhombus(~description).
+ An optional @rhombus(description) clause provides a description of the
+ syntax class which is used to produce clearer error messages when a term
+ is rejected by the syntax class. The result of the @rhombus(block) block
+ must be a string or @rhombus(#false), where @rhombus(#false) is
+ equivalent to not specifying a @rhombus(description). When
+ @rhombus(error_mode) is declared as @rhombus(~opaque), then parsing
+ error messages will not refer to the interior details of the pattern
+ cases; insteda, messages will use the decsription string.
 
- An optional @rhombus(kind) determines where the context within a
+ An optional @rhombus(kind) declaration where the context within a
  pattern where a syntax class can be used, and it determines the kind
  of match that each pattern specifies. Declaring @rhombus(~term) means
  that each pattern represents a single term, and the syntax
@@ -86,22 +111,63 @@
  match only a single term, and with @rhombus(~block), each pattern
  must be a block pattern.
 
- When a variable @rhombus(id, ~var) is bound through a
+ A @rhombus(fields) declaration limits the set of pattern variables that
+ are accessible from the class, where variables used in all
+ @rhombus(pattern_case)s are otherwise available (as described next).
+ Each identifier in @rhombus(fields) must be a field name that would be
+ made available.
+
+ The @rhombus(pattern_case) alternatives are the main content
+ of a syntax class.
+ After the class @rhombus(name) is defined, then when a
+ variable @rhombus(id, ~var) is bound through a
  @seclink("stxobj"){syntax pattern} with
- @rhombus($(#,(@rhombus(id, ~var)) :: #,(@rhombus(stx_class_id, ~var)))),
+ @rhombus($(#,(@rhombus(id, ~var)) :: #,(@rhombus(name, ~var)))),
  it matches a syntax object that matches any of the
- @rhombus(syntax_pattern)s in the definition of
- @rhombus(stx_class_id ,~var), where the @rhombus(syntax_pattern)s are tried
+ @rhombus(syntax_case)s in the definition of
+ @rhombus(stx_class_id ,~var), where the @rhombus(syntax_case)s are tried
  first to last. A pattern variable that is included in all of the
- @rhombus(syntax_pattern)s is an attribute of the syntax class, which is
+ @rhombus(syntax_pattern)s is a field of the syntax class, which is
  accessed from a binding @rhombus(id, ~var) using dot notation. For
- example, if the pattern variable is @rhombus(attr_id, ~var), its value is
+ example, if the pattern variable is @rhombus(var, ~var), its value is
  accessed from @rhombus(id, ~var) using
- @list(@rhombus(id, ~var), @rhombus(.), @rhombus(attr_id, ~var)). To use an attribute
- within a template, parentheses are needed around the variable name,
- @rhombus(.), and attribute name to group them together if the variable
- name is preceded by a @rhombus($) escape:
- @rhombus($(#,(@list(@rhombus(id, ~var), @rhombus(.), @rhombus(attr_id, ~var))))).
+ @list(@rhombus(id, ~var), @rhombus(.), @rhombus(var, ~var)).
+
+ A @rhombus(pattern_case) matches when
+
+@itemlist(
+
+ @item{the @rhombus(syntax_pattern) at the start of the
+  @rhombus(pattern_case) matches;}
+
+ @item{every @rhombus(matching_also) match within the
+  @rhombus(pattern_case) body also matches;}
+
+ @item{every @rhombus(matching_when) clause within the
+  @rhombus(pattern_case) body has a true value for its right-hand side;
+  and}
+
+ @item{every @rhombus(matching_unless) clause within the
+  @rhombus(pattern_case) body has a false value for its right-hand side.}
+
+)
+
+ Every pattern variable in the initial @rhombus(syntax_pattern) of a
+ @rhombus(pattern_case) as well as evey variable in every
+ @rhombus(matching_when) is a candiate field name, as long as it is also
+ a candiate in all other @rhombus(syntax_pattern)s within the syntax
+ class. In addition, names declared with @rhombus(field) are also
+ candidates, where @rhombus(field) is similar to @rhombus(def), but
+ constrained to defining a plain identifier or a simple list repetition.
+
+ The body of a @rhombus(syntax_case) can include other definitions and
+ expressions. Those definitions and expressions can use pattern variables
+ bound in the main @rhombus(syntax_pattern) of the case as well as any
+ preceding @rhombus(matching_when) of an attribite declared by a
+ preceding @rhombus(field). Consecutive definitions and expressions
+ within a @rhombus(syntax_case) are form a definition context, but
+ separated sets of definitions and expressions can refer only to
+ definitions in earlier sets.
 
  A variable bound with a syntax class (within a syntax pattern) can be
  used without dot notation. In that case, the result for
@@ -110,18 +176,6 @@
  @rhombus(...) after a @rhombus($)-escaped reference to the variable
  in a syntax template. For other modes, the variable represents a
  single syntax object representing matched syntax.
-
- Within a @rhombus(clause), custom attributes of a syntax class can be
- defined within a @rhombus(pattern_body), which is a mixture of
- expressions, definitions, and @rhombus(~attr) forms. An
- @rhombus(~attr) form is a definition, but it also creates a custom
- attribute named by an @rhombus(identifier) and at a repetition depth
- determined by surrounding @(dots). The value of the right-hand side
- @rhombus(body) sequence must be nested lists corresponding to the
- repetition depth, with syntax objects as the most nested value (so,
- just a syntax object for repetition depth 0 when not @(dots) are used
- on the left-hand side). Variables bound by the pattern are available
- for use in @rhombus(pattern_body).
 
 @examples(
   ~eval: macro.make_for_meta_eval()
@@ -138,15 +192,12 @@
   meta:
     syntax.class NTerms
     | '~one $a':
-        ~attr b:
-          '0'
-        ~attr average:
-          '$(Syntax.unwrap(a) / 2)'
+        field b = '0'
+        field average = '$(Syntax.unwrap(a) / 2)'
     | '~two $a $b':
         def sum:
           Syntax.unwrap(a) + Syntax.unwrap(b)
-        ~attr average:
-          '$(sum / 2)'
+        field average = '$(sum / 2)'
   expr.macro 'second_term $(e :: NTerms)':
     values(e.b, '')
   second_term ~two 1 2
