@@ -6,6 +6,7 @@
          (submod "quasiquote.rkt" convert)
          (submod "syntax-class.rkt" for-quasiquote)
          (submod "syntax-class.rkt" for-syntax-class-syntax)
+         "syntax-class-clause.rkt"
          "definition.rkt"
          "name-root.rkt"
          "parse.rkt"
@@ -20,7 +21,12 @@
          "rest-marker.rkt"
          "function-arity.rkt")
 
-(provide (rename-out [rhombus-syntax syntax]))
+(provide (rename-out [rhombus-syntax syntax])
+         (for-space rhombus/syntax_class_clause
+                    pattern
+                    description
+                    kind
+                    error_mode))
 
 (define-simple-name-root rhombus-syntax
   class
@@ -140,9 +146,9 @@
      (generate #'pat #'(body ...))]))
 
 (define-for-syntax (generate-syntax-class stx define-syntax-id class-name class-formals class-arity
-                                          kind-kw-stx alts description)
+                                          kind-kw alts description-expr opaque?)
   (define-values (kind splicing?)
-    (let ([kind (string->symbol (keyword->string (syntax-e kind-kw-stx)))])
+    (let ([kind (string->symbol (keyword->string kind-kw))])
       (cond
         [(eq? kind 'sequence) (values 'term #t)]
         [else (values kind #f)])))
@@ -158,8 +164,9 @@
    #`(#,define-class #,(if (syntax-e class-formals)
                            #`(#,class-name . #,class-formals)
                            class-name)
-      #:description #,(if description #`(rhombus-body #,@description) #f)
+      #:description #,(or description-expr #f)
       #:datum-literals (block group quotes)
+      #,@(if opaque? '(#:opaque) '())
       #,@patterns)
    #`(#,define-syntax-id #,(in-syntax-class-space class-name)
       (rhombus-syntax-class '#,kind
@@ -189,7 +196,6 @@
                ht))))
      ;; convert back to list
      (hash-values ht #t)]))
-
 
 (define-for-syntax (intersect-var stx a b)
   (unless (eqv? (pattern-variable-depth a) (pattern-variable-depth b))
@@ -278,27 +284,83 @@
   (definition-transformer
     (lambda (stx)
       (syntax-parse stx
-        #:datum-literals (alts group quotes block)
         ;; Classname and patterns shorthand
-        [(form-id class-name args::class-args (alts alt ...))
+        [(form-id class-name args::class-args (_::alts alt ...))
          (generate-syntax-class stx define-class-id #'class-name #'args.formals #'args.arity
-                                #'#:sequence (syntax->list #'(alt ...)) #f)]
+                                '#:sequence (syntax->list #'(alt ...)) #f #f)]
         ;; Specify patterns with "pattern"
         [(form-id class-name args::class-args
-                  (block
-                   (~alt (~optional (group #:description (block class-desc ...)))
-                         (~optional (group (~and kind-kw (~or* #:term
-                                                               #:sequence
-                                                               #:group
-                                                               #:multi
-                                                               #:block)))
-                                    #:defaults ([kind-kw #'#:sequence])))
-                   ...
-                   (group #:pattern (alts alt ...))))
+                  (_::block clause::syntax-class-clause ...))
+         (define-values (pattern-alts kind-kw class-desc opaque?)
+           (extract-clauses stx (syntax->list #'(clause.parsed ...))))
          (generate-syntax-class stx define-class-id #'class-name #'args.formals #'args.arity
-                                #'kind-kw (syntax->list #'(alt ...)) (attribute class-desc))]
-        [_
-         (raise-syntax-error #f "expected alternatives" stx)]))))
+                                kind-kw pattern-alts class-desc opaque?)]))))
+
+(define-for-syntax (extract-clauses stx clauses)
+  (define options
+    (for/fold ([options #hasheq()]) ([clause (in-list clauses)])
+      (define (check what)
+        (syntax-parse clause
+          [(kw (~and orig-stx (_ id . _)) . _)
+           (when (hash-ref options (syntax-e #'kw) #f)
+             (raise-syntax-error #f
+                                 (string-append "found second " what "clause, but only one is allowed")
+                                 stx
+                                 #'orig-stx))]))
+      (syntax-parse clause
+        [(#:pattern _ alts)
+         (check "pattern")
+         (hash-set options '#:pattern (syntax->list #'alts))]
+        [(#:description _ e)
+         (check "description")
+         (hash-set options '#:description #'e)]
+        [(#:kind _ kw)
+         (check "kind")
+         (hash-set options '#:kind (syntax-e #'kw))]
+        [(#:error-mode _ kw)
+         (check "error mode")
+         (hash-set options '#:error-mode (syntax-e #'kw))])))
+  (define alts (hash-ref options '#:pattern #f))
+  (unless alts
+    (raise-syntax-error #f
+                        "missing pattern alternatives"
+                        stx))
+  (values alts
+          (hash-ref options '#:kind '#:sequence)
+          (hash-ref options '#:description #f)
+          (eq? (hash-ref options '#:error-mode #f) '#:opaque)))
+
+(define-syntax-class-clause-syntax pattern
+  (syntax-class-clause-transformer
+   (lambda (stx)
+     (syntax-parse stx
+       [(_ (_::alts b ...))
+        #`(#:pattern #,stx (b ...))]))))
+
+(define-syntax-class-clause-syntax description
+  (syntax-class-clause-transformer
+   (lambda (stx)
+     (syntax-parse stx
+       [(_ (tag::block e ...+))
+        #`(#:description #,stx (rhombus-body-at tag e ...))]))))
+
+(define-for-syntax (make-kw-clause tag-kw valid what)
+  (syntax-class-clause-transformer
+   (lambda (stx)
+     (define (parse-keyword kw)
+       (if (memq (syntax-e kw) valid)
+           kw
+           (raise-syntax-error #f
+                               (string-append "not a recognized " what)
+                               stx
+                               kw)))
+     (syntax-parse stx
+       #:datum-literals (group)
+       [(_ kw:keyword) #`(#,tag-kw #,stx #,(parse-keyword #'kw))]
+       [(_ (_::block (group kw:keyword))) #`(#,tag-kw #,stx #,(parse-keyword #'kw))]))))
+
+(define-syntax-class-clause-syntax kind (make-kw-clause '#:kind '(#:term #:sequence #:group #:multi #:block) "kind"))
+(define-syntax-class-clause-syntax error_mode (make-kw-clause '#:error-mode '(#:opaque #:transparent) "error mode"))
 
 (define-syntax class (make-class-definer #'define-syntax))
 (define-syntax only-class (make-class-definer #'define-syntax-class-syntax))

@@ -105,8 +105,8 @@ begin:
       rhombus/meta open
     meta:
       syntax.class Arithmetic:
-        ~description: "an expression with addition or subtraction"
-        ~pattern
+        description: "an expression with addition or subtraction"
+        pattern
         | '$x + $y'
         | '$x - $y'
     expr.macro 'right_operand $(e :: Arithmetic)':
@@ -140,8 +140,8 @@ check:
 
 begin:
   syntax.class Foo:
-    ~sequence
-    ~pattern
+    kind: ~sequence
+    pattern
     | '$x + $y'
   check:
     match '0 + 1 + 2'
@@ -150,8 +150,8 @@ begin:
 
 begin:
   syntax.class Foo:
-    ~term
-    ~pattern
+    kind: ~term
+    pattern
     | '($x + $y)'
   check:
     match '0 + (1 + 2)'
@@ -161,15 +161,15 @@ begin:
 check:
   ~eval
   syntax.class Foo:
-    ~term
-    ~pattern
+    kind: ~term
+    pattern
     | '$x + $y'
   ~raises "not a single-term pattern"
 
 begin:
   syntax.class Foo:
-    ~group
-    ~pattern
+    kind: ~group
+    pattern
     | '$x + $y'
   check:
     match '(1 + 2)'
@@ -178,8 +178,8 @@ begin:
 
 begin:
   syntax.class Foo:
-    ~group
-    ~pattern
+    kind: ~group
+    pattern
     | '$g'
   check:
     match '(1 + 2)'
@@ -190,8 +190,8 @@ begin:
   check:
     ~eval
     syntax.class Foo:
-      ~group
-      ~pattern
+      kind: ~group
+      pattern
       | '$x + $y'
     match '0 + 1 + 2'
     | '0 + $(f :: Foo)': [f.x, f.y]
@@ -199,8 +199,8 @@ begin:
 
 begin:
   syntax.class Foo:
-    ~multi
-    ~pattern
+    kind: ~multi
+    pattern
     | '$x + $y
        $z - $w'
   check:
@@ -216,8 +216,8 @@ begin:
 
 begin:
   syntax.class Foo:
-    ~block
-    ~pattern
+    kind: ~block
+    pattern
     | ': $x + $y
          $z - $w'
   check:
@@ -229,16 +229,16 @@ begin:
 check:
   ~eval
   syntax.class Foo:
-    ~block
-    ~pattern
+    kind: ~block
+    pattern
     | '($x + $y,
         $z - $w)'
   ~raises "not a block pattern"
 
 begin:
   syntax.class Foo:
-    ~multi
-    ~pattern
+    kind: ~multi
+    pattern
     | '($x, $y)'
   check:
     match '((1 + 2, 3 - 4))'
@@ -257,8 +257,8 @@ begin:
 
 begin:
   syntax.class Foo:
-    ~multi
-    ~pattern
+    kind: ~multi
+    pattern
     | '$x'
   check:
     match '(1 + 2, 3 - 4)'
@@ -271,8 +271,8 @@ begin:
 
 check:
   syntax.class Option:
-    ~term
-    ~pattern
+    kind: ~term
+    pattern
     | '~lang':
         ~attr form: '~lang'
   match '(~lang, ~lang)'
@@ -281,7 +281,7 @@ check:
 
 check:
   syntax.class Option:
-    ~pattern
+    pattern
     | '~lang':
         ~attr form: '~lang'
     | '~lang ~and':
@@ -293,8 +293,8 @@ check:
 check:
   ~eval
   syntax.class Option:
-    ~term
-    ~pattern
+    kind: ~term
+    pattern
     | '~lang':
         ~attr form: '~lang'
   match '(~lang, ~lang)'
@@ -304,7 +304,7 @@ check:
 check:
   ~eval
   syntax.class Option:
-    ~pattern
+    pattern
     | '~lang':
         ~attr form: '~lang'
   match '(~lang, ~lang)'
@@ -366,7 +366,7 @@ begin:
 // empty pattern is a special case
 begin:
   syntax.class Maybe:
-    ~pattern
+    pattern
     | '1'
     | ''
 

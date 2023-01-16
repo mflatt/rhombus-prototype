@@ -21,4 +21,9 @@
      meta_label
      names
      all_from
-     NonemptyList)
+     NonemptyList
+
+     pattern
+     description
+     kind
+     error_mode)
