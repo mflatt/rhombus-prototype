@@ -87,7 +87,7 @@
  @seclink("stxobj"){syntax pattern} with
  @rhombus($(#,(@rhombus(id, ~var)) :: #,(@rhombus(name, ~var)))),
  it matches a syntax object that matches any of the
- @rhombus(syntax_case)s in the definition of
+ @rhombus(pattern_case)s in the definition of
  @rhombus(stx_class_id ,~var), where the @rhombus(pattern_case)s are tried
  first to last. A pattern variable that is included in all of the
  @rhombus(pattern_case)s is a field of the syntax class, which is
@@ -121,14 +121,16 @@
  @rhombus(matching_when, ~pattern_clause) is a candiate field name, as
  long as it is also a candiate in all other @rhombus(syntax_pattern)s
  within the syntax class. In addition, names declared with
- @rhombus(field, ~pattern_clause) are also candidates, where
- @rhombus(field, ~pattern_clause) is similar to @rhombus(def), but
- constrained to defining a plain identifier or a simple list repetition.
+ @rhombus(field, ~pattern_clause) are also candidates. A field must have
+ the same repetition depth across all pattern cases, unless it is
+ excluded from the syntax class's result through a
+ @rhombus(fields, ~syntax_class_clause) declaration that does not list
+ the field.
 
- The body of a @rhombus(syntax_case) can include other definitions and
+ The body of a @rhombus(pattern_case) can include other definitions and
  expressions. Those definitions and expressions can use pattern variables
  bound in the main @rhombus(syntax_pattern) of the case as well as any
- preceding @rhombus(matching_when, ~pattern_clause) of an attribite
+ preceding @rhombus(matching_when, ~pattern_clause) or a field
  declared by a preceding @rhombus(field, ~pattern_clause). Consecutive
  definitions and expressions within a @rhombus(pattern_case) form a
  definition context, but separated sets of definitions and expressions
@@ -290,8 +292,18 @@
     #,(dots)
 ){
 
- Adds a field (or, at least, a cadndidate field) to a syntax class
- pattern case. See @rhombus(syntax.class).
+ Similar to @rhombus(def), but restricted to defining a plain identifier
+ or a simple list repetition within a @rhombus(syntax.class) pattern
+ case, and adds a field (or, at least, a cadndidate field) to the pattern
+ case.
+
+ The result of the right-hand @rhombus(body) sequence or @rhombus(expr)
+ is not required to be a syntax object or have syntax objects in nested
+ lists. If the field is referenced so that it's value is included in a
+ syntax template, a non-sytax value is converted to syntax at that point.
+ Otherwise, the field can be used directly to access non-syntax values.
+
+ See also @rhombus(syntax.class).
 
 }
 

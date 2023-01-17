@@ -254,7 +254,7 @@
              (define var (hash-ref ht k #f))
              (unless var
                (raise-syntax-error #f
-                                   "field not available from all pattern clauses"
+                                   "field not available from all pattern cases"
                                    stx
                                    (hash-ref fields-ht k)))
              (values k var))
@@ -265,24 +265,13 @@
 (define-for-syntax (intersect-var stx a b)
   (unless (eqv? (pattern-variable-depth a) (pattern-variable-depth b))
     (raise-syntax-error #f
-                        "attribute with different depths in different clauses"
+                        "field with different depths in different cases"
                         stx
                         (pattern-variable-sym a)))
   ;; keeping the same unpack, if possible, enables optimizations for
   ;; tail repetitions; otherwise, the term is sufficiently normalized
-  ;; by matching that we can just use `unpack-term*`
+  ;; by matching that we can just use `unpack-element*`
   (if (free-identifier=? (pattern-variable-unpack*-id a) (pattern-variable-unpack*-id b))
       a
-      (let ([special? (lambda (unpack*-id)
-                        (or (free-identifier=? unpack*-id #'unpack-tail-list*)
-                            (free-identifier=? unpack*-id #'unpack-multi-tail-list*)))])
-        (cond
-          [(or (special? (pattern-variable-unpack*-id a))
-               (special? (pattern-variable-unpack*-id b)))
-           (raise-syntax-error #f
-                               "attribute with incompatible tail modes in different clauses"
-                               stx
-                               (pattern-variable-sym a))]
-          [else
-           (struct-copy pattern-variable a
-                        [unpack*-id #'unpack-term*])]))))
+      (struct-copy pattern-variable a
+                   [unpack*-id #'unpack-element*])))
