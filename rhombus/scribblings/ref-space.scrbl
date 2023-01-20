@@ -5,30 +5,20 @@
 
 An identifier can have different meanings in different contexts, such as
 expression versus binding, because an identifier can be bound in a
-specific @deftech{space}. Exampe spaces include
+specific @deftech{space}. Example spaces include
 @rhombus(expr, ~space) and @rhombus(bind, ~space), which
 generally correspond to a @tech{namespace} that provides a binding
-form for the space. There is also a default space, which effectively
-binds in all spaces. For example, in an expression context, an
-identifier is resolved by first checking the
-@rhombus(expr, ~datum) space and then the default space.
-
+form for the space.
 Binding forms like @rhombus(def), @rhombus(expr.macro), and
-@rhombus(bind.macro) bind an identifier in the default space. Variants
-like @rhombus(expr.only.macro) bind in a specific space like
-@rhombus(expr, ~datum).
-Normally, when an identifier has a binding in some space, it should also
-have a binding in the default space. Otherwise, local binding of the
-same identifier name can lead to ambigious references. So, binding an
-identifier with @rhombus(def) and then @rhombus(bind.only.macro) is a
-good way to give an identifier meaning in both expression and binding
-contexts, but using only @rhombus(expr.only.macro) plus
-@rhombus(bind.only.macro) tends to be a bad idea.
+@rhombus(bind.macro) bind an identifier in the corresponding space.
 
 Expressions, definitions, and declarations use the same space,
-@rhombus(expr, ~datum), since those contexts tend to overlap.
+@rhombus(expr, ~space), since those contexts tend to overlap.
 Most other contexts have their own spaces, even though some of them also
 overlap with expression positions, such as class and interface clauses.
+The space for expression is special in another way: a binding in that
+space hides any binding for another space in an enclosing scope (but
+not bindings in other spaces in the same scope).
 
 The @rhombus(space.enforest) and @rhombus(space.transform)
 forms create a new space along with its associated parser

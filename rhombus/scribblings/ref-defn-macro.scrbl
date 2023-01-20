@@ -106,15 +106,4 @@
 )
 }
 
-@doc(
-  defn.macro 'defn.only.macro $macro_decl'
-  defn.macro 'defn.only.sequence_macro $macro_decl'
-){
-
- Like @rhombus(defn.macro) or @rhombus(defn.sequence_macro), but the
- identifier is bound only in the @rhombus(expr, ~datum)
- @tech{space}.
-
-}
-
 @«macro.close_eval»(macro_eval)

@@ -281,15 +281,6 @@
 
 }
 
-@doc(
-  defn.macro 'bind.only.macro $macro_patterns'
-){
-
- Like @rhombus(bind.macro), but the identifier
- or operator is bound only in the @rhombus(bind, ~space)
- @tech{space}.
-
-}
 
 @doc(
   syntax_class bind_meta.Group:

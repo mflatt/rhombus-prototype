@@ -9,6 +9,7 @@
     [else
      (define space (case space-name
                      [(space) 'rhombus/space]
+                     [(namespace) 'rhombus/namespace]
                      [(bind) 'rhombus/bind]
                      [(impo) 'rhombus/impo]
                      [(expo) 'rhombus/expo]
@@ -24,7 +25,6 @@
                      [(syntax_binding) 'rhombus/unquote_bind]
                      [(syntax_class_clause) 'rhombus/syntax_class_clause]
                      [(pattern_clause) 'rhombus/pattern_clause]
-                     [(#f) 'rhombus/expr]
                      [else #f]))
      (if space
          ((make-interned-syntax-introducer space) stx 'add)
