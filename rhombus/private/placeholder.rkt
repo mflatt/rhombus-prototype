@@ -1,0 +1,32 @@
+#lang racket/base
+(require (for-syntax racket/base
+                     syntax/parse/pre
+                     "operator-parse.rkt")
+         "expression.rkt"
+         "binding.rkt")
+
+(provide define-placeholder-syntax)
+
+(define-syntax (define-placeholder-syntax stx)
+  (syntax-parse stx
+    [(_ id expr-misuse bind-misuse)
+     #'(begin
+         (define-expression-syntax id
+           (expression-transformer
+            (in-expression-space #'id)
+            (lambda (stx)
+              (syntax-parse stx
+                [(op::operator . tail)
+                 (raise-syntax-error #f
+                                     expr-misuse
+                                     #'op.name)]))))
+
+         (define-binding-syntax id
+           (binding-transformer
+            (in-binding-space #'id)
+            (lambda (stx)
+              (syntax-parse stx
+                [(op::operator . tail)
+                 (raise-syntax-error #f
+                                     bind-misuse
+                                     #'op.name)])))))]))

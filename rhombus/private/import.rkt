@@ -34,7 +34,8 @@
                   [/ rhombus/])
          "dotted-sequence-parse.rkt")
 
-(provide import
+(provide (for-space rhombus/expr
+                    import)
 
          (for-space rhombus/impo
                     #%juxtapose
@@ -198,7 +199,7 @@
              #:when (syntax-local-value* (in-import-space #'mod-id) import-modifier-ref)
              #:attr mod #'(group mod-id mod-arg ...))))
 
-(define-syntax import
+(define-definition-syntax import
   (definition-transformer
    (lambda (stx)
      (syntax-parse stx

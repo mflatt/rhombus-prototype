@@ -1,11 +1,13 @@
 #lang racket/base
 (require (for-syntax racket/base
                      syntax/parse/pre)
+         "provide.rkt"
          (submod "annotation.rkt" for-class))
 
-(provide Maybe)
+(provide (at-spaces (rhombus/ann)
+                    Maybe))
 
-(define-syntax Maybe
+(define-annotation-syntax Maybe
   (annotation-prefix-operator
    #'Maybe
    '((default . stronger))

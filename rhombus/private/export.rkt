@@ -18,12 +18,14 @@
                      "realm.rkt"
                      "tag.rkt")
          "name-root-ref.rkt"
+         "definition.rkt"
          "declaration.rkt"
          "nestable-declaration.rkt"
          "dotted-sequence-parse.rkt"
          (submod "module-path.rkt" for-import-export))
 
-(provide export
+(provide (for-space rhombus/expr
+                    export)
 
          (for-space rhombus/expo
                     rename
@@ -182,7 +184,7 @@
                     (make-export phase space (datum->syntax int-id sym int-id) (adjust-prefix sym prefix)))]
                  [else null])))))))))))
 
-(define-syntax export
+(define-definition-syntax export
   (nestable-declaration-transformer
    (lambda (stx)
      (syntax-parse stx

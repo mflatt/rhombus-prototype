@@ -11,6 +11,7 @@
          racket/stxparam
          "expression.rkt"
          "parse.rkt"
+         "expression.rkt"
          "entry-point.rkt"
          "class-this.rkt"
          "class-method-result.rkt"
@@ -19,6 +20,7 @@
          (submod "dot.rkt" for-dot-provider)
          "assign.rkt"
          "parens.rkt"
+         "op-literal.rkt"
          (submod "function.rkt" for-call)
          (only-in (submod "implicit.rkt" for-dynamic-static)
                   static-#%call)
@@ -35,8 +37,9 @@
 
                      get-private-table)
 
-         this
-         super
+         (for-space rhombus/expr
+                    this
+                    super)
 
          prop:methods
          prop-methods-ref
@@ -349,9 +352,9 @@
       (class-desc-method-map p)
       (interface-desc-method-map p)))
 
-(define-syntax this
+(define-expression-syntax this
   (expression-transformer
-   #'this
+   (in-expression-space #'this)
    (lambda (stxs)
      (syntax-parse stxs
        [(head . tail)
@@ -370,9 +373,9 @@
                                "allowed only within methods"
                                #'head)])]))))
 
-(define-syntax super
+(define-expression-syntax super
   (expression-transformer
-   #'this
+   (in-expression-space #'super)
    (lambda (stxs)
      (define c-or-id+dp+supers (syntax-parameter-value #'this-id))
      (cond
@@ -423,9 +426,7 @@
                 [(pair? shape)
                  ;; a property
                  (syntax-parse #'tail
-                   #:datum-literals (op)
-                   #:literals (:=)
-                   [((op :=) . rhs)
+                   [( _:::=-expr . rhs)
                     #:with (~var e (:infix-op+expression+tail #':=)) #'(group . rhs)
                     (define-values (call new-tail)
                       (parse-function-call impl (list #'id #'e.parsed) #'(method-id (parens))
@@ -468,9 +469,7 @@
    id
    (lambda (stx)
      (syntax-parse stx
-       #:datum-literals (op)
-       #:literals (:=)
-       [(head (op :=) . tail)
+       [(head _:::=-expr . tail)
         #:when (syntax-e maybe-mutator-id)
         #:with (~var e (:infix-op+expression+tail #':=)) #'(group . tail)
         (syntax-parse (syntax-parameter-value #'this-id)
@@ -508,9 +507,7 @@
                              index/id
                              #`(vector-ref (prop-methods-ref obj-id) #,index/id)))
            (syntax-parse stx
-             #:datum-literals (op)
-             #:literals (:=)
-             [(head (op :=) . tail)
+             [(head _:::=-expr . tail)
               #:with (~var e (:infix-op+expression+tail #':=)) #'(group . tail)
               (define r (and (syntax-e result-id)
                              (syntax-local-method-result result-id)))

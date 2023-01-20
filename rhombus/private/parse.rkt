@@ -76,7 +76,7 @@
     #:desc "definition"
     #:in-space in-expression-space
     #:name-path-op name-path-op
-    #:name-root-ref name-root-ref
+    #:name-root-ref (make-name-root-ref in-expression-space)
     #:name-root-ref-root name-root-ref-root
     #:transformer-ref definition-transformer-ref
     #:check-result check-definition-result)
@@ -89,7 +89,7 @@
     #:desc "definition sequence"
     #:in-space in-expression-space
     #:name-path-op name-path-op
-    #:name-root-ref name-root-ref
+    #:name-root-ref (make-name-root-ref in-expression-space)
     #:name-root-ref-root name-root-ref-root
     #:transformer-ref definition-sequence-transformer-ref
     #:check-result check-definition-result)
@@ -103,7 +103,7 @@
     #:operator-desc "expression operator"
     #:in-space in-expression-space
     #:name-path-op name-path-op
-    #:name-root-ref name-root-ref
+    #:name-root-ref (make-name-root-ref in-expression-space)
     #:name-root-ref-root name-root-ref-root
     #:prefix-operator-ref expression-prefix-operator-ref
     #:infix-operator-ref expression-infix-operator-ref

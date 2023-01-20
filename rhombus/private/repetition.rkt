@@ -11,7 +11,8 @@
                      enforest/name-parse
                      enforest/proc-name
                      "name-path-op.rkt"
-                     "introducer.rkt")
+                     "introducer.rkt"
+                     (for-syntax racket/base))
          "name-root-ref.rkt"
          "expression.rkt"
          "binding.rkt"
@@ -131,6 +132,9 @@
     (make-expression+binding+repetition-prefix-operator name '((default . stronger)) 'macro exp bind rep))
 
   (define in-repetition-space (make-interned-syntax-introducer/add 'rhombus/repet))
+  (define-syntax (repet-quote stx)
+    (syntax-case stx ()
+      [(_ id) #`(quote-syntax #,((make-interned-syntax-introducer 'rhombus/repet) #'id))]))
 
   (define (identifier-repetition-use id)
     (make-repetition-info id

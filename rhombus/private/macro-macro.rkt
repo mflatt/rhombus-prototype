@@ -140,7 +140,7 @@
 
   (define-syntax-class :$+1
     (pattern $-id
-             #:when (free-identifier=? #'$ (in-binding-space #'$-id)
+             #:when (free-identifier=? (bind-quote $) (in-binding-space #'$-id)
                                        (syntax-local-phase-level) (add1 (syntax-local-phase-level)))))
 
   (define-splicing-syntax-class :operator-or-identifier-or-$

@@ -7,9 +7,11 @@
                      "srcloc.rkt"
                      "tag.rkt")
          syntax/parse/pre
+         "provide.rkt"
          "macro-rhs.rkt"
          "definition.rkt"
          "expression.rkt"
+         "expression+definition.rkt"
          "entry-point.rkt"
          "macro-macro.rkt"
          "pack.rkt"
@@ -19,15 +21,9 @@
          "parens.rkt"
          (submod "expr-macro.rkt" for-define))
 
-(provide macro)
-
-(begin-for-syntax
-  (struct definition+entry-point+expression-transformer (def cbl exp)
-    #:property prop:definition-transformer (lambda (self) (definition+entry-point+expression-transformer-def self))
-    #:property prop:entry-point-transformer (lambda (self) (definition+entry-point+expression-transformer-cbl self))
-    #:property prop:expression-prefix-operator (lambda (self) (definition+entry-point+expression-transformer-exp self)))
-  (define (make-definition+entry-point+expression-transformer def cbl exp)
-    (definition+entry-point+expression-transformer def cbl exp)))
+(provide (for-spaces (rhombus/expr
+                      rhombus/entry_point)
+                     macro))
 
 (define-for-syntax (parse-macro stx adjustments)
   (syntax-parse stx
@@ -67,8 +63,13 @@
        #f
        #:adjustments adjustments))]))
 
-(define-syntax macro
-  (make-definition+entry-point+expression-transformer
+(define-expression-syntax macro
+  (make-expression+definition-transformer
+   (expression-transformer
+    (in-expression-space #'macro)
+    (lambda (stx)
+      (values (parse-macro stx no-adjustments)
+              #'())))
    (definition-transformer
      (lambda (stx)
        (syntax-parse stx
@@ -100,19 +101,16 @@
                                       #'q.g
                                       #'rhs
                                       #f
-                                      #'rule-rhs))])))
-   (entry-point-transformer
-    ;; parse macro
-    (lambda (stx adjustments)
-      (parse-macro stx adjustments))
-    ;; extract arity
-    (lambda (stx)
-      1))
-   (expression-transformer
-    #'macro
-    (lambda (stx)
-      (values (parse-macro stx no-adjustments)
-              #'())))))
+                                      #'rule-rhs))])))))
+
+(define-entry-point-syntax macro
+  (entry-point-transformer
+   ;; parse macro
+   (lambda (stx adjustments)
+     (parse-macro stx adjustments))
+   ;; extract arity
+   (lambda (stx)
+     1)))
 
 (define (wrap-prefix name precedence protocol proc)
   (lambda (stx)

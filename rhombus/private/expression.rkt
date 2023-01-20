@@ -4,7 +4,9 @@
                      enforest/operator
                      enforest/property
                      enforest/proc-name
-                     "introducer.rkt"))
+                     "introducer.rkt"
+                     "expression-space.rkt"
+                     (for-syntax racket/base)))
 
 (begin-for-syntax
   (provide (property-out expression-prefix-operator)
@@ -13,14 +15,16 @@
            expression-transformer
 
            make-identifier-expression
-                     
+
            check-expression-result
-           
+
            in-expression-space
+           expr-quote
 
            (struct-out expression-prefix+infix-operator)))
 
-(provide define-expression-syntax)
+(provide define-expression-syntax
+         define-expression)
 
 (module+ for-top-expand
   (provide (for-syntax check-unbound-identifier-early!)))
@@ -37,28 +41,37 @@
     (set! early-unbound? #t))
 
   (define (make-identifier-expression id)
-    (when early-unbound?
-      (unless (identifier-binding id)
-        ;; within a module, report unbound identifiers early;
-        ;; otherwise, enforestation may continue and assume an
-        ;; expression where some other kind of form was intended,
-        ;; leading to confusing error messages; the trade-off is
-        ;; that we don't compile some things that could (would?)
-        ;; end up reporting a use before definition
-        (raise-syntax-error #f "unbound identifier" id)))
-    id)
+    (let ([id (in-expression-space id)])
+      (when early-unbound?
+        (unless (identifier-binding id)
+          ;; within a module, report unbound identifiers early;
+          ;; otherwise, enforestation may continue and assume an
+          ;; expression where some other kind of form was intended,
+          ;; leading to confusing error messages; the trade-off is
+          ;; that we don't compile some things that could (would?)
+          ;; end up reporting a use before definition
+          (raise-syntax-error #f "unbound identifier" id)))
+      id))
 
   (define (check-expression-result form proc)
     (unless (syntax? form) (raise-result-error (proc-name proc) "syntax?" form))
     form)
 
-  (define in-expression-space (make-interned-syntax-introducer/add 'rhombus/expr)))
+  (define-syntax (expr-quote stx)
+    (syntax-case stx ()
+      [(_ id) #`(quote-syntax #,((make-interned-syntax-introducer 'rhombus/expr) #'id))])))
 
 (define-syntax (define-expression-syntax stx)
   (syntax-parse stx
     [(_ name:id rhs)
      (quasisyntax/loc stx
        (define-syntax #,(in-expression-space #'name) rhs))]))
+
+(define-syntax (define-expression stx)
+  (syntax-parse stx
+    [(_ name:id rhs)
+     (quasisyntax/loc stx
+       (define #,(in-expression-space #'name) rhs))]))
 
 (begin-for-syntax
   (struct expression-prefix+infix-operator (prefix infix)

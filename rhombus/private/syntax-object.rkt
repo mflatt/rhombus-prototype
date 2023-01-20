@@ -19,8 +19,9 @@
          (submod "srcloc-object.rkt" for-static-info))
 
 (provide Syntax
-         (for-space rhombus/annot Syntax)
-         Identifier)
+         (for-space rhombus/annot
+                    Syntax
+                    Identifier))
 
 (module+ for-builtin
   (provide syntax-method-table))
@@ -34,7 +35,7 @@
 (define-annotation-syntax Syntax
   (identifier-annotation #'Syntax #'syntax? syntax-static-infos))
 
-(define-syntax Identifier
+(define-annotation-syntax Identifier
   (identifier-annotation #'Identifier #'identifier? syntax-static-infos))
 
 (define-name-root Syntax
@@ -209,7 +210,7 @@
      (raise-argument-error* 'Syntax.unwrap_group rhombus-realm "Syntax" v)]
     [else
      (syntax->list (unpack-tail v 'Syntax.unwrap_group #f))]))
-
+  
 (define/arity (unwrap_sequence v)
   (cond
     [(not (syntax? v))

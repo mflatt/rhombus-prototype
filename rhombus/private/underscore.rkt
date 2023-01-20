@@ -2,26 +2,28 @@
 (require (for-syntax racket/base
                      syntax/parse/pre
                      "annotation-string.rkt")
+         "provide.rkt"
          "expression.rkt"
-         "binding.rkt"
-         "expression+binding.rkt")
+         "binding.rkt")
 
-(provide (rename-out [rhombus-_ _]))
+(provide (for-spaces (rhombus/expr
+                      rhombus/bind)
+                     (rename-out [rhombus-_ _])))
 
-(define-syntax rhombus-_
-  (make-expression+binding-prefix-operator
+(define-expression-syntax rhombus-_
+  (expression-transformer
    #'_
-   '((default . stronger))
-   'macro
-   ;; expression
    (lambda (stx)
      (syntax-parse stx
        [(form-id . tail)
         (raise-syntax-error #f
                             (string-append "not allowed as an expression;\n"
                                            " only allowed as binding pattern or 'else' substitute")
-                            #'form-id)]))
-   ;; binding
+                            #'form-id)]))))
+
+(define-binding-syntax rhombus-_
+  (binding-transformer
+   #'_
    (lambda (stx)
      (syntax-parse stx
        [(form-id . tail)

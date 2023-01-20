@@ -6,13 +6,15 @@
                      enforest/proc-name
                      "name-path-op.rkt"
                      "introducer.rkt"
-                     "realm.rkt")
+                     "realm.rkt"
+                     (for-syntax racket/base))
          "name-root-ref.rkt")
 
 (provide define-class-clause-syntax)
 
 (module+ for-class
-  (provide (for-syntax in-class-clause-space)))
+  (provide (for-syntax in-class-clause-space
+                       class-clause-quote)))
 
 (begin-for-syntax
   (provide (property-out class-clause-transformer)
@@ -30,6 +32,9 @@
       [_ (raise-result-error* (proc-name proc) rhombus-realm "Class_Clause_Syntax" form)]))
 
   (define in-class-clause-space (make-interned-syntax-introducer/add 'rhombus/class_clause))
+  (define-syntax (class-clause-quote stx)
+    (syntax-case stx ()
+      [(_ id) #`(quote-syntax #,((make-interned-syntax-introducer 'rhombus/class_clause) #'id))]))
 
   (define (make-class-clause-transformer-ref class-data)
     ;; "accessor" closes over `class-data`:

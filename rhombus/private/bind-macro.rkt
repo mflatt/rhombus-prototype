@@ -19,7 +19,9 @@
          "binding.rkt"
          (for-syntax
           "quasiquote.rkt"
-          (submod "quasiquote.rkt" convert))
+          (submod "quasiquote.rkt" convert)
+          "op-literal.rkt"
+          "binding.rkt")
          "parse.rkt"
          ;; for `matcher` and `binder`:
          (for-syntax "parse.rkt")
@@ -215,13 +217,12 @@
       [(_ orig-stx)
        (syntax-parse #'orig-stx
          #:datum-literals (op parens group block quotes)
-         #:literals ($)
          [(form-id (quotes (group builder-id:identifier
-                                  (parens (group (op $) arg-id:identifier)
+                                  (parens (group _::$-bind arg-id:identifier)
                                           data-pattern
-                                          (group (op $) IF-id:identifier)
-                                          (group (op $) success-id:identifier)
-                                          (group (op $) fail-id:identifier))))
+                                          (group _::$-bind IF-id:identifier)
+                                          (group _::$-bind success-id:identifier)
+                                          (group _::$-bind fail-id:identifier))))
                    ((~and block-tag block) body ...))
           (define-values (converted-pattern idrs sidrs vars can-be-empty?) (convert-pattern #'data-pattern))
           (with-syntax ([((id id-ref) ...) idrs]
@@ -341,9 +342,8 @@
       [(_ orig-stx)
        (syntax-parse #'orig-stx
          #:datum-literals (op parens group block quotes)
-         #:literals ($)
          [(form-id (quotes (group builder-id:identifier
-                                  (parens (group (op $) arg-id:identifier)
+                                  (parens (group _::$-bind arg-id:identifier)
                                           data-pattern)))
                    ((~and block-tag block) body ...))
           (define-values (converted-data-pattern data-idrs data-sidrs data-vars data-can-be-empty?) (convert-pattern #'data-pattern))

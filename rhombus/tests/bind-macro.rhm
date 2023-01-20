@@ -4,10 +4,10 @@ import:
 
 // define a binding operator
 
-bind.macro '$& $(~parsed n)':
+bind.macro '$$ $(~parsed n)':
   '$n :: Integer'
 
-fun apply_interest($& n):
+fun apply_interest($$ n):
   n * 1.05
 
 check:

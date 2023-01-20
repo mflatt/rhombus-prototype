@@ -3,6 +3,7 @@
                      syntax/parse/pre
                      syntax/stx
                      "srcloc.rkt")
+         "provide.rkt"
          "composite.rkt"
          "expression.rkt"
          "binding.rkt"
@@ -17,9 +18,10 @@
          "dot-parse.rkt"
          "realm.rkt")
 
-(provide Pair
-         (for-space rhombus/bind Pair)
-         (for-space rhombus/annot Pair))
+(provide (for-spaces (rhombus/expr
+                      rhombus/bind
+                      rhombus/annot)
+                     Pair))
 
 (module+ for-builtin
   (provide pair-method-table))
@@ -32,21 +34,20 @@
   #'((#%dot-provider pair-instance)))
 
 (define-name-root Pair
+  #:space rhombus/expr
+  #:root
+  (expression-transformer
+   (in-expression-space #'Pair)
+   (lambda (stx)
+     (syntax-parse stx
+       [(head . tail) (values (relocate-id #'head #'cons) #'tail)])))
   #:fields
   (cons
    [first car]
-   [rest cdr])
-  #:root
-  (expression-transformer
-   #'Pair
-   (lambda (stx)
-     (syntax-parse stx
-       [(head . tail) (values (relocate-id #'head #'cons) #'tail)]))))
+   [rest cdr]))
 
 (define-name-root Pair
   #:space rhombus/bind
-  #:fields
-  ([cons Pair])
   #:root
   (binding-transformer
    #'Pair
@@ -54,7 +55,9 @@
                                        #'pair?
                                        #:static-infos #'((#%dot-provider pair-instance))
                                        (list #'car #'cdr)
-                                       (list #'() #'()))))
+                                       (list #'() #'())))
+  #:fields
+  ([cons Pair]))
 
 (define-annotation-constructor Pair
   ()

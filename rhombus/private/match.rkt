@@ -12,7 +12,8 @@
          "parens.rkt"
          (only-in "entry-point.rkt" no-adjustments))
 
-(provide match)
+(provide (for-space rhombus/expr
+                    match))
 
 (begin-for-syntax
   (define-syntax-class :pattern-clause
@@ -26,7 +27,7 @@
   (define (l1falses l-stx)
     (datum->syntax #f (map (lambda (x) '(#f)) (cons 'b (syntax->list l-stx))))))
 
-(define-syntax match
+(define-expression-syntax match
   (expression-transformer
    #'match
    (lambda (stx)

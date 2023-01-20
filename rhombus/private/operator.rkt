@@ -20,7 +20,9 @@
 ;; operator definition and generates a combination of a transformer and
 ;; a function
 
-(provide (rename-out [rhombus-operator operator]))
+(provide (for-space rhombus/expr
+                    (rename-out
+                     [rhombus-operator operator])))
 
 (begin-for-syntax
   
@@ -135,7 +137,7 @@
             #,(make-prefix p-name #'p-op-proc p-prec p-ret-static-infos)
             #,(make-infix i-name #'i-op-proc i-prec i-assc i-ret-static-infos)))))))
 
-(define-syntax rhombus-operator
+(define-definition-syntax rhombus-operator
   (definition-transformer
     (lambda (stx)
       (syntax-parse stx

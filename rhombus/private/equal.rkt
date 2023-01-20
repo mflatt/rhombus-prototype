@@ -1,21 +1,24 @@
 #lang racket/base
 (require (for-syntax racket/base
-                     syntax/parse/pre)
-         "expression+binding.rkt")
+                     syntax/parse/pre
+                     enforest/name-parse)
+         "provide.rkt"
+         "expression.rkt"
+         "binding.rkt")
 
-(provide (rename-out [rhombus= =]))
+(provide (for-spaces (rhombus/expr
+                      rhombus/bind)
+                     (rename-out [rhombus= =])))
 
 (module+ for-parse
   (provide (for-syntax :equal
                        :not-equal)))
 
-(define-syntax rhombus=
-  (make-expression+binding-infix-operator
-   #'rhombus=
+(define-expression-syntax rhombus=
+  (expression-infix-operator
+   (in-expression-space #'rhombus=)
    '((default . weaker))
    'macro
-   'none
-   ;; expression
    (lambda (form tail)
      (syntax-parse tail
        #:datum-literals (op)
@@ -23,21 +26,28 @@
         (raise-syntax-error #f
                             "not an expression operator"
                             #'o)]))
-   ;; binding
+   'none))
+
+(define-binding-syntax rhombus=
+  (binding-infix-operator
+   (in-binding-space #'rhombus=)
+   '((default . weaker))
+   'macro
    (lambda (form tail)
      (syntax-parse tail
        #:datum-literals (op)
        [((op o) . _)
         (raise-syntax-error #f
                             "not a binding operator"
-                            #'o)]))))
+                            #'o)]))
+   'none))
 
 (begin-for-syntax
   (define-syntax-class :equal
-    #:datum-literals (op)
-    #:literals (rhombus=)
-    (pattern (op rhombus=)))
+    #:attributes ()
+    (pattern op::name
+             #:when (free-identifier=? (in-expression-space #'op.name)
+                                       (expr-quote rhombus=))))
   (define-syntax-class :not-equal
-    #:datum-literals (op)
-    #:literals (rhombus=)
-    (pattern (~not (op rhombus=)))))
+    #:attributes ()
+    (pattern (~not _::equal))))

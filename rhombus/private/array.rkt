@@ -2,6 +2,7 @@
 (require (for-syntax racket/base
                      syntax/parse/pre
                      syntax/stx)
+         "provide.rkt"
          "expression.rkt"
          "binding.rkt"
          (submod "annotation.rkt" for-class)
@@ -15,9 +16,10 @@
          "name-root.rkt"
          "dot-parse.rkt")
 
-(provide Array
-         (for-space rhombus/bind Array)
-         (for-space rhombus/annot Array))
+(provide (for-spaces (rhombus/expr
+                      rhombus/bind
+                      rhombus/annot)
+                     Array))
 
 (module+ for-builtin
   (provide array-method-table))
@@ -32,6 +34,7 @@
      (#%dot-provider array-instance)))
 
 (define-name-root Array
+  #:space rhombus/expr
   #:fields
   ([make make-vector]
    [length vector-length])

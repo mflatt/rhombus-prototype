@@ -3,6 +3,7 @@
                      syntax/parse/pre
                      "srcloc.rkt")
          "expression.rkt"
+         "repetition.rkt"
          "compound-repetition.rkt")
 
 (provide define-prefix
@@ -13,7 +14,8 @@
 
 (begin-for-syntax
   (require (for-syntax racket/base
-                       syntax/parse/pre))
+                       syntax/parse/pre
+                       "expression-space.rkt"))
   (define-syntax (prefix stx)
     (syntax-parse stx
       [(_ name:identifier prim:identifier
@@ -27,29 +29,34 @@
                      #:defaults ([(same-on-left-op 1) '()]))
           (~optional (~seq #:stronger-than (stronger-op ...))
                      #:defaults ([(stronger-op 1) '()])))
-       #`(make-expression&repetition-prefix-operator
-          (quote-syntax name)
-          (list (cons (quote-syntax weaker-op)
-                      'weaker)
-                ...
-                (cons (quote-syntax same-op)
-                      'same)
-                ...
-                (cons (quote-syntax same-on-right-op)
-                      'same-on-right)
-                ...
-                (cons (quote-syntax same-on-left-op)
-                      'same-on-left)
-                ...
-                (cons (quote-syntax stronger-op)
-                      'stronger)
-                ...)
-          'automatic
-          (lambda (form stx)
-            (datum->syntax (quote-syntax here)
-                           (list (quote-syntax prim) form)
-                           (span-srcloc stx form)
-                           stx)))]))
+       (with-syntax ([(weaker-op ...) (in-expression-space #'(weaker-op ...))]
+                     [(same-op ...) (in-expression-space #'(same-op ...))]
+                     [(same-on-right-op ...) (in-expression-space #'(same-on-right-op ...))]
+                     [(same-on-left-op ...) (in-expression-space #'(same-on-left-op ...))]
+                     [(stronger-op ...) (in-expression-space #'(stronger-op ...))])
+         #`(make-expression&repetition-prefix-operator
+            (expr-quote name)
+            (list (cons (quote-syntax weaker-op)
+                        'weaker)
+                  ...
+                  (cons (quote-syntax same-op)
+                        'same)
+                  ...
+                  (cons (quote-syntax same-on-right-op)
+                        'same-on-right)
+                  ...
+                  (cons (quote-syntax same-on-left-op)
+                        'same-on-left)
+                  ...
+                  (cons (quote-syntax stronger-op)
+                        'stronger)
+                  ...)
+            'automatic
+            (lambda (form stx)
+              (datum->syntax (quote-syntax here)
+                             (list (quote-syntax prim) form)
+                             (span-srcloc stx form)
+                             stx))))]))
 
   (define-syntax (infix stx)
     (syntax-parse stx
@@ -64,34 +71,42 @@
                      #:defaults ([(stronger-op 1) '()]))
           (~optional (~seq #:associate assoc)
                      #:defaults ([assoc #''left])))
-       #`(make-expression&repetition-infix-operator
-          (quote-syntax name)
-          (list (cons (quote-syntax weaker-op)
-                      'weaker)
-                ...
-                (cons (quote-syntax same-op)
-                      'same)
-                ...
-                (cons (quote-syntax same-on-left-op)
-                      'same-on-left)
-                ...
-                (cons (quote-syntax stronger-op)
-                      'stronger)
-                ...)
-          'automatic
-          (lambda (form1 form2 stx)
-            (datum->syntax (quote-syntax here)
-                           (list (quote-syntax prim) form1 form2)
-                           (span-srcloc form1 form2)
-                           stx))
-          assoc)])))
+       (with-syntax ([(weaker-op ...) (in-expression-space #'(weaker-op ...))]
+                     [(same-op ...) (in-expression-space #'(same-op ...))]
+                     [(same-on-left-op ...) (in-expression-space #'(same-on-left-op ...))]
+                     [(stronger-op ...) (in-expression-space #'(stronger-op ...))])
+         #`(make-expression&repetition-infix-operator
+            (expr-quote name)
+            (list (cons (quote-syntax weaker-op)
+                        'weaker)
+                  ...
+                  (cons (quote-syntax same-op)
+                        'same)
+                  ...
+                  (cons (quote-syntax same-on-left-op)
+                        'same-on-left)
+                  ...
+                  (cons (quote-syntax stronger-op)
+                        'stronger)
+                  ...)
+            'automatic
+            (lambda (form1 form2 stx)
+              (datum->syntax (quote-syntax here)
+                             (list (quote-syntax prim) form1 form2)
+                             (span-srcloc form1 form2)
+                             stx))
+            assoc))])))
 
 (define-syntax (define-infix stx)
   (syntax-parse stx
     [(_ name spec ...)
-     #'(define-syntax name (infix name spec ...))]))
+     #`(define-syntaxes (#,(in-expression-space #'name) #,(in-repetition-space #'name))
+         (let ([op (infix name spec ...)])
+           (values op op)))]))
 
 (define-syntax (define-prefix stx)
   (syntax-parse stx
     [(_ name spec ...)
-     #'(define-syntax name (prefix name spec ...))]))
+     #`(define-syntaxes (#,(in-expression-space #'name) #,(in-repetition-space #'name))
+         (let ([op (prefix name spec ...)])
+           (values op op)))]))

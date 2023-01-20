@@ -103,7 +103,7 @@
                [non-portal-ref
                 (non-portal-ref form-id field-id tail)]
                [else
-                (values id tail)]))
+                (values (in-space id) tail)]))
            (syntax-parse stxes
              #:datum-literals (op parens group |.|)
              [(form-id (op |.|) field:identifier . tail)

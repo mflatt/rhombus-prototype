@@ -6,12 +6,14 @@
          "binding.rkt"
          "expression.rkt")
 
-(provide :=
-         mutable)
+(provide (for-space rhombus/expr
+                    :=)
+         (for-space rhombus/bind
+                    mutable))
 
-(define-syntax mutable
+(define-binding-syntax mutable
   (binding-transformer
-   #'mutable
+   (in-binding-space #'mutable)
    (lambda (stx)
      (syntax-parse stx
        [(_ id:identifier . new-tail)
@@ -57,9 +59,9 @@
     #:property prop:rename-transformer (struct-field-index id))
   (define (mutable-variable-ref v) (and (mutable-variable? v) v)))
 
-(define-syntax :=
+(define-expression-syntax :=
   (expression-infix-operator
-   #':=
+   (in-expression-space #':=)
    '((default . weaker))
    'automatic
    (lambda (form1 form2 self-stx)

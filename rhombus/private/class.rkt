@@ -37,24 +37,9 @@
          (submod "print.rkt" for-class))
 
 ;; the `class` form is provided by "class-together.rkt"
-(provide this
-         super
-         extends
-         implements
-         internal
-         constructor
-         expression
-         binding
-         annotation
-         final
-         nonfinal
-         authentic
-         field
-         method
-         property
-         override
-         private
-         abstract)
+(provide (for-space rhombus/expr
+                    this
+                    super))
 
 (module+ for-together
   (provide (for-syntax class-transformer)

@@ -7,11 +7,14 @@
 
 (bounce #:except (|.| #%ref #%call)
         "main.rkt")
-(provide |.|
-         (for-space rhombus/impo |.|)
-         (for-space rhombus/expo |.|)
-         #%ref
-         #%call)
+(provide (for-space rhombus/expr
+                    |.|
+                    #%ref
+                    #%call)
+         (for-space rhombus/repet
+                    |.|
+                    #%ref
+                    #%call))
 
 (module reader syntax/module-reader
   #:language 'rhombus/static

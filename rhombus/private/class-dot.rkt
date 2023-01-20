@@ -20,6 +20,7 @@
                   make-expression+repetition-transformer
                   identifier-repetition-use)
          "assign.rkt"
+         "op-literal.rkt"
          "name-root.rkt"
          "parse.rkt"
          (submod "function.rkt" for-call)
@@ -252,9 +253,7 @@
     (define accessor-id (field-desc-accessor-id fld))
     (define-values (op-id assign-rhs new-tail)
       (syntax-parse tail
-        #:datum-literals (op)
-        #:literals (:=)
-        [((op :=) . tail)
+        [(_:::=-expr . tail)
          #:when (syntax-e (field-desc-mutator-id fld))
          #:with (~var e (:infix-op+expression+tail #':=)) #'(group . tail)
          (values (field-desc-mutator-id fld)
@@ -290,9 +289,7 @@
     (define-values (args new-tail)
       (if property?
           (syntax-parse tail
-            #:datum-literals (op)
-            #:literals (:=)
-            [((op :=) . tail)
+            [(_:::=-expr . tail)
              #:with (~var e (:infix-op+expression+tail #':=)) #'(group  . tail)
              (values #`(#,(no-srcloc #'parens) (group (parsed e.parsed)))
                      #'e.tail)]

@@ -1,7 +1,7 @@
 #lang racket/base
-
 (require (for-syntax racket/base
                      "interface-parse.rkt")
+         "provide.rkt"
          "name-root.rkt"
          (submod "annotation.rkt" for-class)
          (submod "dot.rkt" for-dot-provider)
@@ -9,10 +9,10 @@
          "class-dot.rkt"
          (only-in "class-desc.rkt" define-class-desc-syntax))
 
-(provide Equatable
-         (for-space rhombus/class Equatable)
-         (for-space rhombus/annot Equatable))
-
+(provide (for-spaces (rhombus/expr
+                      rhombus/class
+                      rhombus/annot)
+                     Equatable))
 
 (define-values (prop:Equatable Equatable? Equatable-ref)
   (make-struct-type-property
@@ -59,6 +59,7 @@
                   #t))
 
 (define-name-root Equatable
+  #:space rhombus/expr
   #:fields
   ([equals equals-method]
    [hashCode hashCode-method]))

@@ -7,12 +7,13 @@
                   [_ rhombus-_])
          "error.rkt")
 
-(provide (rename-out [rhombus-if if]
-                     [rhombus-cond cond]
-                     [rhombus-when when]
-                     [rhombus-unless unless]))
+(provide (for-space rhombus/expr
+                    (rename-out [rhombus-if if]
+                                [rhombus-cond cond]
+                                [rhombus-when when]
+                                [rhombus-unless unless])))
 
-(define-syntax rhombus-if
+(define-expression-syntax rhombus-if
   (expression-transformer
    #'rhombus-if
    (lambda (stx)
@@ -34,7 +35,7 @@
                                "expected two alternatives"
                                stx)])]))))
 
-(define-syntax rhombus-cond
+(define-expression-syntax rhombus-cond
   (expression-transformer
    #'rhombus-cond
    (lambda (stx)
@@ -73,13 +74,13 @@
 (define (cond-fallthrough who)
   (raise-contract-error who "no matching case"))
 
-(define-syntax rhombus-when
+(define-expression-syntax rhombus-when
   (expression-transformer
    #'rhombus-when
    (lambda (stx)
      (parse-when stx #'when))))
 
-(define-syntax rhombus-unless
+(define-expression-syntax rhombus-unless
   (expression-transformer
    #'rhombus-unless
    (lambda (stx)

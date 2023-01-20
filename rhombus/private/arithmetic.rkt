@@ -2,7 +2,9 @@
 (require (for-syntax racket/base
                      syntax/parse/pre
                      "srcloc.rkt")
+         "provide.rkt"
          "expression.rkt"
+         "repetition.rkt"
          "define-operator.rkt"
          "function-arity-key.rkt"
          "static-info.rkt"
@@ -11,39 +13,44 @@
          (only-in "repetition.rkt"
                   expression+repetition-prefix+infix-operator))
 
-(provide (rename-out [rhombus+ +]
-                     [rhombus- -]
-                     [rhombus* *]
-                     [rhombus/ /]
-                     [rhombus< <]
-                     [rhombus<= <=]
-                     [rhombus>= >=]
-                     [rhombus> >])
-         .=
+(provide (for-spaces (rhombus/expr
+                      rhombus/repet)
 
-         sqrt cos sin tan log exp expt acos asin atan
-         floor ceiling round
-         (for-space rhombus/statinfo
-                    sqrt cos sin tan log exp expt acos asin atan
-                    floor ceiling round)
+                     (rename-out [rhombus+ +]
+                                 [rhombus- -]
+                                 [rhombus* *]
+                                 [rhombus/ /]
+                                 [rhombus< <]
+                                 [rhombus<= <=]
+                                 [rhombus>= >=]
+                                 [rhombus> >])
+                     .=
 
-         !
-         &&
-         \|\|
+                     !
+                     &&
+                     \|\|
 
-         ==
-         !=
+                     ==
+                     !=
 
-         ===)
+                     ===)
+
+         (for-spaces (rhombus/expr
+                      rhombus/statinfo)
+                     sqrt cos sin tan log exp expt acos asin atan
+                     floor ceiling round))
 
 (define-infix rhombus+ +
   #:weaker-than (rhombus* rhombus/)
   #:same-as (rhombus-))
 
-(define-syntax rhombus-
+(define-for-syntax minus-operator
   (expression+repetition-prefix+infix-operator
    (prefix rhombus- - #:weaker-than (rhombus* rhombus/))
    (infix rhombus- - #:weaker-than (rhombus* rhombus/))))
+
+(define-expression-syntax rhombus- minus-operator)
+(define-repetition-syntax rhombus- minus-operator)
 
 (define-infix rhombus* *
   #:same-on-left-as (rhombus/))
@@ -85,6 +92,16 @@
 
 (define (not-equal-always? a b) (not (equal-always? a b)))
 
+(define-syntax (bounce-functions stx)
+  (syntax-parse stx
+    [(_ id ...)
+     #`(begin
+         #,@(for/list ([id (in-list (syntax->list #'(id ...)))])
+              #`(define #,(in-expression-space id) #,id)))]))
+      
+(bounce-functions sqrt cos sin tan log exp expt acos asin atan
+                 floor ceiling round)
+
 (define-static-info-syntaxes (sqrt cos sin tan exp acos asin
                                    floor ceiling round)
   (#%function-arity 2))
@@ -94,3 +111,4 @@
 
 (define-static-info-syntaxes (log atan)
   (#%function-arity 6))
+

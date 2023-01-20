@@ -2,9 +2,9 @@
 (require (for-syntax racket/base
                      syntax/parse/pre
                      "srcloc.rkt")
+         "provide.rkt"
          "expression.rkt"
          "binding.rkt"
-         "expression+binding.rkt"
          "repetition.rkt"
          "parse.rkt"
          (submod "function.rkt" for-call)
@@ -15,23 +15,39 @@
          "literal.rkt"
          "parens.rkt")
 
-(provide #%body
-         #%block
-         #%literal
-         #%parens
-         ;; `#%quotes` provided by "quasiquote.rkt"
-         #%call
-         #%brackets
-         #%ref
-         #%braces)
+(provide (for-space rhombus/expr
+                    #%body
+                    #%block
+                    #%ref
+                    #%literal
+                    ;; `#%quotes` provided by "quasiquote.rkt"
+                    #%parens
+                    #%brackets
+                    #%braces
+                    #%call)
+         (for-space rhombus/bind
+                    #%block
+                    #%literal
+                    #%parens
+                    #%brackets
+                    #%braces)
+         (for-space rhombus/repet
+                    #%ref
+                    #%literal
+                    #%parens
+                    #%brackets
+                    #%braces
+                    #%call))
 
 (module+ for-dynamic-static
-  (provide #%ref
-           static-#%ref
-           #%call
-           static-#%call))
+  (provide (for-spaces (rhombus/expr
+                        rhombus/repet)
+                       #%ref
+                       static-#%ref
+                       #%call
+                       static-#%call)))
 
-(define-syntax #%body
+(define-expression-syntax #%body
   (expression-prefix-operator
    #'#%body
    '((default . stronger))
@@ -42,17 +58,19 @@
         (values (datum->syntax #f (cons (datum->syntax #'here 'rhombus-body #'tag #'tag) #'body) #'tag)
                 #'tail)]))))
 
-(define-syntax #%block
-  (make-expression+binding-prefix-operator
+(define-expression-syntax #%block
+  (expression-transformer
    #'#%block
-   '((default . stronger))
-   'macro
    (lambda (stxes)
      (syntax-parse stxes
        [(_ b)
         (raise-syntax-error #f
                             "misplaced;\n not allowed as an expression by itself"
-                            #'b)]))
+                            #'b)]))))
+
+(define-binding-syntax #%block
+  (binding-transformer
+   #'#%block
    (lambda (stxes)
      (syntax-parse stxes
        [(_ b)
@@ -60,24 +78,30 @@
                             "misplaced;\n not allowed as a binding by itself"
                             #'b)]))))
 
-(define-syntax #%literal
-  (make-expression+binding+repetition-prefix-operator
-   #'#%literal
-   '((default . stronger))
-   'macro
+(define-expression-syntax #%literal
+  (expression-transformer
+   (in-expression-space #'#%literal)
    (lambda (stxes)
      (syntax-parse stxes
        [(_ datum . tail)
         (when (keyword? (syntax-e #'datum)) (raise-keyword-error #'datum))
         (values (syntax/loc #'datum (quote datum))
-                #'tail)]))
+                #'tail)]))))
+
+(define-binding-syntax #%literal
+  (binding-transformer
+   (in-expression-space #'#%literal)
    (lambda (stxes)
      (syntax-parse stxes
        [(_ datum . tail)
         (when (keyword? (syntax-e #'datum)) (raise-keyword-error #'datum))
         (values (binding-form #'literal-infoer
                               #'datum)
-                #'tail)]))
+                #'tail)]))))
+
+(define-repetition-syntax #%literal
+  (repetition-transformer
+   (in-repetition-space #'#%literal)
    (lambda (stxes)
      (syntax-parse stxes
        [(_ datum . tail)
@@ -96,12 +120,9 @@
                       "misplaced keyword"
                       datum))
 
-(define-syntax #%parens
-  (make-expression+binding+repetition-prefix-operator
+(define-expression-syntax #%parens
+  (expression-transformer
    #'#%parens
-   '((default . stronger))
-   'macro
-   ;; expression
    (lambda (stxes)
      (syntax-parse stxes
        [(_ (~and head ((~datum parens) . args)) . tail)
@@ -115,8 +136,11 @@
              ;; eagerly parse content of parentheses; we could choose to
              ;; delay parsing by using `rhombus-expression`, instead
              (syntax-parse (car args)
-               [e::expression (values #'e.parsed #'tail)])]))]))
-   ;; binding
+               [e::expression (values #'e.parsed #'tail)])]))]))))
+
+(define-binding-syntax #%parens
+  (binding-transformer
+   #'#%parens
    (lambda (stxes)
      (syntax-parse stxes
        [(_ (~and head ((~datum parens) . args)) . tail)
@@ -128,8 +152,11 @@
              (raise-syntax-error #f "too many patterns" #'head)]
             [else
              (syntax-parse (car args)
-               [b::binding (values #'b.parsed #'tail)])]))]))
-   ;; repetition
+               [b::binding (values #'b.parsed #'tail)])]))]))))
+
+(define-repetition-syntax #%parens
+  (repetition-transformer
+   #'#%parens
    (lambda (stxes)
      (syntax-parse stxes
        [(_ (~and head ((~datum parens) . args)) . tail)
@@ -143,34 +170,48 @@
              (syntax-parse (car args)
                [r::repetition (values #'r.parsed #'tail)])]))]))))
 
-(define-for-syntax (make-#%call static?)
-  (make-expression+repetition-infix-operator
+(define-for-syntax (make-#%call-expression static?)
+  (expression-infix-operator
    #'#%call
    '((default . stronger))
    'macro
    (lambda (rator stxes)
      (parse-function-call rator '() stxes #:static? static?))
-   (lambda (rator stxes)
-     (parse-function-call rator '() stxes #:repetition? #t))
    'left))
 
-(define-syntax #%call (make-#%call #f))
-(define-syntax static-#%call (make-#%call #t))
+(define-expression-syntax #%call (make-#%call-expression #f))
+(define-expression-syntax static-#%call (make-#%call-expression #t))
 
-(define-syntax #%brackets
-  (make-expression+binding+repetition-prefix-operator
-   #'#%brackets
+(define-for-syntax (make-#%call-repetition static?)
+  (repetition-infix-operator
+   (in-repetition-space #'#%call)
    '((default . stronger))
    'macro
-   ;; expression
+   (lambda (rator stxes)
+     (parse-function-call rator '() stxes #:static? static? #:repetition? #t))
+   'left))
+
+(define-repetition-syntax #%call (make-#%call-repetition #f))
+(define-repetition-syntax static-#%call (make-#%call-repetition #t))
+
+
+(define-expression-syntax #%brackets
+  (expression-transformer
+   #'#%brackets
    (lambda (stxes)
      (check-brackets stxes)
-     (parse-list-expression stxes))
-   ;; binding
+     (parse-list-expression stxes))))
+
+(define-binding-syntax #%brackets
+  (binding-transformer
+   #'#%brackets
    (lambda (stxes)
      (check-brackets stxes)
-     (parse-list-binding stxes))
-   ;; repetition
+     (parse-list-binding stxes))))
+
+(define-repetition-syntax #%brackets
+  (repetition-transformer
+   #'#%brackets
    (lambda (stxes)
      (check-brackets stxes)
      (parse-list-repetition stxes))))
@@ -180,36 +221,57 @@
     [(_ (_::brackets . _) . _) (void)]))
 
 (define-for-syntax (make-#%ref more-static?)
-  (make-expression+repetition-infix-operator
+  (expression-infix-operator
    #'#%ref
    '((default . stronger))
    'macro
    (lambda (array stxes)
      (parse-map-ref-or-set array stxes more-static?))
+   'left))
+
+(define-expression-syntax #%ref
+  (make-#%ref #f))
+(define-expression-syntax static-#%ref
+  (make-#%ref #t))
+
+(define-for-syntax (make-repetition-#%ref more-static?)
+  (repetition-infix-operator
+   #'#%ref
+   '((default . stronger))
+   'macro
    (lambda (array stxes)
      (parse-map-ref-or-set array stxes more-static? #:repetition? #t))
    'left))
 
-(define-syntax #%ref
-  (make-#%ref #f))
-(define-syntax static-#%ref
-  (make-#%ref #t))
+(define-repetition-syntax #%ref
+  (make-repetition-#%ref #f))
+(define-repetition-syntax static-#%ref
+  (make-repetition-#%ref #t))
 
-(define-syntax #%braces
-  (make-expression+binding+repetition-prefix-operator
+(define-expression-syntax #%braces
+  (expression-prefix-operator
    #'#%braces
    '((default . stronger))
    'macro
-   ;; expression
    (lambda (stxes)
      (syntax-parse stxes
        [(_ braces . tail)
         (values (parse-setmap-expression #'braces)
-                #'tail)]))
-   ;; binding
+                #'tail)]))))
+
+(define-binding-syntax #%braces
+  (binding-prefix-operator
+   #'#%braces
+   '((default . stronger))
+   'macro
    (lambda (stxes)
-     (parse-setmap-binding 'braces stxes))
-   ;; repetition
+     (parse-setmap-binding 'braces stxes))))
+
+(define-repetition-syntax #%braces
+  (repetition-prefix-operator
+   #'#%braces
+   '((default . stronger))
+   'macro
    (lambda (stxes)
      (syntax-parse stxes
        [(_ braces . tail)

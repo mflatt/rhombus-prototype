@@ -71,6 +71,7 @@
                #'(begin))
 
          (define-name-root Name
+           #:space rhombus/expr
            #:root #,(cond
                       [(or transparent?
                            translucent?)

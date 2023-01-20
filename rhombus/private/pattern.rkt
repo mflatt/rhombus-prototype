@@ -6,7 +6,8 @@
                   pattern
                   #%parens)
          (only-in "quasiquote.rkt"
-                  #%quotes
+                  #%quotes)
+         (only-in "dollar.rkt"
                   $)
          "parse.rkt"
          "parens.rkt")

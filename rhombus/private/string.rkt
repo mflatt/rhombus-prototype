@@ -1,10 +1,15 @@
 #lang racket/base
 (require racket/symbol
          racket/keyword
+         "provide.rkt"
          "define-operator.rkt"
-         (prefix-in rhombus: "print.rkt"))
+         (only-in (submod "print.rkt" for-string)
+                  [display rhombus:display]))
 
-(provide +&)
+(provide (for-spaces (rhombus/expr
+                      rhombus/repet)
+
+                     +&))
 
 (define-infix +& append-as-strings
   #:stronger-than (===))

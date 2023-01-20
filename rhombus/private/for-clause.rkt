@@ -30,7 +30,7 @@
       [_::for-clause-form form]
       [_ (raise-result-error* (proc-name proc) rhombus-realm "For_Clause_Syntax" form)]))
 
-  (define in-for-clause-space (make-interned-syntax-introducer/add 'rhombus/for-clause))
+  (define in-for-clause-space (make-interned-syntax-introducer/add 'rhombus/for_clause))
   
   (define-transform
     #:syntax-class :for-clause

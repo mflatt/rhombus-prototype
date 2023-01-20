@@ -3,6 +3,7 @@
                      racket/syntax-srcloc
                      syntax/srcloc
                      syntax/parse/pre
+                     enforest/name-parse
                      "tag.rkt"
                      "srcloc.rkt")
          "expression.rkt"
@@ -18,14 +19,16 @@
          (rename-in "values.rkt"
                     [values rhombus-values]))
 
-(provide (rename-out [rhombus-for for])
-         each
-         keep_when
-         skip_when
-         break_when
-         final_when)
+(provide (for-space rhombus/expr
+                    (rename-out [rhombus-for for]))
+         (for-space rhombus/for_clause
+                    each
+                    keep_when
+                    skip_when
+                    break_when
+                    final_when))
 
-(define-syntax rhombus-for
+(define-expression-syntax rhombus-for
   (expression-transformer
    #'for
    (lambda (stx)
@@ -56,7 +59,6 @@
   (lambda (stx)
     (syntax-parse stx
       #:datum-literals (group block parens)
-      #:literals (rhombus-values)
       [(_ orig [finish] . bodys)
        ;; initialize state
        #`(#:splice (for-clause-step orig [finish () () (void) (void)]
@@ -159,8 +161,10 @@
                         state-stx
                         (syntax-parse bindings-stx
                           #:datum-literals (group parens block)
-                          #:literals (rhombus-values)
-                          [((group (~optional rhombus-values) (parens g ...)))
+                          [((group (~optional values-id::name) (parens g ...)))
+                           #:when (or (not (attribute values-id))
+                                      (free-identifier=? (in-binding-space #'values-id.name)
+                                                         (bind-quote rhombus-values)))
                            #'(g ...)]
                           [else bindings-stx])
                         rhs-block-stx))
@@ -259,7 +263,7 @@
     (pattern (~seq bind ...+ (~and rhs (_::block . _)))
              #:attr blk #'rhs)))
 
-(define-syntax each
+(define-for-clause-syntax each
   (for-clause-transformer
    (lambda (stx)
      (syntax-parse stx
@@ -275,7 +279,7 @@
                             "needs a binding followed by a block, or it needs a block of bindings (each with a block)"
                             stx)]))))
 
-(define-syntax keep_when
+(define-for-clause-syntax keep_when
   (for-clause-transformer
    (lambda (stx)
      (syntax-parse stx
@@ -283,7 +287,7 @@
        [(form-id expr ...+)
         #`[(#,group-tag prim-for-clause #:keep_when expr ...)]]))))
 
-(define-syntax skip_when
+(define-for-clause-syntax skip_when
   (for-clause-transformer
    (lambda (stx)
      (syntax-parse stx
@@ -291,7 +295,7 @@
        [(form-id expr ...+)
         #`[(#,group-tag prim-for-clause #:skip_when expr ...)]]))))
 
-(define-syntax break_when
+(define-for-clause-syntax break_when
   (for-clause-transformer
    (lambda (stx)
      (syntax-parse stx
@@ -299,7 +303,7 @@
        [(form-id expr ...+)
         #`[(#,group-tag prim-for-clause #:break_when expr ...)]]))))
 
-(define-syntax final_when
+(define-for-clause-syntax final_when
   (for-clause-transformer
    (lambda (stx)
      (syntax-parse stx

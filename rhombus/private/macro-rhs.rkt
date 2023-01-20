@@ -7,6 +7,7 @@
          "quasiquote.rkt"
          (only-in "ellipsis.rkt"
                   [... rhombus...])
+         "dollar.rkt"
          "parse.rkt"
          "srcloc.rkt"
          "binding.rkt"
@@ -43,16 +44,16 @@
         [(eq? kind 'rule) (values tail-pattern-in #t)]
         [else
          (syntax-parse tail-pattern-in
-           #:datum-literals (op group)
-           [(pat ... (op (~var _ (:$ in-binding-space))) _:identifier  (op (~var _ (:... in-binding-space))))
+           #:datum-literals (group)
+           [(pat ... _::$-bind _:identifier _::...-bind)
             ;; recognize where a tail match would be redundant and always be empty;
             ;; this is kind of an optimization, but one that's intended to be guaranteed;
             ;; note that this enables returning two values from the macro, instead
             ;; of just one
             (values tail-pattern-in #f)]
-           [(pat ... (op (~var _ (:$ in-binding-space))) #:end)
+           [(pat ... _::$-bind #:end)
             (values #`(pat ...) #f)]
-           [(pat ... (op (~var _ (:$ in-binding-space))) (_::parens (group #:end)))
+           [(pat ... _::$-bind (_::parens (group #:end)))
             (values #`(pat ...) #f)]
            [_ (values tail-pattern-in #t)])]))
     (define-values (pattern idrs sidrs vars can-be-empty?)
@@ -95,8 +96,8 @@
       [(block (group e)) (raise-syntax-error 'template "invalid result template" #'e)]))
   (define (extract-pattern-id tail-pattern)
     (syntax-parse tail-pattern
-      #:datum-literals (op group)
-      [((op (~var _ (:$ in-binding-space))) (_::parens (group #:parsed id:identifier))) #'id]))
+      #:datum-literals (group)
+      [(_::$-bind (_::parens (group #:parsed id:identifier))) #'id]))
   (syntax-parse pre-parsed
     #:datum-literals (pre-parsed infix prefix)
     ;; infix protocol

@@ -33,13 +33,13 @@
          "parse.rkt"
          (submod "namespace.rkt" for-exports))
 
-(provide interface)
+(provide (for-space rhombus/expr
+                    interface))
 
 (module+ for-together
-  (provide interface
-           interface_for_together))
+  (provide interface_for_together))
 
-(define-syntax interface
+(define-expression-syntax interface
   (definition-transformer
     (lambda (stxes)
       (parse-interface stxes))))

@@ -12,6 +12,8 @@
 (module+ for-class
   (provide (for-syntax in-entry-point-space)))
 
+(provide define-entry-point-syntax)
+
 (begin-for-syntax
   (provide (property-out entry-point-transformer)
            :entry-point
@@ -74,3 +76,9 @@
                         (define t (entry-point-transformer-ref v))
                         (and t (transformer (entry-point-transformer-arity-extract t))))
     #:check-result check-entry-point-arity-result))
+
+(define-syntax (define-entry-point-syntax stx)
+  (syntax-parse stx
+    [(_ name:id rhs)
+     (quasisyntax/loc stx
+       (define-syntax #,(in-entry-point-space #'name) rhs))]))

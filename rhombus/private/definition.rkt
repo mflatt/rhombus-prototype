@@ -6,7 +6,7 @@
                      enforest/sequence
                      enforest/property
                      enforest/proc-name
-                     "introducer.rkt"))
+                     "expression-space.rkt"))
 
 (begin-for-syntax
   (provide (property-out definition-transformer)
@@ -20,3 +20,11 @@
   (define (check-definition-result forms proc)
     (unless (stx-list? forms) (raise-result-error (proc-name proc) "stx-list?" forms))
     forms))
+
+(provide define-definition-syntax)
+
+(define-syntax (define-definition-syntax stx)
+  (syntax-parse stx
+    [(_ name:id rhs)
+     (quasisyntax/loc stx
+       (define-syntax #,(in-expression-space #'name) rhs))]))
