@@ -13,17 +13,11 @@
 (define+provide-space defn rhombus/expr
   #:fields
   (macro
-   sequence_macro
-   only))
-
-(define-name-root only
-  #:fields
-  ([macro macro-only]
-   [sequence_macro sequence_macro-only]))
+   sequence_macro))
 
 ;; ----------------------------------------
 
-(define-identifier-syntax-definition-transformer+only macro macro-only
+(define-identifier-syntax-definition-transformer macro
   rhombus/expr
   #'make-definition-transformer)
 
@@ -44,10 +38,6 @@
 ;; ----------------------------------------
 
 (define-identifier-syntax-definition-sequence-transformer sequence_macro
-  #f
-  #'make-definition-sequence-transformer)
-
-(define-identifier-syntax-definition-sequence-transformer sequence_macro-only
   rhombus/expr
   #'make-definition-sequence-transformer)
 

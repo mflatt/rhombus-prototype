@@ -5,7 +5,8 @@
                      (prefix-in enforest: enforest/name-root)
                      enforest/syntax-local
                      shrubbery/property
-                     "srcloc.rkt")
+                     "srcloc.rkt"
+                     "id-binding.rkt")
          "name-root-space.rkt")
 
 ;; convert a hierachical layer implemented as portal syntax to a name-root
@@ -53,13 +54,14 @@
                      (cond
                        [(not get)
                         (define name (build-name prefix field-id))
-                        (and (identifier-binding (in-space name) (syntax-local-phase-level) #t)
+                        (and (or (identifier-binding* (in-space name))
+                                 (identifier-binding* (in-name-root-space name)))
                              (relocate-field form-id field-id name))]
                        [else
                         (define sub-id (if prefix
                                            (build-name prefix field-id)
                                            field-id))
-                        (let ([id (get #f what sub-id in-name-root-space)])
+                        (let ([id (get #f what sub-id in-space)])
                           (and id
                                (or (not binding-end?)
                                    (syntax-local-value* (in-space id) binding-ref))
@@ -68,7 +70,7 @@
                        (let ([prefix (cdar (reverse gets))])
                          (binding-extension-combine
                           (relocate-field form-id field-id (build-name prefix field-id))
-                          prefix))
+                          (in-name-root-space prefix)))
                        ;; try again with the shallowest to report an error
                        (let ([get (caar gets)])
                          (get form-id what field-id in-space)))))
@@ -105,7 +107,7 @@
              #:datum-literals (op parens group |.|)
              [(form-id (op |.|) field:identifier . tail)
               (next #'form-id #'field "identifier" #'tail)]
-             [(form-id (op |.|) (parens (group (~and target (op field)))) . tail)
+             [(form-id (op |.|) (parens (group (op field))) . tail)
               (next #'form-id #'field "operator" #'tail)]
              [(form-id (op (~and dot |.|)) . tail)
               (raise-syntax-error #f
@@ -133,14 +135,13 @@
            (lambda (who-stx what name in-space)
              (cond
                [(syntax-e name)
-                (define id (in-space
-                            (datum->syntax ctx
-                                           (syntax-e name)
-                                           name
-                                           name)))
+                (define id (datum->syntax ctx
+                                          (syntax-e name)
+                                          name
+                                          name))
                 (define pre-id (datum->syntax pre-ctx (syntax-e name)))
                 (cond
-                  [(identifier-distinct-binding id pre-id)
+                  [(identifier-distinct-binding* (in-space id) (in-space pre-id))
                    id]
                   [who-stx
                    (raise-syntax-error #f
@@ -215,6 +216,8 @@
      portal-stx]
     [_ #f]))
 
+;; returns the id of an extension root, the first one found from the
+;; possibilities in `ids`
 (define-for-syntax (extensible-name-root ids)
   (let loop ([ids ids] [portal-stx #f] [prev-who #f])
     (define id
@@ -228,9 +231,9 @@
                                        (relocate-field prev-who (car ids) id))))]))
     (define v
       (and id
-           (syntax-local-value* id (lambda (v)
-                                     (and (portal-syntax? v)
-                                          v)))))
+           (syntax-local-value* (in-name-root-space id) (lambda (v)
+                                                          (and (portal-syntax? v)
+                                                               v)))))
     (and v
          (cond
            [(null? (cdr ids))
@@ -241,4 +244,4 @@
               [_ #f])]
            [else
             (loop (cdr ids) (portal-syntax-content v) id)])
-         id)))
+         (in-name-root-space id))))

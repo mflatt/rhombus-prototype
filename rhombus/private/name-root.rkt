@@ -22,10 +22,10 @@
                                  (syntax-parse c
                                    [_:identifier #`[#,c #,c]]
                                    [(_:identifier _:identifier) c]))
+     #:with space-id (in-name-root-space #'id)
      #:with the-orig-id (if (syntax-e #'orig-id)
                             #'orig-id
-                            #'id)
-     #:with space-id (in-name-root-space #'id)
+                            #'space-id)
      #'(begin
          ;; portal syntax with this shape is recognized by "name-root-ref.rkt"
          (#%require (portal space-id (map the-orig-id extends norm-content ...))))]))

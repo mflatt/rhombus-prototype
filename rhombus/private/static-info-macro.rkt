@@ -24,12 +24,7 @@
 
 (define+provide-space statinfo rhombus/statinfo
   #:fields
-  (macro
-   only))
-
-(define-name-root only
-  #:fields
-  ([macro macro-only]))
+  (macro))
 
 (begin-for-syntax
   (define-name-root statinfo_meta
@@ -56,8 +51,6 @@
               (convert-static-info 'name.name (rhombus-body-at body-tag body ...))))]))))
 
 (define-syntax macro
-  (make-static-info-macro-macro (lambda (x) x)))
-(define-syntax macro-only
   (make-static-info-macro-macro in-static-info-space))
    
 (define-for-syntax (convert-static-info who stx)

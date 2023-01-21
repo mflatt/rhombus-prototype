@@ -23,8 +23,7 @@
 
 (define+provide-space expr rhombus/expr
   #:fields
-  (macro
-   only))
+  (macro))
 
 (begin-for-syntax
   (define-name-root expr_meta
@@ -33,11 +32,7 @@
      AfterPrefixGroup
      AfterInfixGroup)))
 
-(define-name-root only
-  #:fields
-  ([macro macro-only]))
-
-(define-operator-definition-transformer+only macro macro-only
+(define-operator-definition-transformer macro
   'macro
   rhombus/expr
   #'make-expression-prefix-operator

@@ -13,14 +13,9 @@
 
 (define+provide-space impo rhombus/impo
   #:fields
-  (modifier
-   only))
+  (modifier))
 
-(define-name-root only
-  #:fields
-  ([modifier modifier-only]))
-
-(define-identifier-syntax-definition-transformer+only modifier modifier-only
+(define-identifier-syntax-definition-transformer modifier
   rhombus/impo
   #'make-import-modifier)
 

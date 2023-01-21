@@ -41,7 +41,7 @@
                                    stx
                                    (map no-srcloc (syntax->list #'((tag ignore . pat) ...)))
                                    (syntax->list #'(rhs ...))
-                                   (lambda (x) x)
+                                   #f
                                    #f)
        #'wrap-prefix
        #f
@@ -57,7 +57,7 @@
                                   #:allowed '(prefix)
                                   (no-srcloc #'(tag ignore . pat))
                                   #'rhs
-                                  (lambda (x) x)
+                                  #f
                                   #f)
        #'wrap-prefix
        #f
@@ -91,7 +91,7 @@
                                        stx
                                        (syntax->list #'(q.g ...))
                                        (syntax->list #'(rhs ...))
-                                       #f
+                                       'rhombus/expr
                                        #'rules-rhs))]
          [(form-id q::operator-syntax-quote
                    (~and rhs (_::block body ...)))
@@ -100,7 +100,7 @@
                                       'rule
                                       #'q.g
                                       #'rhs
-                                      #f
+                                      'rhombus/expr
                                       #'rule-rhs))])))))
 
 (define-entry-point-syntax macro

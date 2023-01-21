@@ -19,33 +19,18 @@
 
 (define+provide-space class_clause rhombus/class_clause
   #:fields
-  (macro
-   only))
+  (macro))
 
 (define-name-root class_and_interface_clause
   #:fields
-  ([macro both_macro]
-   [only both_only]))
+  ([macro both_macro]))
 
-(define-name-root only
-  #:fields
-  ([macro macro-only]))
-
-(define-name-root both_only
-  #:fields
-  ([macro both_macro-only]))
-
-(define-identifier-syntax-definition-transformer+only macro macro-only
+(define-identifier-syntax-definition-transformer macro
   rhombus/class_clause
   #:extra [#:info class-data-static-infos]
   #'make-class-clause-transformer)
 
 (define-identifier-syntax-definition-transformer both_macro
-  #f
-  #:extra [#:info #'()]
-  #'make-class-and-interface-clause-transformer)
-
-(define-identifier-syntax-definition-transformer both_macro-only
   #:multi (rhombus/class_clause
            rhombus/interface_clause)
   #:extra [#:info #'()]

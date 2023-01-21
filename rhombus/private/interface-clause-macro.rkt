@@ -14,14 +14,9 @@
 
 (define+provide-space interface_clause rhombus/interface_clause
   #:fields
-  (macro
-   only))
+  (macro))
 
-(define-name-root only
-  #:fields
-  ([macro macro-only]))
-
-(define-identifier-syntax-definition-transformer+only macro macro-only
+(define-identifier-syntax-definition-transformer macro
   rhombus/interface_clause
   #:extra [#:info interface-data-static-infos]
   #'make-interface-clause-transformer)

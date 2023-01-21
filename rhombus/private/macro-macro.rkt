@@ -25,9 +25,7 @@
          "parens.rkt")
 
 (provide define-operator-definition-transformer
-         define-operator-definition-transformer+only
          define-identifier-syntax-definition-transformer
-         define-identifier-syntax-definition-transformer+only
          define-identifier-syntax-definition-sequence-transformer
 
          (for-syntax parse-operator-definition
@@ -154,7 +152,7 @@
     #:description "operator-macro pattern"
     #:datum-literals (op group)
     (pattern (~seq op-name::operator-or-identifier)
-             #:when (not (free-identifier=? (in-binding-space #'op-name.name) #'$
+             #:when (not (free-identifier=? (in-binding-space #'op-name.name) (bind-quote $)
                                             (add1 (syntax-local-phase-level)) (syntax-local-phase-level)))
              #:attr name #'op-name.name
              #:attr extends #'#f)
@@ -162,7 +160,7 @@
              #:with id::dotted-operator-or-identifier #'seq
              #:attr name #'id.name
              #:attr extends #'id.extends)
-    (pattern (~seq (op _::$+1) (_::parens (group (_::quotes (group (op (~and name $)))))))
+    (pattern (~seq (op _::$+1) (_::parens (group (_::quotes (group (op (~and name (~datum $))))))))
              #:attr extends #'#f))
 
   (define-syntax-class :parsed-identifier
@@ -304,29 +302,6 @@
                                                                #'make-infix-id
                                                                #'prefix+infix-id))))]))
 
-(define-syntax (define-operator-definition-transformer+only stx)
-  (syntax-parse stx
-    #:literals (syntax quote)
-    [(_ id only-id
-        'protocol
-        space
-        #'make-prefix-id
-        #'make-infix-id
-        #'prefix+infix-id)
-     #'(begin
-         (define-operator-definition-transformer id
-           'protocol
-           #f
-           #'make-prefix-id
-           #'make-infix-id
-           #'prefix+infix-id)
-         (define-operator-definition-transformer only-id
-           'protocol
-           space
-           #'make-prefix-id
-           #'make-infix-id
-           #'prefix+infix-id))]))
-
 (define-for-syntax (make-operator-definition-transformer-runtime protocol
                                                                  space-sym
                                                                  compiletime-id)
@@ -420,30 +395,6 @@
     [(_ id space
         #'make-transformer-id)
      #'(define-identifier-syntax-definition-transformer id #:multi (space) #:extra [#f #f] #'make-transformer-id)]))
-
-(define-syntax (define-identifier-syntax-definition-transformer+only stx)
-  (syntax-parse stx
-    #:literals (syntax)
-    [(_ id only-id
-        space
-        #'make-transformer-id)
-     #'(define-identifier-syntax-definition-transformer+only id only-id
-         space
-         #:extra [#f #f]
-         #'make-transformer-id)]
-    [(_ id only-id
-        space
-        #:extra extra
-        #'make-transformer-id)
-     #'(begin
-         (define-identifier-syntax-definition-transformer id
-           #f
-           #:extra extra
-           #'make-transformer-id)
-         (define-identifier-syntax-definition-transformer only-id
-           space
-           #:extra extra
-           #'make-transformer-id))]))
 
 (define-for-syntax (make-identifier-syntax-definition-transformer-runtime space-syms
                                                                           compiletime-id

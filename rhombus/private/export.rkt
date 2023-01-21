@@ -16,7 +16,8 @@
                      "name-path-op.rkt"
                      "introducer.rkt"
                      "realm.rkt"
-                     "tag.rkt")
+                     "tag.rkt"
+                     "id-binding.rkt")
          "enforest.rkt"
          "name-root-ref.rkt"
          "name-root-space.rkt"
@@ -146,7 +147,7 @@
                                                 (make-interned-syntax-introducer sym)
                                                 (lambda (x) x)))]
                          [(space-id) (in-value (intro id))]
-                         #:when (and (identifier-binding space-id)
+                         #:when (and (identifier-binding* space-id)
                                      (or (not sym)
                                          (not (free-identifier=? id space-id)))))
                (cons sym space-id)))
@@ -162,22 +163,26 @@
               (append
                (list (make-export phase space int-id))
                (cond
-                 [(extensible-name-root (list int-id))
-                  ;; also export any extensions
-                  (define prefix (format "~a." (symbol->string (syntax-e int-id))))
-                  (define intro (if space
-                                    (make-interned-syntax-introducer space)
-                                    (lambda (x) x)))
-                  (for/list ([sym (in-list (syntax-bound-symbols (intro int-id)))]
-                             #:do [(define str (symbol->immutable-string sym))]
-                             #:when (and (> (string-length str) (string-length prefix))
-                                         (string=? prefix (substring str 0 (string-length prefix)))
-                                         (identifier-extension-binding? (datum->syntax (intro int-id) sym) (intro int-id)))
-                             #:when (or (not space)
-                                        (identifier-distinct-binding (datum->syntax (intro int-id) sym)
-                                                                     (datum->syntax int-id sym)
-                                                                     phase)))
-                    (make-export phase space (datum->syntax int-id sym int-id) (adjust-prefix sym prefix)))]
+                 [(and (eq? space 'rhombus/namespace)
+                       (extensible-name-root (list int-id)))
+                  => (lambda (name-root-id)
+                       ;; also export any extensions
+                       (define out-int-id (out-of-name-root-space int-id))
+                       (define prefix (format "~a." (symbol->string (syntax-e int-id))))
+                       (for/list ([space (in-list (cons #f (syntax-local-module-interned-scope-symbols)))]
+                                  #:do [(define intro (if space
+                                                          (make-interned-syntax-introducer/add space)
+                                                          (lambda (x) x)))]
+                                  [sym (in-list (syntax-bound-symbols (intro out-int-id)))]
+                                  #:do [(define str (symbol->immutable-string sym))]
+                                  #:when (and (> (string-length str) (string-length prefix))
+                                              (string=? prefix (substring str 0 (string-length prefix))))
+                                  #:do [(define id* (datum->syntax out-int-id sym))
+                                        (define id (intro id*))]
+                                  #:when (identifier-extension-binding? id name-root-id)
+                                  #:when (or (not space)
+                                             (identifier-distinct-binding* id id* phase)))
+                         (make-export phase space (datum->syntax int-id sym int-id) (adjust-prefix sym prefix))))]
                  [else null])))))))))))
 
 (define-definition-syntax export

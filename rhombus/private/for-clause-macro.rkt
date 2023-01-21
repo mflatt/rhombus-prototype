@@ -12,14 +12,9 @@
 
 (define+provide-space for_clause rhombus/for_clause
   #:fields
-  (macro
-   only))
+  (macro))
 
-(define-name-root only
-  #:fields
-  ([macro macro-only]))
-
-(define-identifier-syntax-definition-transformer+only macro macro-only
+(define-identifier-syntax-definition-transformer macro
   rhombus/for_clause
   #'make-for-clause-transformer)
 

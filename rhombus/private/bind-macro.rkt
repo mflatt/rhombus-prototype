@@ -40,12 +40,7 @@
    infoer
    matcher
    committer
-   binder
-   only))
-
-(define-name-root only
-  #:fields
-  ([macro macro-only]))
+   binder))
 
 (begin-for-syntax
   (define-name-root bind_meta
@@ -59,7 +54,7 @@
      AfterPrefixGroup
      AfterInfixGroup)))
 
-(define-operator-definition-transformer+only macro macro-only
+(define-operator-definition-transformer macro
   'macro
   rhombus/bind
   #'make-binding-prefix-operator

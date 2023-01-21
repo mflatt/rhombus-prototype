@@ -23,12 +23,7 @@
 
 (define+provide-space annot rhombus/annot
   #:fields
-  (macro
-   only))
-
-(define-name-root only
-  #:fields
-  ([macro macro-only]))
+  (macro))
 
 (begin-for-syntax
   (define-name-root annot_meta
@@ -38,7 +33,7 @@
      AfterPrefixGroup
      AfterInfixGroup)))
 
-(define-operator-definition-transformer+only macro macro-only
+(define-operator-definition-transformer macro
   'macro
   rhombus/annot
   #'make-annotation-prefix-operator

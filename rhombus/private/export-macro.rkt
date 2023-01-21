@@ -13,14 +13,9 @@
 
 (define+provide-space expo rhombus/expo
   #:fields
-  (modifier
-   only))
+  (modifier))
 
-(define-name-root only
-  #:fields
-  ([modifier modifier-only]))
-
-(define-identifier-syntax-definition-transformer+only modifier modifier-only
+(define-identifier-syntax-definition-transformer modifier
   rhombus/expo
   #'make-export-modifier)
 

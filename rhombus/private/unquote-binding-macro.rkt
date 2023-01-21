@@ -12,14 +12,9 @@
 
 (define+provide-space unquote_bind rhombus/unquote_bind
   #:fields
-  (macro
-   only))
+  (macro))
 
-(define-name-root only
-  #:fields
-  ([macro macro-only]))
-
-(define-operator-definition-transformer+only macro macro-only
+(define-operator-definition-transformer macro
   'macro
   rhombus/unquote_bind
   #'make-unquote-binding-prefix-operator
