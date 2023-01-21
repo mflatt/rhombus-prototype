@@ -9,8 +9,8 @@
          "class-dot.rkt"
          (only-in "class-desc.rkt" define-class-desc-syntax))
 
-(provide (for-spaces (rhombus/expr
-                      rhombus/class
+(provide Equatable ; root: expr
+         (for-spaces (rhombus/class
                       rhombus/annot)
                      Equatable))
 
@@ -59,7 +59,6 @@
                   #t))
 
 (define-name-root Equatable
-  #:space rhombus/expr
   #:fields
   ([equals equals-method]
    [hashCode hashCode-method]))

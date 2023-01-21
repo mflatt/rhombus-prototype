@@ -71,18 +71,17 @@
                #'(begin))
 
          (define-name-root Name
-           #:space rhombus/expr
            #:root #,(cond
                       [(or transparent?
                            translucent?)
-                       #`(make-expression+binding-prefix-operator
+                       #`(make-expression+binding-transformer
                           #'Name
-                          '((default . stronger))
-                          'macro
+                          ;; expression
                           (lambda (stx)
                             (syntax-parse stx
                               [(head . tail)
                                (values (relocate-id #'head #'name) #'tail)]))
+                          ;; binding
                           (make-composite-binding-transformer Name-str
                                                               #'name?
                                                               (list #'name-field

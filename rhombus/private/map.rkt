@@ -34,14 +34,11 @@
          (only-in "pair.rkt"
                   Pair))
 
-(provide (for-spaces (rhombus/expr
-                      rhombus/repet
-                      rhombus/bind
+(provide Map ; root: expr, bind
+         (for-spaces (rhombus/repet
                       rhombus/annot
-                      rhombus/reducer
-                      rhombus/statinfo)
+                      rhombus/reducer)
                      Map)
-
          (for-spaces (rhombus/expr
                       rhombus/repet
                       rhombus/statinfo)
@@ -84,8 +81,10 @@
                                "key" (car args))]
       [else (loop (hash-set ht (car args) (cadr args)) (cddr args))])))
 
-(define (Map . args)
-  (build-map 'Map args))
+(define Map-pair-build
+  (let ([Map (lambda args
+               (build-map 'Map args))])
+    Map))
 
 (define (build-map who args)
   (define ht (hashalw))
@@ -161,22 +160,40 @@
                            #:list->setmap #'list->map)
              #'tail)]
     [(_ . tail) (values (cond
-                          [repetition? (identifier-repetition-use #'Map)]
-                          [else #'Map])
+                          [repetition? (identifier-repetition-use #'Map-pair-build)]
+                          [else #'Map-pair-build])
                         #'tail)]))
 
 (define-name-root Map
-  #:space rhombus/expr
-  #:root
-  (expression-transformer
-   (in-expression-space #'Map)
-   (lambda (stx) (parse-map stx #f)))
   #:fields
   ([empty empty-map]
    [length hash-count]
    [keys hash-keys]
    [values hash-values]
-   [has_key hash-has-key?]))
+   [has_key hash-has-key?])
+  #:root
+  (make-expression+binding-transformer
+   (expr-quote Map)
+   ;; expression
+   (lambda (stx) (parse-map stx #f))
+   ;; binding
+   (lambda (stx)
+     (syntax-parse stx
+       [(form-id (~and content (_::braces . _)) . tail)
+        (parse-map-binding (syntax-e #'form-id) stx "braces")]
+       [(form-id (_::parens arg ...) . tail)
+        (let loop ([args (syntax->list #'(arg ...))] [keys '()] [vals '()])
+          (cond
+            [(null? args) (generate-map-binding (reverse keys) (reverse vals) #f #'tail)]
+            [else
+             (syntax-parse (car args)
+               #:datum-literals (group brackets)
+               [(group (brackets key val))
+                (loop (cdr args) (cons #'key keys) (cons #'val vals))]
+               [_ (raise-syntax-error #f
+                                      "expected [<key-expr>, <value-binding>]"
+                                      stx
+                                      (car args))])]))]))))
 
 (define-repetition-syntax Map
   (repetition-transformer
@@ -216,7 +233,7 @@
         [(has_key) (0ary #'hash-has-key?)]
         [else #f])))))
 
-(define-static-info-syntax Map
+(define-static-info-syntax Map-pair-build
   (#%call-result #,map-static-info)
   (#%function-arity -1))
 
@@ -281,32 +298,6 @@
 
 (define-static-info-syntax MutableMap
   (#%call-result #,mutable-map-static-info))
-
-(define-name-root Map
-  #:space rhombus/bind
-  #:fields ([empty empty-map])
-  #:root
-  (binding-prefix-operator
-   #'Map
-   '((default . stronger))
-   'macro
-   (lambda (stx)
-     (syntax-parse stx
-       [(form-id (~and content (_::braces . _)) . tail)
-        (parse-map-binding (syntax-e #'form-id) stx "braces")]
-       [(form-id (_::parens arg ...) . tail)
-        (let loop ([args (syntax->list #'(arg ...))] [keys '()] [vals '()])
-          (cond
-            [(null? args) (generate-map-binding (reverse keys) (reverse vals) #f #'tail)]
-            [else
-             (syntax-parse (car args)
-               #:datum-literals (group brackets)
-               [(group (brackets key val))
-                (loop (cdr args) (cons #'key keys) (cons #'val vals))]
-               [_ (raise-syntax-error #f
-                                      "expected [<key-expr>, <value-binding>]"
-                                      stx
-                                      (car args))])]))]))))
 
 (define-for-syntax (parse-map-binding who stx opener+closer)
   (syntax-parse stx
@@ -427,10 +418,11 @@
   (syntax-parse stx
     [(_ map1 map2)
      (syntax-parse (unwrap-static-infos #'map2)
-       #:literals (Map-build)
-       [(Map-build k:keyword v)
+       [(id:identifier k:keyword v)
+        #:when (free-identifier=? (expr-quote Map-build) (in-expression-space #'id))
         #'(hash-set map1 'k v)]
-       [(Map-build k v)
+       [(id:identifier k v)
+        #:when (free-identifier=? (expr-quote Map-build) (in-expression-space #'id))
         #'(hash-set map1 k v)]
        [_
         #'(hash-append/proc map1 map2)])]))

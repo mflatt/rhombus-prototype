@@ -7,6 +7,7 @@
          "composite.rkt"
          "expression.rkt"
          "binding.rkt"
+         "expression+binding.rkt"
          (submod "annotation.rkt" for-class)
          "static-info.rkt"
          "reducer.rkt"
@@ -18,9 +19,8 @@
          "dot-parse.rkt"
          "realm.rkt")
 
-(provide (for-spaces (rhombus/expr
-                      rhombus/bind
-                      rhombus/annot)
+(provide Pair ; root: expr, bind
+         (for-spaces (rhombus/annot)
                      Pair))
 
 (module+ for-builtin
@@ -33,31 +33,31 @@
 (define-for-syntax pair-static-infos
   #'((#%dot-provider pair-instance)))
 
+(define-for-syntax pair-binding
+  (make-composite-binding-transformer "Pair"
+                                      #'pair?
+                                      #:static-infos #'((#%dot-provider pair-instance))
+                                      (list #'car #'cdr)
+                                      (list #'() #'())))
+
+(define-binding-syntax cons (binding-transformer
+                             #'Pair
+                             pair-binding))
+
 (define-name-root Pair
-  #:space rhombus/expr
-  #:root
-  (expression-transformer
-   (in-expression-space #'Pair)
-   (lambda (stx)
-     (syntax-parse stx
-       [(head . tail) (values (relocate-id #'head #'cons) #'tail)])))
   #:fields
   (cons
    [first car]
-   [rest cdr]))
-
-(define-name-root Pair
-  #:space rhombus/bind
+   [rest cdr])
   #:root
-  (binding-transformer
+  (make-expression+binding-transformer
    #'Pair
-   (make-composite-binding-transformer "Pair"
-                                       #'pair?
-                                       #:static-infos #'((#%dot-provider pair-instance))
-                                       (list #'car #'cdr)
-                                       (list #'() #'())))
-  #:fields
-  ([cons Pair]))
+   ;; expression
+   (lambda (stx)
+     (syntax-parse stx
+       [(head . tail) (values (relocate-id #'head #'cons) #'tail)]))
+   ;; binding
+   pair-binding))
 
 (define-annotation-constructor Pair
   ()

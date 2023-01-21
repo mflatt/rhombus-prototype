@@ -6,6 +6,7 @@
          "composite.rkt"
          "expression.rkt"
          "binding.rkt"
+         "expression+binding.rkt"
          (submod "annotation.rkt" for-class)
          "static-info.rkt"
          "reducer.rkt"
@@ -25,10 +26,8 @@
          "parens.rkt"
          "define-arity.rkt")
 
-(provide List
-         (for-spaces (rhombus/expr
-                      rhombus/bind
-                      rhombus/annot
+(provide List ; root: expr, bind
+         (for-spaces (rhombus/annot
                       rhombus/reducer)
                      List)
          (for-space rhombus/annot
@@ -64,9 +63,11 @@
    #'List.cons
    (make-composite-binding-transformer "cons" #'list? (list #'car #'cdr) (list #'() list-static-infos))))
 
-(define/arity (List.cons a d)
+(define (List.cons a d)
   (unless (list? d) (raise-argument-error* 'List.cons rhombus-realm "List" d))
   (cons a d))
+
+(define-expression List.cons List.cons)
 
 (define/arity (first l)
   (unless (list? l) (raise-argument-error* 'List.first rhombus-realm "List" l))
@@ -93,11 +94,22 @@
 (define-static-info-syntax reverse
   (#%function-arity 2))
 
-(define-expression-syntax List
-  (expression-prefix-operator
-   (in-expression-space #'List)
+(define-name-root List
+  #:fields
+  (length
+   [cons List.cons]
+   first
+   rest
+   [empty null]
+   reverse
+   iota
+   repet)
+  #:root
+  (make-expression+binding-prefix-operator
+   (expr-quote List)
    '((default . stronger))
    'macro
+   ;; expression:
    ;; special cases optimize for `...` and `&`; letting it expand
    ;; instead to `(apply list ....)` is not so bad, but but we can
    ;; avoid a `list?` check in `apply`, and we can expose more static
@@ -116,24 +128,8 @@
         #:when (normal-call? #'tag)
         (parse-list-expression stx)]
        [(_ . tail)
-        (values #'list #'tail)]))))
-
-(define-name-root List
-  #:fields
-  (length
-   [cons List.cons]
-   first
-   rest
-   [empty null]
-   reverse
-   iota
-   repet))
-
-(define-binding-syntax List
-  (binding-prefix-operator
-   (in-binding-space #'List)
-   '((default . stronger))
-   'macro
+        (values #'list #'tail)]))
+   ;; binding:)
    (lambda (stx)
      (syntax-parse stx
        [(form-id ((~and tag (~datum parens)) arg ...) . tail)
@@ -221,6 +217,10 @@
 (define-static-info-syntax iota
   (#%call-result #,list-static-infos)
   (#%function-arity 2))
+
+(define-static-info-syntax List.cons
+  (#%call-result #,list-static-infos)
+  (#%function-arity 4))
 
 (define-for-syntax (wrap-list-static-info expr)
   (wrap-static-info* expr list-static-infos))

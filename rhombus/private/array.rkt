@@ -16,8 +16,8 @@
          "name-root.rkt"
          "dot-parse.rkt")
 
-(provide (for-spaces (rhombus/expr
-                      rhombus/bind
+(provide Array ; root: expr
+         (for-spaces (rhombus/bind
                       rhombus/annot)
                      Array))
 
@@ -34,7 +34,6 @@
      (#%dot-provider array-instance)))
 
 (define-name-root Array
-  #:space rhombus/expr
   #:fields
   ([make make-vector]
    [length vector-length])

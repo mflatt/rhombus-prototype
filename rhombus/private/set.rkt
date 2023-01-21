@@ -31,10 +31,10 @@
          (only-in "lambda-kwrest.rkt" hash-remove*)
          "op-literal.rkt")
 
-(provide (for-spaces (rhombus/expr
-                      rhombus/bind
-                      rhombus/repet
-                      rhombus/reducer)
+(provide Set ; root: expr, bind
+         (for-spaces (rhombus/repet
+                      rhombus/reducer
+                      rhombus/annot)
                      Set)
          (for-spaces (rhombus/expr
                       rhombus/repet
@@ -102,12 +102,14 @@
     [(_ elem ...)
      #`(set (hashalw (~@ elem #t) ...))]))
 
-(define (Set . vals)
-  (define base-ht (hashalw))
-  (set (for/fold ([ht base-ht]) ([val (in-list vals)])
-         (hash-set ht val #t))))
+(define Set-build*
+  (let ([Set (lambda vals
+               (define base-ht (hashalw))
+               (set (for/fold ([ht base-ht]) ([val (in-list vals)])
+                      (hash-set ht val #t))))])
+    Set))
 
-(define (list->set l) (apply Set l))
+(define (list->set l) (apply Set-build* l))
 
 (define (set->list s) (hash-keys (set-ht s)))
 
@@ -174,27 +176,20 @@
                            #:list->setmap #'list->set)
              #'tail)]
     [(_ . tail) (values (if repetition?
-                            (identifier-repetition-use #'Set)
-                            #'Set)
+                            (identifier-repetition-use #'Set-build*)
+                            #'Set-build*)
                         #'tail)]))
 
 (define-name-root Set
-  #:space rhombus/expr
   #:fields
   ([empty empty-set]
    [length set-count])
   #:root
-  (expression-transformer
-   (in-expression-space #'Set)
-   (lambda (stx) (parse-set stx #f))))
-
-(define-name-root Set
-  #:space rhombus/bind
-  #:fields
-  ([empty empty-set])
-  #:root
-  (binding-transformer
-   (in-binding-space #'Set)
+  (make-expression+binding-transformer
+   (expr-quote Set)
+   ;; expression
+   (lambda (stx) (parse-set stx #f))
+   ;; binding
    (lambda (stx)
      (syntax-parse stx
        [(form-id (~and content (_::braces . _)) . tail)
@@ -327,7 +322,7 @@
   (lambda (static-infoss)
     #`()))
 
-(define-static-info-syntax Set
+(define-static-info-syntax Set-build*
   (#%call-result #,set-static-info)
   (#%function-arity -1))
 
@@ -385,11 +380,10 @@
 ;; macro to optimize to an inline functional update
 (define-syntax (set-append stx)
   (syntax-parse stx
-    #:literals (Set)
     [(_ set1 set2)
      (syntax-parse (unwrap-static-infos #'set2)
-       #:literals (Set-build)
-       [(Set-build v)
+       [(id:identifier v)
+        #:when (free-identifier=? (expr-quote Set-build) (in-expression-space #'id))
         #'(set (hash-set (set-ht set1) v #t))]
        [_
         #'(set-append/proc set1 set2)])]))

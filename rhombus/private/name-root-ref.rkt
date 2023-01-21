@@ -12,6 +12,7 @@
 (provide (for-syntax name-root-ref
                      make-name-root-ref
                      name-root-ref-root
+                     make-name-root-ref-root
                      portal-syntax->lookup
                      portal-syntax->extends
                      replace-head-dotted-name
@@ -126,15 +127,17 @@
 
 (define-for-syntax name-root-ref (make-name-root-ref (lambda (x) x)))
 
-(define-for-syntax (name-root-ref-root v ref)
+(define-for-syntax ((make-name-root-ref-root in-space) v ref)
   (or (and
        (portal-syntax? v)
        (portal-syntax->lookup (portal-syntax-content v)
                               (lambda (self-id get)
                                 (define id (get #f #f #'#f))
                                 (and id
-                                     (syntax-local-value* id ref)))))
+                                     (syntax-local-value* (in-space id) ref)))))
       (ref v)))
+
+(define-for-syntax name-root-ref-root (make-name-root-ref-root (lambda (x) x)))
 
 (define-for-syntax (portal-syntax->lookup portal-stx make)
   (syntax-parse portal-stx

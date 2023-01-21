@@ -851,7 +851,7 @@
   (syntax-parse stx
     [(_ arg-id (pattern repack (tmp-id ...) (id ...) (id-ref ...) (sid ...) (sid-ref ...)))
      (with-syntax ([(sid-expr ...) (in-expression-space #'(sid ...))]
-                   [(sid-bind ...) (in-binding-space #'(sid ...))])
+                   [(sid-bind ...) (in-repetition-space #'(sid ...))])
        #'(begin
            (define id tmp-id) ...
            (define-syntaxes (sid-expr sid-bind)

@@ -4,7 +4,8 @@
          "binding.rkt")
 
 (provide (for-syntax make-expression+binding-prefix-operator
-                     make-expression+binding-infix-operator))
+                     make-expression+binding-infix-operator
+                     make-expression+binding-transformer))
 
 (begin-for-syntax
   (struct expression+binding-prefix-operator (exp-op bind-op)
@@ -23,3 +24,9 @@
     (expression+binding-infix-operator
      (expression-infix-operator name prec protocol exp assc)
      (binding-infix-operator name prec protocol bind assc))))
+
+(begin-for-syntax
+  (define (make-expression+binding-transformer name exp bind)
+    (expression+binding-prefix-operator
+     (expression-transformer name exp)
+     (binding-transformer name bind))))

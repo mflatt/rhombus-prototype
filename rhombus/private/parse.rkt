@@ -76,8 +76,8 @@
     #:desc "definition"
     #:in-space in-expression-space
     #:name-path-op name-path-op
-    #:name-root-ref (make-name-root-ref in-expression-space)
-    #:name-root-ref-root name-root-ref-root
+    #:name-root-ref name-root-ref
+    #:name-root-ref-root (make-name-root-ref-root in-expression-space)
     #:transformer-ref definition-transformer-ref
     #:check-result check-definition-result)
 
@@ -89,8 +89,8 @@
     #:desc "definition sequence"
     #:in-space in-expression-space
     #:name-path-op name-path-op
-    #:name-root-ref (make-name-root-ref in-expression-space)
-    #:name-root-ref-root name-root-ref-root
+    #:name-root-ref name-root-ref
+    #:name-root-ref-root (make-name-root-ref-root in-expression-space)
     #:transformer-ref definition-sequence-transformer-ref
     #:check-result check-definition-result)
 
@@ -103,8 +103,8 @@
     #:operator-desc "expression operator"
     #:in-space in-expression-space
     #:name-path-op name-path-op
-    #:name-root-ref (make-name-root-ref in-expression-space)
-    #:name-root-ref-root name-root-ref-root
+    #:name-root-ref name-root-ref
+    #:name-root-ref-root (make-name-root-ref-root in-expression-space)
     #:prefix-operator-ref expression-prefix-operator-ref
     #:infix-operator-ref expression-infix-operator-ref
     #:check-result check-expression-result
@@ -128,7 +128,7 @@
     #:in-space in-binding-space
     #:name-path-op name-path-op
     #:name-root-ref name-root-binding-ref
-    #:name-root-ref-root name-root-ref-root
+    #:name-root-ref-root (make-name-root-ref-root in-binding-space)
     #:prefix-operator-ref binding-prefix-operator-ref
     #:infix-operator-ref binding-infix-operator-ref
     #:check-result check-binding-result
