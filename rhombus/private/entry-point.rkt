@@ -4,10 +4,9 @@
                      enforest/transformer
                      enforest/property
                      enforest/proc-name
-                     "name-path-op.rkt"
                      "introducer.rkt"
                      "realm.rkt")
-         "name-root-ref.rkt")
+         "enforest.rkt")
 
 (module+ for-class
   (provide (for-syntax in-entry-point-space)))
@@ -47,13 +46,10 @@
   (struct entry-point-adjustments (prefix-arguments wrap-body method?))
   (define no-adjustments (entry-point-adjustments '() (lambda (arity stx) stx) #f))
   
-  (define-transform
+  (define-rhombus-transform
     #:syntax-class (:entry-point adjustments)
     #:desc "entry-point form"
     #:in-space in-entry-point-space
-    #:name-path-op name-path-op
-    #:name-root-ref name-root-ref
-    #:name-root-ref-root name-root-ref-root
     #:transformer-ref (lambda (v)
                         (define t (entry-point-transformer-ref v))
                         (and t (transformer
@@ -65,13 +61,10 @@
                                   ((transformer-proc t) stx new-adjustments)))))
     #:check-result check-entry-point-result)
   
-  (define-transform
+  (define-rhombus-transform
     #:syntax-class :entry-point-arity
     #:desc "entry-point form"
     #:in-space in-entry-point-space
-    #:name-path-op name-path-op
-    #:name-root-ref name-root-ref
-    #:name-root-ref-root name-root-ref-root
     #:transformer-ref (lambda (v)
                         (define t (entry-point-transformer-ref v))
                         (and t (transformer (entry-point-transformer-arity-extract t))))

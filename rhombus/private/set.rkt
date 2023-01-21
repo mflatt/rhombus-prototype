@@ -11,7 +11,6 @@
          "binding.rkt"
          "repetition.rkt"
          "compound-repetition.rkt"
-         "expression+binding.rkt"
          (submod "annotation.rkt" for-class)
          (submod "dot.rkt" for-dot-provider)
          "name-root.rkt"
@@ -31,8 +30,10 @@
          (only-in "lambda-kwrest.rkt" hash-remove*)
          "op-literal.rkt")
 
-(provide Set ; root: expr, bind
-         (for-spaces (rhombus/repet
+(provide (for-spaces (rhombus/namespace
+                      rhombus/expr
+                      rhombus/bind
+                      rhombus/repet
                       rhombus/reducer
                       rhombus/annot)
                      Set)
@@ -113,17 +114,15 @@
 
 (define (set->list s) (hash-keys (set-ht s)))
 
-(define-syntax empty-set
-  (make-expression+binding-prefix-operator
-   #'empty-set
-   '((default . stronger))
-   'macro
-   ;; expression
+(define-expression-syntax empty-set
+  (expression-transformer
    (lambda (stx)
      (syntax-parse stx
        [(form-id . tail)
-        (values #'(set #hashalw()) #'tail)]))
-   ;; binding
+        (values #'(set #hashalw()) #'tail)]))))
+
+(define-binding-syntax empty-set
+  (binding-transformer
    (lambda (stx)
      (syntax-parse stx
        [(form-id . tail)
@@ -183,13 +182,15 @@
 (define-name-root Set
   #:fields
   ([empty empty-set]
-   [length set-count])
-  #:root
-  (make-expression+binding-transformer
-   (expr-quote Set)
-   ;; expression
-   (lambda (stx) (parse-set stx #f))
-   ;; binding
+   [length set-count]
+   of))
+
+(define-expression-syntax Set
+  (expression-transformer
+   (lambda (stx) (parse-set stx #f))))
+
+(define-binding-syntax Set
+  (binding-transformer
    (lambda (stx)
      (syntax-parse stx
        [(form-id (~and content (_::braces . _)) . tail)
@@ -311,7 +312,7 @@
   #`((#%map-set! set-member!)
      . #,set-static-info))
 
-(define-annotation-constructor Set
+(define-annotation-constructor (Set of)
   ()
   #'set? set-static-info
   1

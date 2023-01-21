@@ -5,8 +5,10 @@
          "class-primitive.rkt"
          "function-arity-key.rkt")
 
-(provide Srcloc ; root: expr, bind
-         (for-spaces (rhombus/annot)
+(provide (for-spaces (rhombus/namespace
+                      rhombus/expr
+                      rhombus/bind
+                      rhombus/annot)
                      Srcloc))
 
 (module+ for-builtin

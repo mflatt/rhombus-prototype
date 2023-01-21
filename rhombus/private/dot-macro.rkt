@@ -3,18 +3,15 @@
                      syntax/parse/pre
                      enforest/proc-name
                      "pack.rkt")
+         "space-provide.rkt"
          "name-root.rkt"
          (for-syntax "name-root.rkt")
          (submod "dot.rkt" for-dot-provider)
-         "space.rkt"
          "macro-macro.rkt"
          "parse.rkt"
          "wrap-expression.rkt")
 
-(provide dot)
-
-(define-name-root dot
-  #:root (space-syntax rhombus/dot)
+(define+provide-space dot rhombus/dot
   #:fields
   (macro
    macro_more_static

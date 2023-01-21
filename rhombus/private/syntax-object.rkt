@@ -6,6 +6,7 @@
          syntax/strip-context
          racket/syntax-srcloc
          shrubbery/property
+         "provide.rkt"
          "expression.rkt"
          (submod "annotation.rkt" for-class)
          "pack.rkt"
@@ -18,9 +19,10 @@
          (submod "dot.rkt" for-dot-provider)
          (submod "srcloc-object.rkt" for-static-info))
 
-(provide Syntax
+(provide (for-spaces (rhombus/namespace
+                      rhombus/annot)
+                     Syntax)
          (for-space rhombus/annot
-                    Syntax
                     Identifier))
 
 (module+ for-builtin
@@ -33,10 +35,10 @@
   #'((#%dot-provider syntax-instance)))
 
 (define-annotation-syntax Syntax
-  (identifier-annotation #'Syntax #'syntax? syntax-static-infos))
+  (identifier-annotation #'syntax? syntax-static-infos))
 
 (define-annotation-syntax Identifier
-  (identifier-annotation #'Identifier #'identifier? syntax-static-infos))
+  (identifier-annotation #'identifier? syntax-static-infos))
 
 (define-name-root Syntax
   #:fields

@@ -6,23 +6,22 @@
                      "pack.rkt"
                      (submod "syntax-class-primitive.rkt" for-syntax-class)
                      (for-syntax racket/base))
+         "space-provide.rkt"
          "name-root.rkt"
          "macro-macro.rkt"
          "expression.rkt"
-         "space.rkt"
          "parse.rkt"
          "wrap-expression.rkt"
          (for-syntax "name-root.rkt"))
 
-(provide expr
-         (for-syntax expr_meta))
+(provide (for-syntax (for-space rhombus/namespace
+                                expr_meta)))
 
 (module+ for-define
   (provide (for-syntax make-expression-infix-operator
                        make-expression-prefix-operator)))
 
-(define-name-root expr
-  #:root (space-syntax rhombus/expr)
+(define+provide-space expr rhombus/expr
   #:fields
   (macro
    only))

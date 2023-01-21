@@ -16,8 +16,9 @@
          "name-root.rkt"
          "dot-parse.rkt")
 
-(provide Array ; root: expr
-         (for-spaces (rhombus/bind
+(provide (for-spaces (rhombus/namespace
+                      rhombus/expr
+                      rhombus/bind
                       rhombus/annot)
                      Array))
 
@@ -36,15 +37,16 @@
 (define-name-root Array
   #:fields
   ([make make-vector]
-   [length vector-length])
-  #:root
+   [length vector-length]
+   of))
+
+(define-expression-syntax Array
   (expression-transformer
-   #'Array
    (lambda (stx)
      (syntax-parse stx
        [(_ . tail) (values #'vector #'tail)]))))
 
-(define-annotation-constructor Array
+(define-annotation-constructor (Array of)
   () #'vector? array-static-infos
   1
   (#f)

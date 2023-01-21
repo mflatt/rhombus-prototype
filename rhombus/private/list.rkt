@@ -26,12 +26,15 @@
          "parens.rkt"
          "define-arity.rkt")
 
-(provide List ; root: expr, bind
-         (for-spaces (rhombus/annot
+(provide (for-spaces (rhombus/namespace
+                      rhombus/expr
+                      rhombus/bind
+                      rhombus/annot
                       rhombus/reducer)
                      List)
-         (for-space rhombus/annot
-                    NonemptyList))
+         (for-spaces (rhombus/namespace
+                      rhombus/annot)
+                     NonemptyList))
 
 (module+ for-binding
   (provide (for-syntax parse-list-binding
@@ -103,13 +106,11 @@
    [empty null]
    reverse
    iota
-   repet)
-  #:root
-  (make-expression+binding-prefix-operator
-   (expr-quote List)
-   '((default . stronger))
-   'macro
-   ;; expression:
+   repet
+   of))
+
+(define-expression-syntax List
+  (expression-transformer
    ;; special cases optimize for `...` and `&`; letting it expand
    ;; instead to `(apply list ....)` is not so bad, but but we can
    ;; avoid a `list?` check in `apply`, and we can expose more static
@@ -128,14 +129,16 @@
         #:when (normal-call? #'tag)
         (parse-list-expression stx)]
        [(_ . tail)
-        (values #'list #'tail)]))
-   ;; binding:)
+        (values #'list #'tail)]))))
+
+(define-binding-syntax List
+  (binding-transformer
    (lambda (stx)
      (syntax-parse stx
        [(form-id ((~and tag (~datum parens)) arg ...) . tail)
         (parse-list-binding stx)]))))
 
-(define-annotation-constructor List
+(define-annotation-constructor (List of)
   ()
   #'list? list-static-infos
   1
@@ -149,7 +152,11 @@
 (define (nonempty-list? l)
   (and (pair? l) (list? l)))
 
-(define-annotation-constructor NonemptyList
+(define-name-root NonemptyList
+  #:fields
+  ([of NonemptyList.of]))
+
+(define-annotation-constructor (NonemptyList NonemptyList.of)
   ()
   #'nonempty-list? list-static-infos
   1

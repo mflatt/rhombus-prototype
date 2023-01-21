@@ -34,8 +34,10 @@
          (only-in "pair.rkt"
                   Pair))
 
-(provide Map ; root: expr, bind
-         (for-spaces (rhombus/repet
+(provide (for-spaces (rhombus/namespace
+                      rhombus/expr
+                      rhombus/bind
+                      rhombus/repet
                       rhombus/annot
                       rhombus/reducer)
                      Map)
@@ -170,13 +172,15 @@
    [length hash-count]
    [keys hash-keys]
    [values hash-values]
-   [has_key hash-has-key?])
-  #:root
-  (make-expression+binding-transformer
-   (expr-quote Map)
-   ;; expression
-   (lambda (stx) (parse-map stx #f))
-   ;; binding
+   [has_key hash-has-key?]
+   of))
+
+(define-expression-syntax Map
+  (expression-transformer
+   (lambda (stx) (parse-map stx #f))))
+
+(define-binding-syntax Map
+  (binding-transformer
    (lambda (stx)
      (syntax-parse stx
        [(form-id (~and content (_::braces . _)) . tail)
@@ -210,7 +214,7 @@
   #`((#%map-set! hash-set!)
      . #,map-static-info))
 
-(define-annotation-constructor Map
+(define-annotation-constructor (Map of)
   ()
   #'hash? map-static-info
   2

@@ -12,12 +12,14 @@
                      enforest/hier-name-parse
                      enforest/proc-name
                      enforest/syntax-local
-                     "name-path-op.rkt"
                      "srcloc.rkt"
+                     "name-path-op.rkt"
                      "introducer.rkt"
                      "realm.rkt"
                      "tag.rkt")
+         "enforest.rkt"
          "name-root-ref.rkt"
+         "name-root-space.rkt"
          "definition.rkt"
          "declaration.rkt"
          "nestable-declaration.rkt"
@@ -58,15 +60,12 @@
   (define (make-identifier-export id)
     #`(all-spaces-out #,id))
 
-  (define-enforest
+  (define-rhombus-enforest
     #:syntax-class :export
     #:infix-more-syntax-class :export-infix-op+form+tail
     #:desc "export"
     #:operator-desc "export operator"
     #:in-space in-export-space
-    #:name-path-op name-path-op
-    #:name-root-ref name-root-ref
-    #:name-root-ref-root name-root-ref-root
     #:prefix-operator-ref export-prefix-operator-ref
     #:infix-operator-ref export-infix-operator-ref
     #:check-result check-export-result
@@ -81,13 +80,10 @@
            (transformer (lambda (stx)
                           ((transformer-proc mod) (transform-in ex) stx))))))
 
-  (define-transform
+  (define-rhombus-transform
     #:syntax-class (:export-modifier req)
     #:desc "export modifier"
     #:in-space in-export-space
-    #:name-path-op name-path-op
-    #:name-root-ref name-root-ref
-    #:name-root-ref-root name-root-ref-root
     #:transformer-ref (make-export-modifier-ref transform-in req))
 
   (define-syntax-class :modified-export
@@ -209,7 +205,7 @@
 
   (define-syntax-class :renaming
     #:datum-literals (group)
-    (pattern (group . (~var int (:hier-name-seq values name-path-op name-root-ref)))
+    (pattern (group . (~var int (:hier-name-seq in-name-root-space values name-path-op name-root-ref)))
              #:with (_::as-id ext::name) #'int.tail
              #:attr int-name #'int.name
              #:attr ext-name #'ext.name)))
@@ -288,7 +284,7 @@
      (parameterize ([current-module-path-context 'export])
        (syntax-parse stx
          #:datum-literals (parens group op |.|)
-         [(_ (parens (group (op |.|) . (~var name (:hier-name-seq values name-path-op name-root-ref))))
+         [(_ (parens (group (op |.|) . (~var name (:hier-name-seq in-name-root-space values name-path-op name-root-ref))))
              . tail)
           (values
            (cond

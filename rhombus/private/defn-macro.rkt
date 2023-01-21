@@ -4,16 +4,13 @@
                      enforest/proc-name
                      "srcloc.rkt"
                      "pack.rkt")
+         "space-provide.rkt"
          "name-root.rkt"
          "definition.rkt"
-         "space.rkt"
          "macro-macro.rkt"
          "parse.rkt")
 
-(provide defn)
-
-(define-name-root defn
-  #:root (space-syntax rhombus/expr)
+(define+provide-space defn rhombus/expr
   #:fields
   (macro
    sequence_macro

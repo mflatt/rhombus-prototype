@@ -10,10 +10,9 @@
                      enforest/property
                      enforest/name-parse
                      enforest/proc-name
-                     "name-path-op.rkt"
                      "introducer.rkt"
                      (for-syntax racket/base))
-         "name-root-ref.rkt"
+         "enforest.rkt"
          "expression.rkt"
          "binding.rkt"
          "static-info.rkt"
@@ -155,16 +154,13 @@
                           #t))
 
   ;; Form in a repetition context:
-  (define-enforest
+  (define-rhombus-enforest
     #:syntax-class :repetition
     #:prefix-more-syntax-class :prefix-op+repetition-use+tail
     #:infix-more-syntax-class :infix-op+repetition-use+tail
     #:desc "repetition"
     #:operator-desc "repetition operator"
     #:in-space in-repetition-space
-    #:name-path-op name-path-op
-    #:name-root-ref name-root-ref
-    #:name-root-ref-root name-root-ref-root
     #:prefix-operator-ref repetition-prefix-operator-ref
     #:infix-operator-ref repetition-infix-operator-ref
     #:check-result check-repetition-result

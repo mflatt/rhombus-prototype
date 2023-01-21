@@ -8,8 +8,10 @@
          "function-arity-key.rkt"
          "define-arity.rkt")
 
-(provide Path ; root: expr, bind
-         (for-spaces (rhombus/annot)
+(provide (for-spaces (rhombus/namespace
+                      rhombus/expr
+                      rhombus/bind
+                      rhombus/annot)
                      Path))
 
 (module+ for-builtin

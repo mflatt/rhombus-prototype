@@ -5,28 +5,26 @@
                      (prefix-in enforest: enforest/name-root)
                      enforest/syntax-local
                      shrubbery/property
-                     "srcloc.rkt"))
+                     "srcloc.rkt")
+         "name-root-space.rkt")
 
 ;; convert a hierachical layer implemented as portal syntax to a name-root
 
 (provide (for-syntax name-root-ref
                      make-name-root-ref
-                     name-root-ref-root
-                     make-name-root-ref-root
                      portal-syntax->lookup
                      portal-syntax->extends
                      replace-head-dotted-name
                      import-root-ref
                      extensible-name-root))
 
-(define-for-syntax (make-name-root-ref in-space
-                                       #:binding-ref [binding-ref #f]
+(define-for-syntax (make-name-root-ref #:binding-ref [binding-ref #f]
                                        #:non-portal-ref [non-portal-ref #f]
                                        #:binding-extension-combine [binding-extension-combine (lambda (id prefix) id)])
   (lambda (v)
     (define (make self-id get)
       (enforest:name-root
-       (lambda (stxes)
+       (lambda (in-space stxes)
          (let loop ([stxes stxes]
                     [gets
                      ;; reverse order search path: (cons get prefix)
@@ -64,9 +62,7 @@
                         (let ([id (get #f what sub-id)])
                           (and id
                                (or (not binding-end?)
-                                   (syntax-local-value* (in-space id)
-                                                        (lambda (v)
-                                                          (name-root-ref-root v binding-ref))))
+                                   (syntax-local-value* (in-space id) binding-ref))
                                (relocate-field form-id field-id id)))]))
                    (if binding-end?
                        (let ([prefix (cdar (reverse gets))])
@@ -85,7 +81,7 @@
                  [_ #f]))
              (define v (and (or more-dots?
                                 non-portal-ref)
-                            (syntax-local-value* (in-space id) (lambda (v) (and (portal-syntax? v) v)))))
+                            (syntax-local-value* (in-name-root-space id) (lambda (v) (and (portal-syntax? v) v)))))
              (cond
                [v
                 (portal-syntax->lookup (portal-syntax-content v)
@@ -104,7 +100,7 @@
                [non-portal-ref
                 (non-portal-ref form-id field-id tail)]
                [else
-                (values (in-space id) tail)]))
+                (values id tail)]))
            (syntax-parse stxes
              #:datum-literals (op parens group |.|)
              [(form-id (op |.|) field:identifier . tail)
@@ -125,19 +121,7 @@
       (portal-syntax? v)
       (portal-syntax->lookup (portal-syntax-content v) make)))))
 
-(define-for-syntax name-root-ref (make-name-root-ref (lambda (x) x)))
-
-(define-for-syntax ((make-name-root-ref-root in-space) v ref)
-  (or (and
-       (portal-syntax? v)
-       (portal-syntax->lookup (portal-syntax-content v)
-                              (lambda (self-id get)
-                                (define id (get #f #f #'#f))
-                                (and id
-                                     (syntax-local-value* (in-space id) ref)))))
-      (ref v)))
-
-(define-for-syntax name-root-ref-root (make-name-root-ref-root (lambda (x) x)))
+(define-for-syntax name-root-ref (make-name-root-ref))
 
 (define-for-syntax (portal-syntax->lookup portal-stx make)
   (syntax-parse portal-stx

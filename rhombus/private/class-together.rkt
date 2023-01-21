@@ -15,18 +15,19 @@
          "parse.rkt"
          "parens.rkt")
 
-(provide class ; root: expr
-         (for-spaces (rhombus/space)
+(provide (for-spaces (rhombus/namespace
+                      rhombus/space
+                      rhombus/expr)
                      class))
 
 (define-space-syntax class
   (space-syntax rhombus/class))
   
 (define-name-root class
-  #:root
-  class-transformer
   #:fields
   (together))
+
+(define-expression-syntax class class-transformer)
 
 (define-definition-syntax together
   (definition-transformer

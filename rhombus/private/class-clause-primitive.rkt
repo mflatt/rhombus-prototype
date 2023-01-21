@@ -17,6 +17,7 @@
          "expression.rkt"
          "parens.rkt"
          "name-root-ref.rkt"
+         "name-root-space.rkt"
          "var-decl.rkt"
          (only-in "assign.rkt" :=)
          (only-in "function.rkt" fun)
@@ -65,7 +66,7 @@
            (let loop ([line line])
              (syntax-parse line
                [() null]
-               [(~var id (:hier-name-seq in-class-desc-space name-path-op name-root-ref))
+               [(~var id (:hier-name-seq in-name-root-space in-class-desc-space name-path-op name-root-ref))
                 (cons #'id.name (loop #'id.tail))])))))
 
 (define-class-clause-syntax extends
@@ -73,7 +74,7 @@
    (lambda (stx data)
      (syntax-parse stx
        [(_ (~seq form ...))
-        #:with (~var id (:hier-name-seq in-class-desc-space name-path-op name-root-ref)) #'(form ...)
+        #:with (~var id (:hier-name-seq in-name-root-space in-class-desc-space name-path-op name-root-ref)) #'(form ...)
         #:with () #'id.tail
         (wrap-class-clause #'(#:extends id.name))]))))
 

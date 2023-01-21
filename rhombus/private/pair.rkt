@@ -19,8 +19,10 @@
          "dot-parse.rkt"
          "realm.rkt")
 
-(provide Pair ; root: expr, bind
-         (for-spaces (rhombus/annot)
+(provide (for-spaces (rhombus/namespace
+                      rhombus/expr
+                      rhombus/bind
+                      rhombus/annot)
                      Pair))
 
 (module+ for-builtin
@@ -48,18 +50,20 @@
   #:fields
   (cons
    [first car]
-   [rest cdr])
-  #:root
-  (make-expression+binding-transformer
-   #'Pair
-   ;; expression
+   [rest cdr]
+   of))
+
+(define-expression-syntax Pair
+  (expression-transformer
    (lambda (stx)
      (syntax-parse stx
-       [(head . tail) (values (relocate-id #'head #'cons) #'tail)]))
-   ;; binding
+       [(head . tail) (values (relocate-id #'head #'cons) #'tail)]))))
+
+(define-binding-syntax Pair
+  (binding-transformer
    pair-binding))
 
-(define-annotation-constructor Pair
+(define-annotation-constructor (Pair of)
   ()
   #'pair? pair-static-infos
   2

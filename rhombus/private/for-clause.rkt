@@ -4,10 +4,9 @@
                      enforest/transformer
                      enforest/property
                      enforest/proc-name
-                     "name-path-op.rkt"
                      "introducer.rkt"
                      "realm.rkt")
-         "name-root-ref.rkt")
+         "enforest.rkt")
 
 (provide define-for-clause-syntax)
 
@@ -32,14 +31,11 @@
 
   (define in-for-clause-space (make-interned-syntax-introducer/add 'rhombus/for_clause))
   
-  (define-transform
+  (define-rhombus-transform
     #:syntax-class :for-clause
     #:desc "for clause"
     #:in-space in-for-clause-space
     #:predicate for-clause? 
-    #:name-path-op name-path-op
-    #:name-root-ref name-root-ref
-    #:name-root-ref-root name-root-ref-root
     #:transformer-ref for-clause-transformer-ref
     #:check-result check-for-clause-result))
 

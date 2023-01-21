@@ -4,11 +4,10 @@
                      enforest/transformer
                      enforest/property
                      enforest/proc-name
-                     "name-path-op.rkt"
                      "introducer.rkt"
                      "realm.rkt"
                      (for-syntax racket/base))
-         "name-root-ref.rkt")
+         "enforest.rkt")
 
 (provide define-class-clause-syntax)
 
@@ -44,13 +43,10 @@
            (transformer (lambda (stx)
                           ((transformer-proc cc) stx class-data))))))
 
-  (define-transform
+  (define-rhombus-transform
     #:syntax-class (:class-clause class-data)
     #:desc "class clause"
     #:in-space in-class-clause-space
-    #:name-path-op name-path-op
-    #:name-root-ref name-root-ref
-    #:name-root-ref-root name-root-ref-root
     #:transformer-ref (make-class-clause-transformer-ref class-data)
     #:check-result check-class-clause-result))
 

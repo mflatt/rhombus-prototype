@@ -9,8 +9,8 @@
          "class-dot.rkt"
          (only-in "class-desc.rkt" define-class-desc-syntax))
 
-(provide Equatable ; root: expr
-         (for-spaces (rhombus/class
+(provide (for-spaces (rhombus/namespace
+                      rhombus/class
                       rhombus/annot)
                      Equatable))
 
@@ -64,8 +64,7 @@
    [hashCode hashCode-method]))
 
 (define-annotation-syntax Equatable
-  (identifier-annotation
-   #'equatable-interface #'Equatable-public? #'((#%dot-provider equatable-instance))))
+  (identifier-annotation #'Equatable-public? #'((#%dot-provider equatable-instance))))
 
 (define-dot-provider-syntax equatable-instance
   (dot-provider-more-static (make-handle-class-instance-dot #'Equatable #hasheq() #hasheq())))

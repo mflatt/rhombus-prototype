@@ -18,6 +18,7 @@
          "pattern-variable.rkt"
          "unquote-binding.rkt"
          "unquote-binding-identifier.rkt"
+         "name-root-space.rkt"
          "name-root-ref.rkt"
          "space.rkt"
          "parens.rkt"
@@ -134,7 +135,7 @@
      (syntax-parse stx
        #:datum-literals (group)
        [(_ (~and sc (_::parens (group . rest))) . tail)
-        #:with (~var sc-hier (:hier-name-seq in-expression-space name-path-op name-root-ref)) #'rest
+        #:with (~var sc-hier (:hier-name-seq in-name-root-space in-expression-space name-path-op name-root-ref)) #'rest
         #:do [(define parser (syntax-local-value* (in-expression-space #'sc-hier.name) syntax-class-parser-ref))]
         #:when parser
         (define-values (open-attributes end-tail) (parse-open-block stx #'tail))
@@ -150,7 +151,7 @@
             ;; shortcut for kind mismatch
             (values #'#f #'()))]
        [(_ . rest)
-        #:with (~var stx-class-hier (:hier-name-seq in-syntax-class-space name-path-op name-root-ref)) #'rest
+        #:with (~var stx-class-hier (:hier-name-seq in-name-root-space in-syntax-class-space name-path-op name-root-ref)) #'rest
         (syntax-parse #'stx-class-hier.tail
           #:datum-literals ()
           [(args::syntax-class-args . args-tail)
@@ -421,9 +422,8 @@
      (syntax-parse stxes
        #:datum-literals (group)
        [(_ space ... (_::block (group (_::quotes (group bound::name)))))
-        #:with (~var sp (:hier-name-seq in-space-space name-path-op name-root-ref)) #'(space ...)
-        (define sn (syntax-local-value* (in-space-space #'sp.name) (lambda (v)
-                                                                     (name-root-ref-root v space-name-ref))))
+        #:with (~var sp (:hier-name-seq in-name-root-space in-space-space name-path-op name-root-ref)) #'(space ...)
+        (define sn (syntax-local-value* (in-space-space #'sp.name) space-name-ref))
         (unless sn
           (raise-syntax-error #f
                               "not a space name"

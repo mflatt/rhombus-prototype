@@ -10,11 +10,11 @@
                      (submod "syntax-class-primitive.rkt" for-syntax-class)
                      (for-syntax racket/base
                                  syntax/parse/pre))
+         "space-provide.rkt"
          "name-root.rkt"
          "definition.rkt"
          "expression.rkt"
          "expression+definition.rkt"
-         "space.rkt"
          "macro-macro.rkt"
          "binding.rkt"
          (for-syntax
@@ -28,14 +28,13 @@
          ;; for `bind_meta`:
          (for-syntax "name-root.rkt"))
 
-(provide bind
-         (for-syntax bind_meta))
+(provide (for-syntax (for-space rhombus/namespace
+                                bind_meta)))
 
 (module+ for-class
   (provide (for-syntax make-binding-prefix-operator)))
 
-(define-name-root bind
-  #:root (space-syntax rhombus/bind)
+(define+provide-space bind rhombus/bind
   #:fields
   (macro
    infoer

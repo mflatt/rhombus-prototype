@@ -57,8 +57,7 @@
     (pattern id:identifier
              #:do [(define v (syntax-local-value* (in-static-info-space
                                                    (out-of-expression-space #'id))
-                                                  (lambda (v)
-                                                    (name-root-ref-root v static-info-ref))))
+                                                  static-info-ref))
                    (define val (and v
                                     (for/or ([form (in-list (static-info-stxs v))])
                                       (syntax-parse form
@@ -84,8 +83,7 @@
       #:literals (begin quote-syntax)
       [id:identifier
        (define v (syntax-local-value* (in-static-info-space #'id)
-                                      (lambda (v)
-                                        (name-root-ref-root v static-info-ref))))
+                                      static-info-ref))
        (if v
            (static-info-stxs v)
            null)]

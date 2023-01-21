@@ -361,8 +361,6 @@
                                                #,s-prefix-id
                                                #,(prefix-intro s-prefix-id))))))
            null)))
-    ;; in a local-binding context, use `define-syntax` instead of `#%require`
-    ;; for `s-prefix-id`, since a `#%require` will be lifted
     (values
      (if module?
          #`(#%require #,@(map car reqs+defss))

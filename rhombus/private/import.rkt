@@ -17,7 +17,9 @@
                      "realm.rkt"
                      "import-invert.rkt"
                      "tag.rkt")
+         "enforest.rkt"
          "name-root.rkt"
+         "name-root-space.rkt"
          "name-root-ref.rkt"
          (submod "module-path.rkt" for-import-export)
          "definition.rkt"
@@ -88,22 +90,19 @@
     id)
 
   (define name-root-portal-ref
-    (make-name-root-ref (lambda (x) x)
-                        #:non-portal-ref (lambda (ns id tail)
+    (make-name-root-ref #:non-portal-ref (lambda (ns id tail)
                                            (values ns (list* #'dotted-path. id tail)))))
 
-  (define-enforest
+  (define-rhombus-enforest
     #:syntax-class :import
     #:desc "import"
     #:operator-desc "import operator"
     #:in-space in-import-space
-    #:name-path-op name-path-op
-    #:name-root-ref name-root-portal-ref
-    #:name-root-ref-root name-root-ref-root
     #:prefix-operator-ref import-prefix-operator-ref
     #:infix-operator-ref import-infix-operator-ref
     #:check-result check-import-result
-    #:make-identifier-form make-identifier-import)
+    #:make-identifier-form make-identifier-import
+    #:name-root-ref name-root-portal-ref)
 
   (define (make-import-modifier-ref transform-in req)
     ;; "accessor" closes over `req`:
@@ -114,13 +113,10 @@
            (transformer (lambda (stx)
                           ((transformer-proc mod) (transform-in req) stx))))))
 
-  (define-transform
+  (define-rhombus-transform
     #:syntax-class (:import-modifier req)
     #:desc "import modifier"
     #:in-space in-import-space
-    #:name-path-op name-path-op
-    #:name-root-ref name-root-ref
-    #:name-root-ref-root name-root-ref-root
     #:transformer-ref (make-import-modifier-ref transform-in req))
 
   (define (extract-prefixes r)
@@ -758,10 +754,8 @@
          [() null]
          [(#:default . rest)
           (cons #f (loop #'rest))]
-         [(~var h (:hier-name-seq in-space-space name-path-op name-root-ref))
-          (define sp (syntax-local-value* (in-space-space #'h.name)
-                                          (lambda (v)
-                                            (name-root-ref-root v space-name-ref))))
+         [(~var h (:hier-name-seq in-name-root-space in-space-space name-path-op name-root-ref))
+          (define sp (syntax-local-value* (in-space-space #'h.name) space-name-ref))
           (unless (space-name? sp)
             (raise-syntax-error #f
                                 "not bound as a space"

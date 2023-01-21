@@ -5,16 +5,14 @@
                      "pack.rkt"
                      "realm.rkt"
                      (submod "interface-meta.rkt" for-static-info))
+         "space-provide.rkt"
          "interface-clause.rkt"
          (submod "interface-clause.rkt" for-interface)
          "space.rkt"
          "name-root.rkt"
          "macro-macro.rkt")
 
-(provide interface_clause)
-
-(define-name-root interface_clause
-  #:root (space-syntax rhombus/interface_clause)
+(define+provide-space interface_clause rhombus/interface_clause
   #:fields
   (macro
    only))

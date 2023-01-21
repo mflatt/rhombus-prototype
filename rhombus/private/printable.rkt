@@ -10,7 +10,7 @@
          "class-dot.rkt"
          (only-in "class-desc.rkt" define-class-desc-syntax))
 
-(provide (for-spaces (rhombus/expr
+(provide (for-spaces (rhombus/namespace
                       rhombus/class
                       rhombus/annot)
                      Printable))
@@ -64,7 +64,7 @@
    [display display-mthod]))
 
 (define-annotation-syntax Printable
-  (identifier-annotation #'printer-interface #'Printable-public? #'((#%dot-provider printer-instance))))
+  (identifier-annotation #'Printable-public? #'((#%dot-provider printer-instance))))
 
 (define-dot-provider-syntax printer-instance
   (dot-provider-more-static (make-handle-class-instance-dot #'Printable #hasheq() #hasheq())))

@@ -49,8 +49,9 @@
 (provide (for-spaces (rhombus/expr
                       rhombus/entry_point)
                      fun)
-         Function
-         (for-space rhombus/annot Function))
+         (for-spaces (rhombus/namespace
+                      rhombus/annot)
+                     Function))
 
 (module+ for-build
   (provide (for-syntax :kw-binding
@@ -85,7 +86,7 @@
 (define-for-syntax (wrap-function-static-info expr)
   (wrap-static-info* expr function-static-infos))
 
-(define-annotation-syntax Function (identifier-annotation #'Function #'procedure? #'()))
+(define-annotation-syntax Function (identifier-annotation #'procedure? #'()))
 
 (define-syntax function-instance
   (dot-provider-more-static

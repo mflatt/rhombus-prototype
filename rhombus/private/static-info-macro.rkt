@@ -4,11 +4,11 @@
                      enforest/name-parse
                      "pack.rkt"
                      "static-info-pack.rkt")
+         "space-provide.rkt"
          "definition.rkt"
          "name-root.rkt"
          "quasiquote.rkt"
          "static-info.rkt"
-         "space.rkt"
          "parse.rkt"
          "wrap-expression.rkt"
          "parens.rkt"
@@ -19,11 +19,10 @@
          "ref-result-key.rkt"
          "dot-provider-key.rkt")
 
-(provide statinfo
-         (for-syntax statinfo_meta))
+(provide (for-syntax (for-space rhombus/namespace
+                                statinfo_meta)))
 
-(define-name-root statinfo
-  #:root (space-syntax rhombus/statinfo)
+(define+provide-space statinfo rhombus/statinfo
   #:fields
   (macro
    only))

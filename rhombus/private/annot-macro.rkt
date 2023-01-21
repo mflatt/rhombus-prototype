@@ -6,23 +6,22 @@
                      "pack.rkt"
                      "static-info-pack.rkt"
                      (submod "syntax-class-primitive.rkt" for-syntax-class))
+         "space-provide.rkt"
          "definition.rkt"
          (submod "annotation.rkt" for-class)
-         "space.rkt"
          "macro-macro.rkt"
          "wrap-expression.rkt"
          "name-root.rkt"
          (for-syntax "name-root.rkt")
          "parse.rkt")
 
-(provide annot
-         (for-syntax annot_meta))
+(provide (for-syntax (for-space rhombus/namespace
+                                annot_meta)))
 
 (module+ for-class
   (provide (for-syntax make-annotation-prefix-operator)))
 
-(define-name-root annot
-  #:root (space-syntax rhombus/annot)
+(define+provide-space annot rhombus/annot
   #:fields
   (macro
    only))

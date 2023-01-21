@@ -11,12 +11,12 @@
                      enforest/name-parse
                      enforest/operator
                      "srcloc.rkt"
-                     "name-path-op.rkt"
                      "pack.rkt"
                      "introducer.rkt"
                      "annotation-string.rkt"
                      "realm.rkt"
                      "keyword-sort.rkt")
+         "enforest.rkt"
          "annotation-operator.rkt"
          "definition.rkt"
          "expression.rkt"
@@ -104,16 +104,13 @@
                            stx))
     stx)
 
-  (define-enforest
+  (define-rhombus-enforest
     #:enforest enforest-annotation
     #:syntax-class :annotation
     #:infix-more-syntax-class :annotation-infix-op+form+tail
     #:desc "annotation"
     #:operator-desc "annotation operator"
     #:in-space in-annotation-space
-    #:name-path-op name-path-op
-    #:name-root-ref name-root-ref
-    #:name-root-ref-root name-root-ref-root
     #:prefix-operator-ref annotation-prefix-operator-ref
     #:infix-operator-ref annotation-infix-operator-ref
     #:check-result check-annotation-result
@@ -151,10 +148,10 @@
   (define (annotation-form predicate static-infos)
     #`(#,predicate #,static-infos))
   
-  (define (identifier-annotation name predicate-stx static-infos)
+  (define (identifier-annotation predicate-stx static-infos)
     (define packed #`(#,predicate-stx #,static-infos))
     (annotation-prefix-operator
-     name
+     (quote-syntax ignored)
      '((default . stronger))
      'macro
      (lambda (stx)
@@ -241,33 +238,18 @@
 
 (define-syntax (define-annotation-constructor stx)
   (syntax-parse stx
-    [(_ name
+    [(_ (name of-name)
         binds
         predicate-stx static-infos
         sub-n kws predicate-maker info-maker
         (~optional (~seq #:parse-of parse-annotation-of-id)
                    #:defaults ([parse-annotation-of-id #'parse-annotation-of])))
-     (cond
-       [(eq? (syntax-local-context) 'module)
-        #'(begin
-            (begin-for-syntax
-              (define-values (root-proc of-proc)
-                (let binds
-                    (annotation-constructor #'name predicate-stx static-infos
-                                            sub-n 'kws predicate-maker info-maker
-                                            parse-annotation-of-id))))
-            (define-name-root name
-              #:space rhombus/annot
-              #:fields (of)
-              #:root root-proc)
-            (define-syntax of of-proc))]
-       [else
-        ;; internal definition context cannot bind portal syntax
-        #`(define-syntax #,(in-annotation-space #'name)
-            (let binds
-                (annotation-of-constructor #'name predicate-stx static-infos
-                                           sub-n 'kws predicate-maker info-maker
-                                           parse-annotation-of-id)))])]))
+     #:with annot-name (in-annotation-space #'name)
+     #'(define-syntaxes (annot-name of-name)
+         (let binds
+             (annotation-constructor #'annot-<name predicate-stx static-infos
+                                     sub-n 'kws predicate-maker info-maker
+                                     parse-annotation-of-id)))]))
 
 (define-for-syntax (make-annotation-apply-expression-operator name checked?)
   (expression-infix-operator
@@ -379,19 +361,19 @@
      #`(define-syntax #,(in-annotation-space #'id)
          rhs)]))
 
-(define-annotation-syntax Any (identifier-annotation #'Any #'(lambda (x) #t) #'()))
-(define-annotation-syntax Boolean (identifier-annotation #'Boolean #'boolean? #'()))
-(define-annotation-syntax Integer (identifier-annotation #'Integer #'exact-integer? #'()))
-(define-annotation-syntax PositiveInteger (identifier-annotation #'PositiveInteger #'exact-positive-integer? #'()))
-(define-annotation-syntax NegativeInteger (identifier-annotation #'NegativeInteger #'exact-negative-integer? #'()))
-(define-annotation-syntax NonnegativeInteger (identifier-annotation #'NonnegativeInteger #'exact-nonnegative-integer? #'()))
-(define-annotation-syntax Number (identifier-annotation #'Number #'number? #'()))
-(define-annotation-syntax Real (identifier-annotation #'Real #'real? #'()))
-(define-annotation-syntax String (identifier-annotation #'String #'string? #'()))
-(define-annotation-syntax Bytes (identifier-annotation #'Bytes #'bytes? #'()))
-(define-annotation-syntax Symbol (identifier-annotation #'Symbol #'symbol? #'()))
-(define-annotation-syntax Keyword (identifier-annotation #'Keyword #'keyword? #'()))
-(define-annotation-syntax Void (identifier-annotation #'Void #'void? #'()))
+(define-annotation-syntax Any (identifier-annotation #'(lambda (x) #t) #'()))
+(define-annotation-syntax Boolean (identifier-annotation #'boolean? #'()))
+(define-annotation-syntax Integer (identifier-annotation #'exact-integer? #'()))
+(define-annotation-syntax PositiveInteger (identifier-annotation #'exact-positive-integer? #'()))
+(define-annotation-syntax NegativeInteger (identifier-annotation #'exact-negative-integer? #'()))
+(define-annotation-syntax NonnegativeInteger (identifier-annotation #'exact-nonnegative-integer? #'()))
+(define-annotation-syntax Number (identifier-annotation #'number? #'()))
+(define-annotation-syntax Real (identifier-annotation #'real? #'()))
+(define-annotation-syntax String (identifier-annotation #'string? #'()))
+(define-annotation-syntax Bytes (identifier-annotation #'bytes? #'()))
+(define-annotation-syntax Symbol (identifier-annotation #'symbol? #'()))
+(define-annotation-syntax Keyword (identifier-annotation #'keyword? #'()))
+(define-annotation-syntax Void (identifier-annotation #'void? #'()))
 
 ;; not exported, but referenced by `:annotation-seq` so that
 ;; annotation parsing terminates appropriately

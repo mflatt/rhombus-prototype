@@ -5,15 +5,12 @@
                      "pack.rkt"
                      "realm.rkt"
                      (submod "class-meta.rkt" for-static-info))
+         "space-provide.rkt"
          "unquote-binding.rkt"
-         "space.rkt"
          "name-root.rkt"
          "macro-macro.rkt")
 
-(provide unquote_bind)
-
-(define-name-root unquote_bind
-  #:root (space-syntax rhombus/unquote_bind)
+(define+provide-space unquote_bind rhombus/unquote_bind
   #:fields
   (macro
    only))

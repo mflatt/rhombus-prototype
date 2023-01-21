@@ -45,7 +45,8 @@
 
 (module+ for-meta
   (provide (for-syntax in-module-path-space)
-           modpath))
+           (for-space rhombus/namespace
+                      modpath)))
 
 (begin-for-syntax
   (property module-path-prefix-operator prefix-operator)

@@ -19,6 +19,7 @@
                      "space.rkt"
                      "realm.rkt"
                      "parse.rkt")
+         "space-provide.rkt"
          "meta.rkt"
          "name-root.rkt"
          "name-root-ref.rkt"
@@ -27,12 +28,10 @@
          "parens.rkt"
          "macro-macro.rkt")
 
-(provide space)
-
-(define-name-root space
-  #:root (space-syntax rhombus/space)
-  #:fields (enforest
-            transform))
+(define+provide-space space rhombus/space
+  #:fields
+  (enforest
+   transform))
 
 (begin-for-syntax
   (define (id->string s) (symbol->immutable-string (syntax-e s)))

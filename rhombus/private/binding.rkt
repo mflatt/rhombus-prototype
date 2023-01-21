@@ -84,8 +84,11 @@
   (property binding-prefix-operator prefix-operator)
   (property binding-infix-operator infix-operator)
 
-  (define (binding-transformer name proc)
-    (binding-prefix-operator name '((default . stronger)) 'macro proc))
+  (define binding-transformer
+    (case-lambda
+      [(name proc)
+       (binding-prefix-operator name '((default . stronger)) 'macro proc)]
+      [(proc) (binding-transformer (quote-syntax unused) proc)]))
 
   ;; puts pieces together into a `:binding-form`
   (define (binding-form infoer-id data)
