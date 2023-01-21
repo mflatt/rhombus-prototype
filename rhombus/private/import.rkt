@@ -360,13 +360,18 @@
                                        (and (identifier-distinct-binding space-id (if as-field? (intro id) lookup-id))
                                             'other))))]
                #:when i)
-      (list space-sym
-            (if (eq? i 'other)
-                #`(singleton #,space-id #,(intro id))
-                (syntax-parse i
-                  #:datum-literals (parsed map)
-                  [(parsed mod-path parsed-r) #`(reimport #,id #,(syntax-local-introduce (transform-in #'parsed-r)))]
-                  [(map . _) #`(import-root #,(intro id) #,i #,space-id)])))))
+      (cond
+        [(eq? i 'other)
+         (list space-sym
+               #`(singleton #,space-id #,(intro id)))]
+        [else
+         (unless (eq? space-sym 'rhombus/namespace)
+           (error "internal error: namespace or import at strange space" space-sym))
+         (list #f
+               (syntax-parse i
+                 #:datum-literals (parsed map)
+                 [(parsed mod-path parsed-r) #`(reimport #,id #,(syntax-local-introduce (transform-in #'parsed-r)))]
+                 [(map . _) #`(import-root #,id #,i #,space-id)]))])))
   (cond
     [(null? space+maps)
      (if as-field?

@@ -288,7 +288,7 @@
              . tail)
           (values
            (cond
-             [(syntax-local-value* #'name.name import-root-ref)
+             [(syntax-local-value* (in-name-root-space #'name.name) import-root-ref)
               => (lambda (i)
                    (define form
                      (syntax-parse i

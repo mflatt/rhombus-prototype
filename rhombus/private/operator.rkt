@@ -29,7 +29,7 @@
   (define-splicing-syntax-class :prefix-case
     (pattern (~seq (parens (~and g (group op-name-seq::dotted-operator-or-identifier-sequence arg)))
                    ret::ret-annotation
-                   ((~and tag block) options::prefix-operator-options
+                   ((~and tag block) (~var options (:prefix-operator-options 'rhombus/expr))
                                      body ...))
              #:with op-name::dotted-operator-or-identifier #'op-name-seq
              #:attr name #'op-name.name
@@ -41,7 +41,7 @@
   (define-splicing-syntax-class :infix-case
     (pattern (~seq (parens (~and g (group left op-name-seq::dotted-operator-or-identifier-sequence right)))
                    ret::ret-annotation
-                   ((~and tag block) options::infix-operator-options
+                   ((~and tag block) (~var options (:infix-operator-options 'rhombus/expr))
                                      body ...))
              #:with op-name::dotted-operator-or-identifier #'op-name-seq
              #:attr name #'op-name.name

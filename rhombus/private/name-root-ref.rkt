@@ -59,7 +59,7 @@
                         (define sub-id (if prefix
                                            (build-name prefix field-id)
                                            field-id))
-                        (let ([id (get #f what sub-id)])
+                        (let ([id (get #f what sub-id in-name-root-space)])
                           (and id
                                (or (not binding-end?)
                                    (syntax-local-value* (in-space id) binding-ref))
@@ -71,7 +71,7 @@
                           prefix))
                        ;; try again with the shallowest to report an error
                        (let ([get (caar gets)])
-                         (get form-id what field-id)))))
+                         (get form-id what field-id in-space)))))
              ;; keep looking at dots?
              (define more-dots?
                (syntax-parse tail
@@ -130,13 +130,14 @@
      (define pre-ctx #'pre-ctx-s)
      (define ctx #'ctx-s)
      (make #f
-           (lambda (who-stx what name)
+           (lambda (who-stx what name in-space)
              (cond
                [(syntax-e name)
-                (define id (datum->syntax ctx
-                                          (syntax-e name)
-                                          name
-                                          name))
+                (define id (in-space
+                            (datum->syntax ctx
+                                           (syntax-e name)
+                                           name
+                                           name)))
                 (define pre-id (datum->syntax pre-ctx (syntax-e name)))
                 (cond
                   [(identifier-distinct-binding id pre-id)
@@ -151,7 +152,7 @@
      (define keys (syntax->list #'(key ...)))
      (define vals (syntax->list #'(val ...)))
      (make #'self-id
-           (lambda (who-stx what name)
+           (lambda (who-stx what name in-space)
              (or (for/or ([key (in-list keys)]
                           [val (in-list vals)])
                    (and (eq? (syntax-e key) (syntax-e name))
@@ -222,7 +223,7 @@
         [else
          (portal-syntax->lookup portal-stx
                                 (lambda (self-id get)
-                                  (define id (get #f #f (car ids)))
+                                  (define id (get #f #f (car ids) in-name-root-space))
                                   (and id
                                        (relocate-field prev-who (car ids) id))))]))
     (define v

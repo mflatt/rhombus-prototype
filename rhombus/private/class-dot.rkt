@@ -34,10 +34,11 @@
                      make-handle-class-instance-dot))
 
 (define-for-syntax (build-class-dot-handling method-mindex method-vtable method-results final?
-                                             has-private? method-private exposed-internal-id
+                                             has-private? method-private exposed-internal-id internal-of-id
                                              expression-macro-rhs intro constructor-given-name
+                                             export-of?
                                              names)
-  (with-syntax ([(name constructor-name name-instance name-ref
+  (with-syntax ([(name constructor-name name-instance name-ref name-of
                        make-internal-name internal-name-instance
                        [public-field-name ...] [private-field-name ...] [field-name ...]
                        [public-name-field ...] [name-field ...]
@@ -52,8 +53,7 @@
        method-defns
        (append
         (list
-         #`(define-name-root name
-             #:root
+         #`(define-expression-syntax name
              #,(cond
                  [expression-macro-rhs
                   #`(wrap-class-transformer name
@@ -63,12 +63,16 @@
                  [(and constructor-given-name
                        (not (free-identifier=? #'name constructor-given-name)))
                   #`no-constructor-transformer]
-                 [else #`(class-expression-transformer (quote-syntax name) (quote-syntax constructor-name))])
+                 [else #`(class-expression-transformer (quote-syntax name) (quote-syntax constructor-name))]))
+         #`(define-name-root name
              #:fields ([public-field-name public-name-field]
                        ...
                        [method-name method-id]
                        ...
-                       ex ...))
+                       ex ...
+                       #,@(if export-of?
+                              #`([of name-of])
+                              null)))
          #'(define-dot-provider-syntax name-instance
              (dot-provider-more-static (make-handle-class-instance-dot (quote-syntax name)
                                                                        #hasheq()
@@ -79,15 +83,16 @@
                              (define id (if (pair? id/prop) (car id/prop) id/prop))
                              (list sym id id/prop))])
               (list
+               #`(define-expression-syntax #,exposed-internal-id
+                   (class-expression-transformer (quote-syntax name) (quote-syntax make-internal-name)))
                #`(define-name-root #,exposed-internal-id
-                   #:root (class-expression-transformer (quote-syntax name) (quote-syntax make-internal-name))
                    #:fields ([field-name name-field]
                              ...
                              [method-name method-id]
                              ...
                              [private-method-name private-method-id]
                              ...
-                             ex ...))
+                             [of #,internal-of-id]))
                #`(define-dot-provider-syntax internal-name-instance
                    (dot-provider-more-static (make-handle-class-instance-dot (quote-syntax name)
                                                                              (hasheq
@@ -115,15 +120,15 @@
       (append
        method-defns
        (list
-        #`(define-name-root name
-            #:root
+        #`(define-expression-syntax name
             #,(cond
-                 [expression-macro-rhs
-                  #`(wrap-class-transformer name
-                                            #,((make-syntax-introducer) expression-macro-rhs)
-                                            make-expression-prefix-operator
-                                            "interface")]
-                 [else #'no-constructor-transformer])
+                [expression-macro-rhs
+                 #`(wrap-class-transformer name
+                                           #,((make-syntax-introducer) expression-macro-rhs)
+                                           make-expression-prefix-operator
+                                           "interface")]
+                [else #'no-constructor-transformer]))
+        #`(define-name-root name
             #:fields ([method-name method-id]
                       ...
                       ex ...))

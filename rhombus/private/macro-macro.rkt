@@ -50,26 +50,31 @@
     (pattern kw:keyword
              #:when (eq? (syntax-e #'kw) maybe-kw)))
 
-  (define (combine-prec strongers weakers sames same-on-lefts same-on-rights)
+  (define (combine-prec space-sym strongers weakers sames same-on-lefts same-on-rights)
+    (define intro (space->introducer space-sym))
     (define ht (make-free-identifier-mapping))
     (define said-other? #f)
     (define prec '())
     (define (add! op kind)
-      (cond
-        [(eq? (syntax-e op) '#:other)
-         (when said-other?
-           (raise-syntax-error #f
-                               "'other' multiple times in precedence specifications"
-                               op))
-         (set! said-other? #t)]
-        [else
-         (define old-op (free-identifier-mapping-get ht op (lambda () #f)))
-         (when old-op
-           (raise-syntax-error #f
-                               "operator multiple times in precedence specifications"
-                               op))
-         (free-identifier-mapping-put! ht op op)])
-      (set! prec (cons (cons op kind) prec)))
+      (define use-op
+        (cond
+          [(eq? (syntax-e op) '#:other)
+           (when said-other?
+             (raise-syntax-error #f
+                                 "'other' multiple times in precedence specifications"
+                                 op))
+           (set! said-other? #t)
+           op]
+          [else
+           (define space-op (intro op))
+           (define old-op (free-identifier-mapping-get ht space-op (lambda () #f)))
+           (when old-op
+             (raise-syntax-error #f
+                                 "operator multiple times in precedence specifications"
+                                 op))
+           (free-identifier-mapping-put! ht space-op space-op)
+           space-op]))
+      (set! prec (cons (cons use-op kind) prec)))
     (for ([stronger (in-list strongers)])
       (add! stronger 'stronger))
     (for ([weaker (in-list weakers)])
@@ -99,7 +104,8 @@
                      #:defaults ([(same-on-left.name 2) '()]))
           (~optional (group #:same_on_right_as ~! (block (group same-on-right::op/other ...) ...))
                      #:defaults ([(same-on-right.name 2) '()])))
-    #:attr prec (combine-prec (syntax->list #'(stronger.name ... ...))
+    #:attr prec (combine-prec space-sym
+                              (syntax->list #'(stronger.name ... ...))
                               (syntax->list #'(weaker.name ... ...))
                               (syntax->list #'(same.name ... ...))
                               (syntax->list #'(same-on-left.name ... ...))
@@ -111,14 +117,14 @@
     (~alt (~optional (group #:op_stx ~! (_::block (group self-id:identifier)))
                      #:defaults ([self-id #'self]))))
 
-  (define-composed-splicing-syntax-class :prefix-operator-options
+  (define-composed-splicing-syntax-class (:prefix-operator-options space-sym)
     operator-options)
 
-  (define-composed-splicing-syntax-class :self-prefix-operator-options
+  (define-composed-splicing-syntax-class (:self-prefix-operator-options space-sym)
     operator-options
     self-options)
   
-  (define-composed-splicing-syntax-class :macro-prefix-operator-options
+  (define-composed-splicing-syntax-class (:macro-prefix-operator-options space-sym)
     operator-options
     self-options)
 
@@ -129,11 +135,11 @@
                                                 (~or #:right #:left #:none)))))
                      #:defaults ([assc #'#:left]))))
 
-  (define-composed-splicing-syntax-class :infix-operator-options
+  (define-composed-splicing-syntax-class (:infix-operator-options space-sym)
     operator-options
     infix-operator-options)
              
-  (define-composed-splicing-syntax-class :macro-infix-operator-options
+  (define-composed-splicing-syntax-class (:macro-infix-operator-options space-sym)
     operator-options
     infix-operator-options
     self-options)
@@ -195,7 +201,7 @@
       [_ #f])))
 
 ;; parse one case (possibly the only case) in a macro definition
-(define-for-syntax (parse-one-macro-definition form-id kind allowed)
+(define-for-syntax (parse-one-macro-definition form-id kind allowed space-sym)
   (lambda (g rhs)
     (syntax-parse g
       #:datum-literals (group op)
@@ -209,7 +215,7 @@
                              g))
        (define parsed-right? (check-parsed-right-form form-id #'tail-pattern))
        (syntax-parse rhs
-         [((~and tag block) opt::macro-infix-operator-options rhs ...)
+         [((~and tag block) (~var opt (:macro-infix-operator-options space-sym)) rhs ...)
           #`(pre-parsed op-name.name
                         op-name.extends
                         infix
@@ -231,7 +237,7 @@
                              g))
        (define parsed-right? (check-parsed-right-form form-id #'tail-pattern))
        (syntax-parse rhs
-         [((~and tag block) opt::macro-prefix-operator-options rhs ...)
+         [((~and tag block) (~var opt (:macro-prefix-operator-options space-sym)) rhs ...)
           #`(pre-parsed op-name.name
                         op-name.extends
                         prefix
@@ -255,7 +261,7 @@
 ;; single-case macro definition:
 (define-for-syntax (parse-operator-definition form-id kind g rhs space-sym compiletime-id
                                               #:allowed [allowed '(prefix infix)])
-  (define p ((parse-one-macro-definition form-id kind allowed) g rhs))
+  (define p ((parse-one-macro-definition form-id kind allowed space-sym) g rhs))
   (define op (pre-parsed-name p))
   (if compiletime-id
       (build-syntax-definition/maybe-extension space-sym op
@@ -266,7 +272,7 @@
 ;; multi-case macro definition:
 (define-for-syntax (parse-operator-definitions form-id kind stx gs rhss space-sym compiletime-id
                                                #:allowed [allowed '(prefix infix)])
-  (define ps (map (parse-one-macro-definition form-id kind allowed)
+  (define ps (map (parse-one-macro-definition form-id kind allowed space-sym)
                   gs rhss))
   (check-consistent stx (map pre-parsed-name ps) "operator")
   (if compiletime-id
