@@ -166,8 +166,12 @@
                                                              #f)
                                        #'tail)]))))))
 
-  (define (repetition-transformer name proc)
-    (repetition-prefix-operator name '((default . stronger)) 'macro proc))
+  (define repetition-transformer
+    (case-lambda
+      [(name proc)
+       (repetition-prefix-operator name '((default . stronger)) 'macro proc)]
+      [(proc)
+       (repetition-transformer (quote-syntax ignored) proc)]))
 
   (define (repetition-static-info-lookup element-static-infos key)
     (if (identifier? element-static-infos)
@@ -200,9 +204,12 @@
                               (format "\n  expected: ~a\n  actual: ~a"
                                       want-depth
                                       use-depth)))
-        (wrap-static-info #'rep-info.seq-expr
-                          #'#%ref-result
-                          #'rep-info.element-static-infos)])]))
+        (define infos (if (identifier? #'rep-info.element-static-infos)
+                          (datum->syntax #f (extract-static-infos #'rep-info.element-static-infos))
+                          #'rep-info.element-static-infos))
+        (if (= depth 0)
+            (wrap-static-info* #'rep-info.seq-expr infos)
+            (wrap-static-info #'rep-info.seq-expr #'#%ref-result infos))])]))
 
 (define-for-syntax (repetition-as-deeper-repetition rep-parsed static-infos)
   (syntax-parse rep-parsed

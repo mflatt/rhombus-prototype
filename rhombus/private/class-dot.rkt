@@ -16,8 +16,9 @@
          "expression.rkt"
          (only-in (submod "expr-macro.rkt" for-define)
                   make-expression-prefix-operator)
-         (only-in (submod "repetition.rkt")
-                  make-expression+repetition-transformer
+         (only-in "repetition.rkt"
+                  in-repetition-space
+                  repetition-transformer
                   identifier-repetition-use)
          "assign.rkt"
          "op-literal.rkt"
@@ -25,8 +26,7 @@
          "parse.rkt"
          (submod "function.rkt" for-call)
          (for-syntax "class-transformer.rkt")
-         (only-in (submod "implicit.rkt" for-dynamic-static)
-                  static-#%call))
+         "is-static.rkt")
 
 (provide (for-syntax build-class-dot-handling
                      build-interface-dot-handling
@@ -53,17 +53,20 @@
        method-defns
        (append
         (list
-         #`(define-expression-syntax name
-             #,(cond
-                 [expression-macro-rhs
-                  #`(wrap-class-transformer name
-                                            #,(intro expression-macro-rhs)
-                                            make-expression-prefix-operator
-                                            "class")]
-                 [(and constructor-given-name
-                       (not (free-identifier=? #'name constructor-given-name)))
-                  #`no-constructor-transformer]
-                 [else #`(class-expression-transformer (quote-syntax name) (quote-syntax constructor-name))]))
+         (cond
+           [expression-macro-rhs
+            #`(define-expression-syntax name
+                (wrap-class-transformer name
+                                        #,(intro expression-macro-rhs)
+                                        make-expression-prefix-operator
+                                        "class"))]
+           [(and constructor-given-name
+                 (not (free-identifier=? #'name constructor-given-name)))
+            #`(define-expression-syntax name
+                no-constructor-transformer)]
+           [else
+            #`(define-syntaxes (#,(in-expression-space #'name) #,(in-repetition-space #'name))
+                (class-expression-transformers (quote-syntax name) (quote-syntax constructor-name)))])
          #`(define-name-root name
              #:fields ([public-field-name public-name-field]
                        ...
@@ -83,8 +86,8 @@
                              (define id (if (pair? id/prop) (car id/prop) id/prop))
                              (list sym id id/prop))])
               (list
-               #`(define-expression-syntax #,exposed-internal-id
-                   (class-expression-transformer (quote-syntax name) (quote-syntax make-internal-name)))
+               #`(define-syntaxes (#,(in-expression-space exposed-internal-id) #,(in-repetition-space exposed-internal-id))
+                   (class-expression-transformers (quote-syntax name) (quote-syntax make-internal-name)))
                #`(define-name-root #,exposed-internal-id
                    #:fields ([field-name name-field]
                              ...
@@ -189,8 +192,7 @@
                        (syntax-local-method-result ret-info-id)))
         (define-values (call new-tail)
           (parse-function-call rator (list obj-id) #`(#,obj-id (tag arg ...))
-                               #:static? (free-identifier=? (datum->syntax #'tag '#%call)
-                                                            #'static-#%call)
+                               #:static? (is-static-call-context? #'tag)
                                #:rator-stx (datum->syntax #f name #'rator-id)
                                #:rator-arity (and r (method-result-arity r))))
         (values (let ([call #`(let ([#,obj-id (rhombus-expression self)])
@@ -200,25 +202,25 @@
                       call))
                 #'tail)]
        [(head (tag::parens) . _)
-        #:when (free-identifier=? (datum->syntax #'tag '#%call)
-                                  #'static-#%call)
+        #:when (is-static-call-context? #'tag)
         (raise-syntax-error #f
                             (string-append "wrong number of arguments in function call" statically-str)
                             (datum->syntax #f name #'head))]
        [(_ . tail)
         (values proc-id #'tail)]))))
 
-(define-for-syntax (class-expression-transformer id make-id)
-  (make-expression+repetition-transformer
-   id
-   (lambda (stx)
-     (syntax-parse stx
-       [(head . tail) (values (relocate-id #'head make-id)
-                           #'tail)]))
-   (lambda (stx)
-     (syntax-parse stx
-       [(head . tail) (values (identifier-repetition-use (relocate-id #'head make-id))
-                              #'tail)]))))
+(define-for-syntax (class-expression-transformers id make-id)
+  (values
+   (expression-transformer
+    (lambda (stx)
+      (syntax-parse stx
+        [(head . tail) (values (relocate-id #'head make-id)
+                               #'tail)])))
+   (repetition-transformer
+    (lambda (stx)
+      (syntax-parse stx
+        [(head . tail) (values (identifier-repetition-use (relocate-id #'head make-id))
+                               #'tail)])))))
 
 (define-for-syntax (desc-method-shapes desc)
   (if (class-desc? desc)

@@ -141,7 +141,8 @@
                                           name))
                 (define pre-id (datum->syntax pre-ctx (syntax-e name)))
                 (cond
-                  [(identifier-distinct-binding* (in-space id) (in-space pre-id))
+                  [(or (identifier-distinct-binding* (in-space id) (in-space pre-id))
+                       (identifier-distinct-binding* (in-name-root-space id) (in-name-root-space pre-id)))
                    id]
                   [who-stx
                    (raise-syntax-error #f

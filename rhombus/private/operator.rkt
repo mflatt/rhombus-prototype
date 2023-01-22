@@ -6,6 +6,7 @@
                      "srcloc.rkt")
          "expression.rkt"
          (only-in "repetition.rkt"
+                  in-repetition-space
                   expression+repetition-prefix+infix-operator)
          "compound-repetition.rkt"
          "dotted-sequence-parse.rkt"
@@ -54,7 +55,7 @@
   (define (make-prefix name op-proc prec static-infos)
     (with-syntax ([op-proc op-proc])
       #`(make-expression&repetition-prefix-operator
-         (quote-syntax #,name)
+         (expr-quote #,name)
          #,(convert-prec prec)
          'automatic
          (lambda (arg self-stx)
@@ -66,7 +67,7 @@
   (define (make-infix name op-proc prec assc static-infos)
     (with-syntax ([op-proc op-proc])
       #`(make-expression&repetition-infix-operator
-         (quote-syntax #,name)
+         (expr-quote #,name)
          #,(convert-prec prec)
          'automatic
          (lambda (left right self-stx)
@@ -111,16 +112,18 @@
       (list
        #`(define op-proc
            #,(build-prefix-function name arg rhs form-id g ret-predicate))
-       #`(define-syntax #,name
-           #,(make-prefix name #'op-proc prec ret-static-infos)))))
+       #`(define-syntaxes (#,(in-expression-space name) #,(in-repetition-space name))
+           (let ([#,name #,(make-prefix name #'op-proc prec ret-static-infos)])
+             (values #,name #,name))))))
 
   (define (generate-infix form-id g name left right prec assc rhs ret-predicate ret-static-infos)
     (with-syntax ([(op-proc) (generate-temporaries (list name))])
       (list
        #`(define op-proc
            #,(build-infix-function name left right rhs form-id g ret-predicate))
-       #`(define-syntax #,name
-           #,(make-infix name #'op-proc prec assc ret-static-infos)))))
+       #`(define-syntaxes (#,(in-expression-space name) #,(in-repetition-space name))
+           (let ([#,name #,(make-infix name #'op-proc prec assc ret-static-infos)])
+             (values #,name #,name))))))
     
   (define (generate-prefix+infix stx
                                  p-g p-name p-arg p-prec p-rhs p-ret-predicate p-ret-static-infos
@@ -132,10 +135,11 @@
            #,(build-prefix-function p-name p-arg p-rhs p-g p-g p-ret-predicate))
        #`(define i-op-proc
            #,(build-infix-function i-name i-left i-right i-rhs i-g i-g i-ret-predicate))
-       #`(define-syntax #,p-name
-           (expression+repetition-prefix+infix-operator
-            #,(make-prefix p-name #'p-op-proc p-prec p-ret-static-infos)
-            #,(make-infix i-name #'i-op-proc i-prec i-assc i-ret-static-infos)))))))
+       #`(define-syntaxes (#,(in-expression-space p-name) #,(in-repetition-space p-name))
+           (let ([#,p-name (expression+repetition-prefix+infix-operator
+                            #,(make-prefix p-name #'p-op-proc p-prec p-ret-static-infos)
+                            #,(make-infix i-name #'i-op-proc i-prec i-assc i-ret-static-infos))])
+             (values #,p-name #,p-name)))))))
 
 (define-definition-syntax rhombus-operator
   (definition-transformer
