@@ -15,6 +15,8 @@
          (submod "syntax-class-primitive.rkt" for-quasiquote)
          (only-in "annotation.rkt"
                   ::)
+         (only-in "repetition.rkt"
+                  in-repetition-space)
          "pattern-variable.rkt"
          "unquote-binding.rkt"
          "unquote-binding-identifier.rkt"
@@ -278,7 +280,7 @@
                  attribute-bindings)
          #,(append
             (if (identifier? form1)
-                (list #`[id (make-pattern-variable-syntax
+                (list #`[id (make-pattern-variable-syntaxes
                              (quote-syntax id)
                              (quote-syntax #,temp-id)
                              (quote-syntax #,unpack*)
@@ -292,7 +294,7 @@
                 (for/list ([oa (in-list open-attributes)])
                   (define bind-id (open-attrib-bind-id oa))
                   (define var (open-attrib-var oa))
-                  #`[#,bind-id (make-pattern-variable-syntax
+                  #`[#,bind-id (make-pattern-variable-syntaxes
                                 (quote-syntax #,bind-id)
                                 (quote-syntax #,(pattern-variable-val-id var))
                                 (quote-syntax #,(pattern-variable-unpack*-id var))

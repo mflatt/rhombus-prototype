@@ -329,8 +329,8 @@
                   ;; deepen-syntax-escape
                   (lambda (sidr)
                     (syntax-parse sidr
-                      [(id (make-pattern-variable-syntax self-id temp-id unpack* depth splice? attrs))
-                       #`(id (make-pattern-variable-syntax self-id temp-id unpack* #,(add1 (syntax-e #'depth)) splice? attrs))]))
+                      [(id (make-pattern-variable-syntaxes self-id temp-id unpack* depth splice? attrs))
+                       #`(id (make-pattern-variable-syntaxes self-id temp-id unpack* #,(add1 (syntax-e #'depth)) splice? attrs))]))
                   ;; handle-tail-escape:
                   (lambda (name e in-e)
                     (syntax-parse e
@@ -341,12 +341,12 @@
                              [temp-id (car (generate-temporaries (list e)))])
                          (values temp0-id
                                  (list #`[#,temp-id (pack-tail* (syntax #,temp0-id) 0)])
-                                 (list #`[#,e (make-pattern-variable-syntax (quote-syntax #,e)
-                                                                            (quote-syntax #,temp-id)
-                                                                            (quote-syntax unpack-tail-list*)
-                                                                            1
-                                                                            #f
-                                                                            #'())])
+                                 (list #`[#,e (make-pattern-variable-syntaxes (quote-syntax #,e)
+                                                                              (quote-syntax #,temp-id)
+                                                                              (quote-syntax unpack-tail-list*)
+                                                                              1
+                                                                              #f
+                                                                              #'())])
                                  (list (pattern-variable (syntax-e e) e temp-id 1 (quote-syntax unpack-tail-list*)))))]))
                   ;; handle-block-tail-escape:
                   (lambda (name e in-e)
@@ -354,12 +354,12 @@
                           [temp-id (car (generate-temporaries (list e)))])
                       (values temp0-id
                               (list #`[#,temp-id (pack-multi-tail* (syntax #,temp0-id) 0)])
-                              (list #`[#,e (make-pattern-variable-syntax (quote-syntax #,e)
-                                                                         (quote-syntax #,temp-id)
-                                                                         (quote-syntax unpack-multi-tail-list*)
-                                                                         1
-                                                                         #f
-                                                                         #'())])
+                              (list #`[#,e (make-pattern-variable-syntaxes (quote-syntax #,e)
+                                                                           (quote-syntax #,temp-id)
+                                                                           (quote-syntax unpack-multi-tail-list*)
+                                                                           1
+                                                                           #f
+                                                                           #'())])
                               (list (pattern-variable (syntax-e e) e temp-id 1 (quote-syntax unpack-multi-tail-list*))))))
                   ;; handle-maybe-empty-sole-group
                   (lambda (tag pat idrs sidrs vars)
@@ -818,7 +818,7 @@
                                        [(pack _ depth) #'depth]))]
                    [(sid-depth ...) (for/list ([sid-ref (in-list (syntax->list #'sid-refs))])
                                       (syntax-parse sid-ref
-                                        [(make-pattern-variable-syntax _ _ _ depth . _) #'depth]))])
+                                        [(make-pattern-variable-syntaxes _ _ _ depth . _) #'depth]))])
        (binding-info #'annotation-str
                      #'syntax
                      #'()
@@ -851,10 +851,8 @@
   (syntax-parse stx
     [(_ arg-id (pattern repack (tmp-id ...) (id ...) (id-ref ...) (sid ...) (sid-ref ...)))
      (with-syntax ([(sid-expr ...) (in-expression-space #'(sid ...))]
-                   [(sid-bind ...) (in-repetition-space #'(sid ...))])
+                   [(sid-repet ...) (in-repetition-space #'(sid ...))])
        #'(begin
            (define id tmp-id) ...
-           (define-syntaxes (sid-expr sid-bind)
-             (let ([sid sid-ref])
-               (values sid sid)))
+           (define-syntaxes (sid-expr sid-repet) sid-ref)
            ...))]))

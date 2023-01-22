@@ -8,6 +8,7 @@
                      "static-info-pack.rkt"
                      "uses-pack.rkt"
                      (submod "syntax-class-primitive.rkt" for-syntax-class)
+                     (only-in "repetition.rkt" in-repetition-space)
                      (for-syntax racket/base
                                  syntax/parse/pre))
          "space-provide.rkt"
@@ -179,20 +180,24 @@
                         [((info-sid info-sid-ref) ...) info-sidrs]
                         [((data-id data-id-ref) ...) data-idrs]
                         [((data-sid data-sid-ref) ...) data-sidrs])
-            #`(lambda (stx)
-                (syntax-parse stx
-                  [(_ info data)
-                   (syntax-parse #`(group #,(unpack-static-infos #'info))
-                     [#,converted-info-pattern
-                      (syntax-parse #'(group data)
-                        [#,converted-data-pattern
-                         (let ([arg-id #'arg-id]
-                               [info-id info-id-ref] ...
-                               [data-id data-id-ref] ...)
-                           (let-syntax ([info-sid info-sid-ref] ...
-                                        [data-sid data-sid-ref] ...)
-                             (pack-info
-                              (rhombus-body-at block-tag body ...))))])])])))])])))
+            (with-syntax ([(info-repet-sid ...) (in-repetition-space #'(info-sid ...))]
+                          [(data-repet-sid ...) (in-repetition-space #'(data-sid ...))])
+              #`(lambda (stx)
+                  (syntax-parse stx
+                    [(_ info data)
+                     (syntax-parse #`(group #,(unpack-static-infos #'info))
+                       [#,converted-info-pattern
+                        (syntax-parse #'(group data)
+                          [#,converted-data-pattern
+                           (let ([arg-id #'arg-id]
+                                 [info-id info-id-ref] ...
+                                 [data-id data-id-ref] ...)
+                             (let-syntaxes ([(info-sid info-repet-sid) info-sid-ref]
+                                            ...
+                                            [(data-sid data-repet-sid) data-sid-ref]
+                                            ...)
+                               (pack-info
+                                (rhombus-body-at block-tag body ...))))])])]))))])])))
 
 (define-syntax matcher
   (definition-transformer
@@ -221,20 +226,21 @@
           (define-values (converted-pattern idrs sidrs vars can-be-empty?) (convert-pattern #'data-pattern))
           (with-syntax ([((id id-ref) ...) idrs]
                         [((sid sid-ref) ...) sidrs])
-            #`(lambda (stx)
-                (syntax-parse stx
-                  [(_ arg-id data IF success fail)
-                   (syntax-parse #'(group data)
-                     [#,converted-pattern
-                      (let ([id id-ref] ... [arg-id #'arg-id])
-                        (let-syntax ([sid sid-ref] ...)
-                          (let ([IF-id #'if-bridge])
-                            (let ([success-id #'(parsed success)]
-                                  ;; putting `if-bridge` in `fail-id`
-                                  ;; helps make sure it's used correctly
-                                  [fail-id #'(parsed (if-bridge IF fail))])
-                              (unwrap-block
-                               (rhombus-body-at block-tag body ...))))))])])))])])))
+            (with-syntax ([(repet-sid ...) (in-repetition-space #'(sid ...))])
+              #`(lambda (stx)
+                  (syntax-parse stx
+                    [(_ arg-id data IF success fail)
+                     (syntax-parse #'(group data)
+                       [#,converted-pattern
+                        (let ([id id-ref] ... [arg-id #'arg-id])
+                          (let-syntaxes ([(sid repet-sid) sid-ref] ...)
+                            (let ([IF-id #'if-bridge])
+                              (let ([success-id #'(parsed success)]
+                                    ;; putting `if-bridge` in `fail-id`
+                                    ;; helps make sure it's used correctly
+                                    [fail-id #'(parsed (if-bridge IF fail))])
+                                (unwrap-block
+                                 (rhombus-body-at block-tag body ...))))))])]))))])])))
 
 (define-syntax if-bridge
   ;; depending on `IF`, `if-bridge` will be used in an expression
@@ -339,16 +345,17 @@
           (define-values (converted-data-pattern data-idrs data-sidrs data-vars data-can-be-empty?) (convert-pattern #'data-pattern))
           (with-syntax ([((data-id data-id-ref) ...) data-idrs]
                         [((data-sid data-sid-ref) ...) data-sidrs])
-            #`(lambda (stx)
-                (syntax-parse stx
-                  [(_ arg-id data)
-                   (syntax-parse #'(group data)
-                     [#,converted-data-pattern
-                      (let ([arg-id #'arg-id]
-                            [data-id data-id-ref] ...)
-                        (let-syntax ([data-sid data-sid-ref] ...)
-                          (unwrap-block
-                           (rhombus-body-at block-tag body ...))))])])))])])))
+            (with-syntax ([(data-repet-sid ...) (in-repetition-space #'(data-sid ...))])
+              #`(lambda (stx)
+                  (syntax-parse stx
+                    [(_ arg-id data)
+                     (syntax-parse #'(group data)
+                       [#,converted-data-pattern
+                        (let ([arg-id #'arg-id]
+                              [data-id data-id-ref] ...)
+                          (let-syntaxes ([(data-sid data-repet-sid) data-sid-ref] ...)
+                            (unwrap-block
+                             (rhombus-body-at block-tag body ...))))])]))))])])))
 
 (define-for-syntax (unwrap-block stx)
   #`(rhombus-body-sequence #,@(unpack-multi stx 'bin.binder #f)))

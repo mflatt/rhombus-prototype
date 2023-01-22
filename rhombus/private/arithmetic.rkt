@@ -9,9 +9,7 @@
          "function-arity-key.rkt"
          "static-info.rkt"
          (only-in "dot.rkt"
-                  |.|)
-         (only-in "repetition.rkt"
-                  expression+repetition-prefix+infix-operator))
+                  |.|))
 
 (provide (for-spaces (rhombus/expr
                       rhombus/repet)
@@ -44,13 +42,20 @@
   #:weaker-than (rhombus* rhombus/)
   #:same-as (rhombus-))
 
-(define-for-syntax minus-operator
-  (expression+repetition-prefix+infix-operator
-   (prefix rhombus- - #:weaker-than (rhombus* rhombus/))
-   (infix rhombus- - #:weaker-than (rhombus* rhombus/))))
+(define-values-for-syntax (minus-expr-prefix minus-repet-prefix)
+  (prefix rhombus- - #:weaker-than (rhombus* rhombus/)))
+(define-values-for-syntax (minus-expr-infix minus-repet-infix)
+  (infix rhombus- - #:weaker-than (rhombus* rhombus/)))
 
-(define-expression-syntax rhombus- minus-operator)
-(define-repetition-syntax rhombus- minus-operator)
+(define-expression-syntax rhombus-
+  (expression-prefix+infix-operator
+   minus-expr-prefix
+   minus-expr-infix))
+
+(define-repetition-syntax rhombus-
+  (repetition-prefix+infix-operator
+   minus-repet-prefix
+   minus-repet-infix))
 
 (define-infix rhombus* *
   #:same-on-left-as (rhombus/))

@@ -13,9 +13,9 @@
          "static-info.rkt"
          (submod "syntax-object.rkt" for-quasiquote))
 
-(provide (for-syntax make-pattern-variable-syntax))
+(provide (for-syntax make-pattern-variable-syntaxes))
 
-(define-for-syntax (make-pattern-variable-syntax name-id temp-id unpack* depth splice? attributes)
+(define-for-syntax (make-pattern-variable-syntaxes name-id temp-id unpack* depth splice? attributes)
   (define (lookup-attribute stx var-id attr-id want-repet?)
     (define attr (for/or ([var (in-list (syntax->list attributes))])
                    (and (eq? (syntax-e attr-id) (syntax-e (car (syntax-e var))))
@@ -57,15 +57,17 @@
     [(and (eqv? 0 depth)
           (for/and ([a (in-list (syntax->list attributes))])
             (eqv? 0 (pattern-variable-depth (syntax-list->pattern-variable a)))))
-     (if (null? (syntax-e attributes))
-         (expression-transformer
-          id-handler)
-         (expression-transformer
-          (lambda (stx)
-            (expr-handler stx
-                          (lambda ()
-                            (id-handler stx))))))]
-    [else (make-repetition
+     (values
+      (if (null? (syntax-e attributes))
+          (expression-transformer
+           id-handler)
+          (expression-transformer
+           (lambda (stx)
+             (expr-handler stx
+                           (lambda ()
+                             (id-handler stx))))))
+      'not-a-repetition)]
+    [else (make-expression+repetition
            name-id
            #`(#,unpack* #'$ #,temp-id #,depth)
            syntax-static-infos

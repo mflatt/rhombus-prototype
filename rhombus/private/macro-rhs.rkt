@@ -14,6 +14,7 @@
          "op-literal.rkt"
          "pack.rkt"
          "entry-point.rkt"
+         "repetition.rkt"
          "parens.rkt"
          (only-in "static-info.rkt"
                   in-static-info-space
@@ -79,13 +80,14 @@
                      (tail-rule-template (multi (group (op $) tail (op rhombus...)))))]
           [else
            #`(rhombus-body-expression #,rhs)]))
-      (with-syntax ([(left-id-static ...) (map in-static-info-space (syntax->list #'(left-id ...)))])
+      (with-syntax ([(left-id-static ...) (map in-static-info-space (syntax->list #'(left-id ...)))]
+                    [(repet-sid ...) (in-repetition-space #'(sid ...))])
         #`[#,pattern
            (let ([id id-ref] ... [#,self-id self] [left-id left] ...)
              (define-syntax left-id-static (make-static-infos syntax-static-infos))
              ...
              (define-syntax #,(in-static-info-space #'self-id) (make-static-infos syntax-static-infos))
-             (let-syntax ([sid sid-ref] ...)
+             (let-syntaxes ([(sid repet-sid) sid-ref] ...)
                #,body))])))
   (define (convert-rule-template block ids)
     (syntax-parse block
@@ -295,22 +297,23 @@
                                                                              #:splice? #t
                                                                              #:splice-pattern values))
      (with-syntax ([((p-id id-ref) ...) idrs]
-                   [((s-id sid-ref) ...) sidrs] )
-       #`(#,make-transformer-id
-          (let ([id (lambda (tail #,@tail-ids self #,@(if (syntax-e extra-id) (list #'extra) null))
-                      (define #,self-id self)
-                      (define-syntax #,(in-static-info-space self-id) (make-static-infos syntax-static-infos))
-                      #,@(if (syntax-e extra-id)
-                             #`((define #,extra-id extra)
-                                (define-syntax #,(in-static-info-space extra-id) (make-static-infos #,extra-static-infos-stx)))
-                             null)
-                      (syntax-parse (insert-multi-front-group #,self-id tail)
-                        [#,pattern
-                         (let ([p-id id-ref] ...)
-                           (let-syntax ([s-id sid-ref] ...)
-                             #,(wrap-for-tail
-                                #`(rhombus-body-expression rhs))))]))])
-            id)))]))
+                   [((s-id sid-ref) ...) sidrs])
+       (with-syntax ([(repet-s-id ...) (in-repetition-space #'(s-id ...))])
+         #`(#,make-transformer-id
+            (let ([id (lambda (tail #,@tail-ids self #,@(if (syntax-e extra-id) (list #'extra) null))
+                        (define #,self-id self)
+                        (define-syntax #,(in-static-info-space self-id) (make-static-infos syntax-static-infos))
+                        #,@(if (syntax-e extra-id)
+                               #`((define #,extra-id extra)
+                                  (define-syntax #,(in-static-info-space extra-id) (make-static-infos #,extra-static-infos-stx)))
+                               null)
+                        (syntax-parse (insert-multi-front-group #,self-id tail)
+                          [#,pattern
+                           (let ([p-id id-ref] ...)
+                             (let-syntaxes ([(s-id repet-s-id) sid-ref] ...)
+                               #,(wrap-for-tail
+                                  #`(rhombus-body-expression rhs))))]))])
+              id))))]))
 
 (define-for-syntax (parse-transformer-definition-sequence-rhs pre-parsed self-id
                                                               make-transformer-id
@@ -324,11 +327,12 @@
                                         (convert-pattern #`(multi . #,gs-stx)))
                                       (with-syntax ([((p-id id-ref) ...) idrs]
                                                     [((s-id sid-ref) ...) sidrs])
-                                        #`(syntax-parse tail-id
-                                            [#,pattern
-                                             (let ([p-id id-ref] ...)
-                                               (let-syntax ([s-id sid-ref] ...)
-                                                 #,body))])))))
+                                        (with-syntax ([(repet-s-id ...) (in-repetition-space #'(s-id ...))])
+                                          #`(syntax-parse tail-id
+                                              [#,pattern
+                                               (let ([p-id id-ref] ...)
+                                                 (let-syntaxes ([(s-id repet-s-id) sid-ref] ...)
+                                                   #,body))]))))))
 
 (define (single-valued who thunk)
   (call-with-values

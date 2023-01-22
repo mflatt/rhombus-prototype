@@ -14,6 +14,7 @@
          "syntax-class-arg.rkt"
          "pattern-clause.rkt"
          "pattern-variable.rkt"
+         (only-in "repetition.rkt" in-repetition-space)
          "definition.rkt"
          "name-root.rkt"
          "parse.rkt"
@@ -265,10 +266,11 @@
   (define (bindings->defns idrs sidrs)
     (with-syntax ([([val-id val-rhs] ...) idrs]
                   [([stx-id stx-rhs] ...) sidrs])
-      #'[(define val-id val-rhs)
-         ...
-         (define-syntax stx-id stx-rhs)
-         ...]))
+      (with-syntax ([(stx-repet-id ...) (in-repetition-space #'(stx-id ...))])
+        #'[(define val-id val-rhs)
+           ...
+           (define-syntaxes (stx-id stx-repet-id) stx-rhs)
+           ...])))
   
   (define-values (pattern-body all-attrs)
     (let loop ([body (syntax->list body)]
@@ -291,16 +293,17 @@
                (syntax-parse #'c.parsed
                  [(#:field id depth rhs)
                   #:with (tmp-id) (generate-temporaries #'(id))
+                  #:with repet-id (in-repetition-space #'id)
                   (loop (cdr body)
                         null
                         (list* #'[(define tmp-id rhs)
-                                  (define-syntax id
-                                    (make-pattern-variable-syntax (quote-syntax id)
-                                                                  (quote-syntax tmp-id)
-                                                                  (quote-syntax unpack-element*)
-                                                                  depth
-                                                                  #f
-                                                                  #'()))] '#:do
+                                  (define-syntaxes (id repet-id)
+                                    (make-pattern-variable-syntaxes (quote-syntax id)
+                                                                    (quote-syntax tmp-id)
+                                                                    (quote-syntax unpack-element*)
+                                                                    depth
+                                                                    #f
+                                                                    #'()))] '#:do
                                (accum-do))
                         (cons (pattern-variable (syntax-e #'id) #'id #'tmp-id (syntax-e #'depth) (quote-syntax unpack-element*))
                               rev-attrs))]

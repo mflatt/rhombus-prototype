@@ -36,6 +36,7 @@
                      [(stronger-op ...) (in-expression-space #'(stronger-op ...))])
          #`(make-expression&repetition-prefix-operator
             (expr-quote name)
+            (repet-quote name)
             (list (cons (quote-syntax weaker-op)
                         'weaker)
                   ...
@@ -77,6 +78,7 @@
                      [(stronger-op ...) (in-expression-space #'(stronger-op ...))])
          #`(make-expression&repetition-infix-operator
             (expr-quote name)
+            (repet-quote name)
             (list (cons (quote-syntax weaker-op)
                         'weaker)
                   ...
@@ -101,12 +103,10 @@
   (syntax-parse stx
     [(_ name spec ...)
      #`(define-syntaxes (#,(in-expression-space #'name) #,(in-repetition-space #'name))
-         (let ([op (infix name spec ...)])
-           (values op op)))]))
+         (infix name spec ...))]))
 
 (define-syntax (define-prefix stx)
   (syntax-parse stx
     [(_ name spec ...)
      #`(define-syntaxes (#,(in-expression-space #'name) #,(in-repetition-space #'name))
-         (let ([op (prefix name spec ...)])
-           (values op op)))]))
+         (prefix name spec ...))]))
