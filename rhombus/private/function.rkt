@@ -283,7 +283,7 @@
                                 #'form-id #'alts-tag))
          (maybe-add-function-result-definition
           the-name (syntax->list #'(ret.static-infos ...)) arity
-          (build-definitions/maybe-extension 'rhombus/expr the-name (car (syntax->list #'(name.extends ...)))
+          (build-definitions/maybe-extension #f the-name (car (syntax->list #'(name.extends ...)))
                                              proc))]
         [(form-id name-seq::dotted-identifier-sequence (parens-tag::parens arg::kw-opt-binding ... rest::maybe-arg-rest)
                   ret::ret-annotation
@@ -300,7 +300,7 @@
                            #'form-id #'parens-tag))
          (maybe-add-function-result-definition
           #'name.name (list #'ret.static-infos) arity
-          (build-definitions/maybe-extension 'rhombus/expr #'name.name #'name.extends
+          (build-definitions/maybe-extension #f #'name.name #'name.extends
                                              proc))]
         ;; definition form didn't match, so try parsing as a `fun` expression:
         [(_ (~or (_::parens _ ...)
