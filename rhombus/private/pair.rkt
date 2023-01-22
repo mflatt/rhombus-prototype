@@ -42,7 +42,6 @@
                                       (list #'() #'())))
 
 (define-binding-syntax cons (binding-transformer
-                             #'Pair
                              pair-binding))
 
 (define-name-root Pair

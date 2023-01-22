@@ -48,10 +48,7 @@
                        static-#%call)))
 
 (define-expression-syntax #%body
-  (expression-prefix-operator
-   #'#%body
-   '((default . stronger))
-   'macro
+  (expression-transformer
    (lambda (stxes)
      (syntax-parse stxes
        [(_ (~and head ((~and tag (~datum block)) . body)) . tail)
@@ -162,30 +159,29 @@
              (syntax-parse (car args)
                [r::repetition (values #'r.parsed #'tail)])]))]))))
 
-(define-for-syntax (make-#%call-expression static?)
+(define-for-syntax (make-#%call-expression name static?)
   (expression-infix-operator
-   (expr-quote #%call)
+   name
    '((default . stronger))
    'macro
    (lambda (rator stxes)
      (parse-function-call rator '() stxes #:static? static?))
    'left))
 
-(define-expression-syntax #%call (make-#%call-expression #f))
-(define-expression-syntax static-#%call (make-#%call-expression #t))
+(define-expression-syntax #%call (make-#%call-expression (expr-quote #%call) #f))
+(define-expression-syntax static-#%call (make-#%call-expression (expr-quote static-#%call) #t))
 
-(define-for-syntax (make-#%call-repetition static?)
+(define-for-syntax (make-#%call-repetition name static?)
   (repetition-infix-operator
-   (repet-quote #%call)
+   name
    '((default . stronger))
    'macro
    (lambda (rator stxes)
      (parse-function-call rator '() stxes #:static? static? #:repetition? #t))
    'left))
 
-(define-repetition-syntax #%call (make-#%call-repetition #f))
-(define-repetition-syntax static-#%call (make-#%call-repetition #t))
-
+(define-repetition-syntax #%call (make-#%call-repetition (repet-quote #%call) #f))
+(define-repetition-syntax static-#%call (make-#%call-repetition (repet-quote static-#%call) #t))
 
 (define-expression-syntax #%brackets
   (expression-transformer
@@ -238,10 +234,7 @@
   (make-repetition-#%ref (repet-quote static-#%ref) #t))
 
 (define-expression-syntax #%braces
-  (expression-prefix-operator
-   (expr-quote #%braces)
-   '((default . stronger))
-   'macro
+  (expression-transformer
    (lambda (stxes)
      (syntax-parse stxes
        [(_ braces . tail)
@@ -249,18 +242,12 @@
                 #'tail)]))))
 
 (define-binding-syntax #%braces
-  (binding-prefix-operator
-   (bind-quote #%braces)
-   '((default . stronger))
-   'macro
+  (binding-transformer
    (lambda (stxes)
      (parse-setmap-binding 'braces stxes))))
 
 (define-repetition-syntax #%braces
-  (repetition-prefix-operator
-   (repet-quote #%braces)
-   '((default . stronger))
-   'macro
+  (repetition-transformer
    (lambda (stxes)
      (syntax-parse stxes
        [(_ braces . tail)

@@ -256,7 +256,6 @@
                                              stx)])]))])
     (make-expression+definition-transformer
      (expression-transformer
-      #'if-bridge
       (lambda (stx) (values (parse stx) #'())))
      (definition-transformer
        (lambda (stx) (list (parse stx)))))))
@@ -276,7 +275,6 @@
                     #'(matcher-id arg-id data IF (rhombus (group success ...)) fail)]))])
     (make-expression+definition-transformer
      (expression-transformer
-      #'chain-to-matcher
       (lambda (stx) (values (parse #'rhombus-body stx) #'())))
      (definition-transformer
        (lambda (stx) (list (parse #'rhombus-body-sequence stx)))))))
@@ -293,7 +291,6 @@
                     #`(committer-id arg-id data)]))])
     (make-expression+definition-transformer
      (expression-transformer
-      #'chain-to-committer
       (lambda (stx) (values (parse #'rhombus-body stx) #'())))
      (definition-transformer
        (lambda (stx) (list (parse #'rhombus-body-sequence stx)))))))
@@ -310,7 +307,6 @@
                     #`(binder-id arg-id data)]))])
     (make-expression+definition-transformer
      (expression-transformer
-      #'chain-to-binder
       (lambda (stx) (values (parse #'rhombus-body stx) #'())))
      (definition-transformer
        (lambda (stx) (list (parse #'rhombus-body-sequence stx)))))))

@@ -59,10 +59,8 @@
             (eqv? 0 (pattern-variable-depth (syntax-list->pattern-variable a)))))
      (if (null? (syntax-e attributes))
          (expression-transformer
-          name-id
           id-handler)
          (expression-transformer
-          name-id
           (lambda (stx)
             (expr-handler stx
                           (lambda ()

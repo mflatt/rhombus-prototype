@@ -68,7 +68,6 @@
 (define-expression-syntax macro
   (make-expression+definition-transformer
    (expression-transformer
-    (in-expression-space #'macro)
     (lambda (stx)
       (values (parse-macro stx no-adjustments)
               #'())))

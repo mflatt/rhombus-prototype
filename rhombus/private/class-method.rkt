@@ -462,7 +462,6 @@
 
 (define-for-syntax (make-field-syntax id static-infos accessor-id maybe-mutator-id)
   (expression-transformer
-   id
    (lambda (stx)
      (syntax-parse stx
        [(head _:::=-expr . tail)
@@ -495,7 +494,6 @@
   (cond
     [(eq? kind 'property)
      (expression-transformer
-      id
       (lambda (stx)
         (syntax-parse (syntax-parameter-value #'this-id)
           [(obj-id . _)
@@ -521,7 +519,6 @@
                       #'tail)])])))]
     [else
      (expression-transformer
-      id
       (lambda (stx)
         (syntax-parse stx
           [(head (~and args (tag::parens arg ...)) . tail)

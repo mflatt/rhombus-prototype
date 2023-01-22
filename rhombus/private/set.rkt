@@ -200,7 +200,6 @@
 
 (define-repetition-syntax Set
   (repetition-transformer
-   (in-repetition-space #'Set)
    (lambda (stx) (parse-set stx #t))))
 
 (define-for-syntax (parse-set-binding who stx opener+closer)

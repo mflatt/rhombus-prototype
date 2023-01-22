@@ -9,7 +9,6 @@
 
 (define-expression-syntax rhombus-begin
   (expression-transformer
-   #'rhombus-begin
    (lambda (stx)
      (syntax-parse stx
        #:datum-literals (alts block group)

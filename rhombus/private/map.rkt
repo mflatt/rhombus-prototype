@@ -198,7 +198,6 @@
 
 (define-repetition-syntax Map
   (repetition-transformer
-   (in-repetition-space #'Map)
    (lambda (stx) (parse-map stx #t))))
 
 (define-for-syntax map-static-info
@@ -289,12 +288,10 @@
 
 (define-expression-syntax MutableMap
   (expression-transformer
-   (in-expression-space #'MutableMap)
    (lambda (stx) (parse-mutable-map stx #f))))
 
 (define-repetition-syntax MutableMap
   (repetition-transformer
-   (in-repetition-space #'MutableMap)
    (lambda (stx) (parse-mutable-map stx #t))))
 
 (define-static-info-syntax MutableMap

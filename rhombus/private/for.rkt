@@ -30,7 +30,6 @@
 
 (define-expression-syntax rhombus-for
   (expression-transformer
-   #'for
    (lambda (stx)
      (syntax-parse (respan stx)
        #:datum-literals (block group)

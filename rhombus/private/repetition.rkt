@@ -167,12 +167,8 @@
                                                              #f)
                                        #'tail)]))))))
 
-  (define repetition-transformer
-    (case-lambda
-      [(name proc)
-       (repetition-prefix-operator name '((default . stronger)) 'macro proc)]
-      [(proc)
-       (repetition-transformer (quote-syntax ignored) proc)]))
+  (define (repetition-transformer proc)
+    (repetition-prefix-operator (quote-syntax ignored) '((default . stronger)) 'macro proc))
 
   (define (repetition-static-info-lookup element-static-infos key)
     (if (identifier? element-static-infos)

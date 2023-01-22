@@ -57,7 +57,6 @@
 
 (define-syntax literal
   (expression-transformer
-   #'Syntax.literal
    (lambda (stx)
      (syntax-parse stx
        #:datum-literals (parens quotes group)
@@ -69,7 +68,6 @@
 
 (define-syntax literal_group
   (expression-transformer
-   #'Syntax.literal_group
    (lambda (stx)
      (syntax-parse stx
        #:datum-literals (parens quotes group)

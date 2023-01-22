@@ -62,7 +62,6 @@
 
 (define-binding-syntax List.cons
   (binding-transformer
-   #'List.cons
    (make-composite-binding-transformer "cons" #'list? (list #'car #'cdr) (list #'() list-static-infos))))
 
 (define (List.cons a d)
@@ -196,7 +195,6 @@
 
 (define-repetition-syntax repet
   (repetition-transformer
-   #'List
    (lambda (stx)
      (syntax-parse stx
        #:datum-literals (parens group repet)

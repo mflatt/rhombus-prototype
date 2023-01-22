@@ -17,7 +17,6 @@
 
 (define-expression-syntax rhombus-parameterize
   (expression-transformer
-   #'rhombus-parameterize
    (lambda (stx)
      (syntax-parse stx
        #:datum-literals (block group braces)

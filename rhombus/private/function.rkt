@@ -256,7 +256,6 @@
 (define-expression-syntax fun
   (make-expression+definition-transformer
    (expression-transformer
-    (in-expression-space #'fun)
     (lambda (stx)
       (parse-anonymous-function stx no-adjustments #f)))
    (definition-transformer

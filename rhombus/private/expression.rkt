@@ -33,11 +33,8 @@
   (property expression-prefix-operator prefix-operator)
   (property expression-infix-operator infix-operator)
 
-  (define expression-transformer
-    (case-lambda
-      [(name proc)
-       (expression-prefix-operator name '((default . stronger)) 'macro proc)]
-      [(proc) (expression-transformer (quote-syntax unused) proc)]))
+  (define (expression-transformer proc)
+    (expression-prefix-operator (quote-syntax unused) '((default . stronger)) 'macro proc))
 
   (define early-unbound? #f)
   (define (check-unbound-identifier-early!)
