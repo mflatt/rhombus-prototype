@@ -40,6 +40,7 @@
             :repetition-info
 
             in-repetition-space
+            repet-quote
 
             identifier-repetition-use
 

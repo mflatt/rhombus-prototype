@@ -364,12 +364,10 @@
 
 (define-expression-syntax MutableSet
   (expression-transformer
-   (in-expression-space #'Set)
    (lambda (stx) (parse-mutable-set stx #f))))
 
 (define-repetition-syntax MutableSet
   (repetition-transformer
-   (in-repetition-space #'Set)
    (lambda (stx) (parse-mutable-set stx #t))))
 
 (define-static-info-syntax MutableSet

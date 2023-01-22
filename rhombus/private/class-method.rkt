@@ -353,7 +353,6 @@
 
 (define-expression-syntax this
   (expression-transformer
-   (in-expression-space #'this)
    (lambda (stxs)
      (syntax-parse stxs
        [(head . tail)
@@ -374,7 +373,6 @@
 
 (define-expression-syntax super
   (expression-transformer
-   (in-expression-space #'super)
    (lambda (stxs)
      (define c-or-id+dp+supers (syntax-parameter-value #'this-id))
      (cond

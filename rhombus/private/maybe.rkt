@@ -9,7 +9,7 @@
 
 (define-annotation-syntax Maybe
   (annotation-prefix-operator
-   #'Maybe
+   (annot-quote Maybe)
    '((default . stronger))
    'macro
    (lambda (stx)

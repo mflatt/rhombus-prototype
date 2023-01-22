@@ -107,7 +107,7 @@
 
 (define-expression-syntax ++
   (expression-infix-operator
-   (quote-syntax ++)
+   (expr-quote ++)
    `((,(expr-quote +&) . same))
    'automatic
    (lambda (form1-in form2 stx)

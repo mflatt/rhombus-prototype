@@ -13,7 +13,6 @@
 
 (define-binding-syntax mutable
   (binding-transformer
-   (in-binding-space #'mutable)
    (lambda (stx)
      (syntax-parse stx
        [(_ id:identifier . new-tail)
@@ -51,7 +50,7 @@
 (define-syntax (mutable-bind stx)
   (syntax-parse stx
     [(_ arg-id [bind-id mutable-id])
-     #'(define-syntax bind-id
+     #'(define-expression-syntax bind-id
          (mutable-variable #'mutable-id))]))
 
 (begin-for-syntax
@@ -61,7 +60,7 @@
 
 (define-expression-syntax :=
   (expression-infix-operator
-   (in-expression-space #':=)
+   (expr-quote :=)
    '((default . weaker))
    'automatic
    (lambda (form1 form2 self-stx)

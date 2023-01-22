@@ -11,12 +11,12 @@
 
 (define-expression-syntax ..
   (expression-infix-operator
-   #'..
+   (expr-quote ..)
    (list
-    (cons #'rhombus-a:+ 'weaker)
-    (cons #'rhombus-a:- 'weaker)
-    (cons #'rhombus-a:* 'weaker)
-    (cons #'rhombus-a:/ 'weaker))
+    (cons (expr-quote rhombus-a:+) 'weaker)
+    (cons (expr-quote rhombus-a:-) 'weaker)
+    (cons (expr-quote rhombus-a:*) 'weaker)
+    (cons (expr-quote rhombus-a:/) 'weaker))
    'macro
    (lambda (form1 tail)
      (syntax-parse tail

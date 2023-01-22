@@ -16,7 +16,7 @@
 
 (define-expression-syntax rhombus=
   (expression-infix-operator
-   (in-expression-space #'rhombus=)
+   (expr-quote rhombus=)
    '((default . weaker))
    'macro
    (lambda (form tail)
@@ -30,7 +30,7 @@
 
 (define-binding-syntax rhombus=
   (binding-infix-operator
-   (in-binding-space #'rhombus=)
+   (bind-quote rhombus=)
    '((default . weaker))
    'macro
    (lambda (form tail)

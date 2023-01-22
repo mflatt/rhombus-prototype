@@ -13,7 +13,6 @@
      #'(begin
          (define-expression-syntax id
            (expression-transformer
-            (in-expression-space #'id)
             (lambda (stx)
               (syntax-parse stx
                 [(op::operator . tail)
@@ -23,7 +22,6 @@
 
          (define-binding-syntax id
            (binding-transformer
-            (in-binding-space #'id)
             (lambda (stx)
               (syntax-parse stx
                 [(op::operator . tail)

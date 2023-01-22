@@ -12,7 +12,6 @@
 
 (define-expression-syntax rhombus-_
   (expression-transformer
-   #'_
    (lambda (stx)
      (syntax-parse stx
        [(form-id . tail)
@@ -23,7 +22,6 @@
 
 (define-binding-syntax rhombus-_
   (binding-transformer
-   #'_
    (lambda (stx)
      (syntax-parse stx
        [(form-id . tail)

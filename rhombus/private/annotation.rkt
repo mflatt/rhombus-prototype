@@ -15,7 +15,8 @@
                      "introducer.rkt"
                      "annotation-string.rkt"
                      "realm.rkt"
-                     "keyword-sort.rkt")
+                     "keyword-sort.rkt"
+                     (for-syntax racket/base))
          "enforest.rkt"
          "annotation-operator.rkt"
          "definition.rkt"
@@ -62,6 +63,7 @@
              identifier-annotation
              
              in-annotation-space
+             annot-quote
 
              check-annotation-result
 
@@ -86,6 +88,10 @@
   (property annotation (predicate-stx static-infos))
 
   (define in-annotation-space (make-interned-syntax-introducer/add 'rhombus/annot))
+
+  (define-syntax (annot-quote stx)
+    (syntax-case stx ()
+      [(_ id) #`(quote-syntax #,((make-interned-syntax-introducer 'rhombus/annot) #'id))]))
 
   (define (raise-not-a-annotation id)
     (raise-syntax-error #f
@@ -252,7 +258,7 @@
 
 (define-for-syntax (make-annotation-apply-expression-operator name checked?)
   (expression-infix-operator
-   (in-expression-space name)
+   name
    `((default . weaker))
    'macro
    (lambda (form tail)
@@ -273,7 +279,7 @@
 
 (define-for-syntax (make-annotation-apply-binding-operator name checked?)
   (binding-infix-operator
-   (in-binding-space name)
+   name
    `((default . weaker))
    'macro
    (lambda (form tail)
@@ -293,18 +299,18 @@
    'none))
 
 (define-expression-syntax ::
-  (make-annotation-apply-expression-operator #':: #t))
+  (make-annotation-apply-expression-operator (expr-quote ::) #t))
 (define-binding-syntax ::
-  (make-annotation-apply-binding-operator #':: #t))
+  (make-annotation-apply-binding-operator (bind-quote ::) #t))
 
 (define-expression-syntax -:
-  (make-annotation-apply-expression-operator #'-: #f))
+  (make-annotation-apply-expression-operator (expr-quote -:) #f))
 (define-binding-syntax -:
-  (make-annotation-apply-binding-operator #'-: #f))
+  (make-annotation-apply-binding-operator (bind-quote -:) #f))
 
 (define-expression-syntax is_a
   (expression-infix-operator
-   (in-expression-space #'is_a)
+   (expr-quote is_a)
    '((default . weaker))
    'macro
    (lambda (form tail)
@@ -378,7 +384,7 @@
 ;; annotation parsing terminates appropriately
 (define-annotation-syntax ::
   (annotation-infix-operator
-   #'::
+   (annot-quote ::)
    `((default . stronger))
    'macro
    (lambda (stx) (error "should not get here"))
@@ -406,7 +412,7 @@
 
 (define-annotation-syntax matching
   (annotation-prefix-operator
-   #'matching
+   (annot-quote matching)
    '((default . stronger))
    'macro
    (lambda (stx)
@@ -431,7 +437,7 @@
 
 (define-annotation-syntax #%parens
   (annotation-prefix-operator
-   #'%parens
+   (annot-quote %parens)
    '((default . stronger))
    'macro
    (lambda (stxes)
@@ -449,7 +455,7 @@
 
 (define-annotation-syntax #%literal
   (annotation-prefix-operator
-   #'%literal
+   (annot-quote %literal)
    '((default . stronger))
    'macro
    (lambda (stxes)

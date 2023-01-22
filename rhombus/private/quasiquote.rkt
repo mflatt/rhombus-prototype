@@ -735,7 +735,7 @@
 
 (define-expression-syntax #%quotes
   (expression-prefix-operator
-   (in-expression-space #'#%quotes)
+   (expr-quote #%quotes)
    '((default . stronger))
    'macro
    (lambda (stx)
@@ -748,7 +748,7 @@
 
 (define-binding-syntax #%quotes
   (binding-prefix-operator
-   (in-binding-space #'#%quotes)
+   (bind-quote #%quotes)
    '((default . stronger))
    'macro
    (lambda (stx)
@@ -771,7 +771,7 @@
 
 (define-repetition-syntax #%quotes
   (repetition-prefix-operator
-   #'#%quotes
+   (repet-quote #%quotes)
    '((default . stronger))
    'macro
    (lambda (stx)
@@ -790,7 +790,7 @@
 
 (define-expression-syntax syntax_term
   (expression-prefix-operator
-   (in-expression-space (quote-syntax syntax_term))
+   (expr-quote syntax_term)
    '((default . stronger))
    'macro
    (lambda (stx)
@@ -801,7 +801,7 @@
 
 (define-binding-syntax syntax_term
   (binding-prefix-operator
-   (in-binding-space (quote-syntax syntax_term))
+   (bind-quote syntax_term)
    '((default . stronger))
    'macro
    (lambda (stx)

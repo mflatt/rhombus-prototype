@@ -181,7 +181,6 @@
 
 (define-for-syntax (make-method-accessor-transformer name id name-ref-id idx proc-id ret-info-id)
   (expression-transformer
-   id
    (lambda (stx)
      (syntax-parse stx
        #:datum-literals (op)
@@ -395,6 +394,5 @@
 
 (define-for-syntax no-constructor-transformer
   (expression-transformer
-   #'no-constructor
    (lambda (stx)
      (raise-syntax-error #f "cannot be used as an expression" stx))))
