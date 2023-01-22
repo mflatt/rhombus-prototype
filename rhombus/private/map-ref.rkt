@@ -108,7 +108,7 @@
 (define-expression-syntax ++
   (expression-infix-operator
    (quote-syntax ++)
-   `((,#'+& . same))
+   `((,(expr-quote +&) . same))
    'automatic
    (lambda (form1-in form2 stx)
      (define form1 (rhombus-local-expand form1-in))

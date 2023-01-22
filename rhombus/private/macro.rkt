@@ -43,6 +43,7 @@
                                    (syntax->list #'(rhs ...))
                                    #f
                                    #f)
+       'rhombus/expr
        #'wrap-prefix
        #f
        #f
@@ -59,6 +60,7 @@
                                   #'rhs
                                   #f
                                   #f)
+       'rhombus/expr
        #'wrap-prefix
        #f
        #:adjustments adjustments))]))
@@ -129,6 +131,7 @@
     (syntax-parse stx
       [(_ orig-stx pre-parsed ...)
        (parse-operator-definitions-rhs #'orig-stx (syntax->list #'(pre-parsed ...))
+                                       'rhombus/expr
                                        #'make-expression-prefix-operator
                                        #'make-expression-infix-operator
                                        #'expression-prefix+infix-operator)]))
@@ -136,5 +139,6 @@
     (syntax-parse stx
       [(_ pre-parsed)
        (parse-operator-definition-rhs #'pre-parsed
+                                      'rhombus/expr
                                       #'make-expression-prefix-operator
                                       #'make-expression-infix-operator)])))

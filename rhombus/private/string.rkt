@@ -3,6 +3,9 @@
          racket/keyword
          "provide.rkt"
          "define-operator.rkt"
+         (only-in "arithmetic.rkt"
+                  ==
+                  ===)
          (only-in (submod "print.rkt" for-string)
                   [display rhombus:display]))
 
@@ -12,7 +15,7 @@
                      +&))
 
 (define-infix +& append-as-strings
-  #:stronger-than (===))
+  #:stronger-than (== ===))
 
 (define (append-as-strings a b)
   (string-append-immutable (to-string a)

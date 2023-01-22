@@ -7,7 +7,6 @@
          "parse.rkt"
          "expression.rkt"
          "binding.rkt"
-         "expression+binding.rkt"
          (submod "syntax-class-primitive.rkt" for-quasiquote)
          "dollar.rkt"
          "repetition.rkt"

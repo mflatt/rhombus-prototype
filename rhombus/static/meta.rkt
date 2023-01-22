@@ -10,6 +10,9 @@
 
 (bounce #:except (|.| #%ref #%call)
         "../meta.rkt")
+(bounce-meta #:only (|.|)
+             #:spaces (rhombus/impo rhombus/expo)
+             "../meta.rkt")
 (provide (for-syntax
           (for-space rhombus/expr
                      |.|

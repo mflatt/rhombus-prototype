@@ -7,6 +7,9 @@
 
 (bounce #:except (|.| #%ref #%call)
         "main.rkt")
+(bounce #:only (|.|)
+        #:spaces (rhombus/impo rhombus/expo)
+        "main.rkt")
 (provide (for-space rhombus/expr
                     |.|
                     #%ref

@@ -27,9 +27,6 @@
             repetition-transformer
             make-expression+repetition-prefix-operator
             make-expression+repetition-infix-operator
-            make-expression+binding+repetition-prefix-operator
-            make-expression+binding+repetition-infix-operator
-            make-expression+binding+repetition-transformer
             expression+repetition-prefix+infix-operator
             make-expression+repetition-transformer
 
@@ -106,29 +103,6 @@
     #:property prop:repetition-infix-operator (lambda (self)
                                                 (expression+repetition-infix-operator-rep-op
                                                  (expression+repetition-prefix+infix-operator-infix self))))
-
-  (struct expression+binding+repetition-prefix-operator (exp-op bind-op rep-op)
-    #:property prop:expression-prefix-operator (lambda (self) (expression+binding+repetition-prefix-operator-exp-op self))
-    #:property prop:binding-prefix-operator (lambda (self) (expression+binding+repetition-prefix-operator-bind-op self))
-    #:property prop:repetition-prefix-operator (lambda (self) (expression+binding+repetition-prefix-operator-rep-op self)))
-  (define (make-expression+binding+repetition-prefix-operator name prec protocol exp bind rep)
-    (expression+binding+repetition-prefix-operator
-     (expression-prefix-operator name prec protocol exp)
-     (binding-prefix-operator name prec protocol bind)
-     (repetition-prefix-operator name prec protocol rep)))
-
-  (struct expression+binding+repetition-infix-operator (exp-op bind-op rep-op)
-    #:property prop:expression-infix-operator (lambda (self) (expression+binding+repetition-infix-operator-exp-op self))
-    #:property prop:binding-infix-operator (lambda (self) (expression+binding+repetition-infix-operator-bind-op self))
-    #:property prop:repetition-infix-operator (lambda (self) (expression+binding+repetition-infix-operator-rep-op self)))
-  (define (make-expression+binding+repetition-infix-operator name prec protocol exp bind rep assc)
-    (expression+binding+repetition-infix-operator
-     (expression-infix-operator name prec protocol exp assc)
-     (binding-infix-operator name prec protocol bind assc)
-     (repetition-infix-operator name prec protocol rep assc)))
-
-  (define (make-expression+binding+repetition-transformer name exp bind rep)
-    (make-expression+binding+repetition-prefix-operator name '((default . stronger)) 'macro exp bind rep))
 
   (define in-repetition-space (make-interned-syntax-introducer/add 'rhombus/repet))
   (define-syntax (repet-quote stx)

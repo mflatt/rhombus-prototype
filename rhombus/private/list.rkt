@@ -6,7 +6,6 @@
          "composite.rkt"
          "expression.rkt"
          "binding.rkt"
-         "expression+binding.rkt"
          (submod "annotation.rkt" for-class)
          "static-info.rkt"
          "reducer.rkt"

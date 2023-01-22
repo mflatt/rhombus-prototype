@@ -203,10 +203,13 @@
 
 ;; combine previously parsed cases (possibly the only case) in a macro
 ;; definition that are all either prefix or infix
-(define-for-syntax (build-cases ps prefix? make-id adjustments)
+(define-for-syntax (build-cases ps prefix? make-id space-sym adjustments)
   (define p (car ps))
   #`(#,make-id
-     (quote-syntax #,(parsed-name p))
+     (quote-syntax #,(let ([name (parsed-name p)])
+                       (if space-sym
+                           ((make-interned-syntax-introducer space-sym) name 'add)
+                           name)))
      #,(parsed-prec-stx p)
      #,(if (parsed-parsed-right? p)
            #''automatic
@@ -228,16 +231,18 @@
 
 ;; single-case macro definition:
 (define-for-syntax (parse-operator-definition-rhs pre-parsed
+                                                  space-sym
                                                   make-prefix-id make-infix-id
                                                   #:adjustments [adjustments no-adjustments])
   (define p (parse-one-macro-definition pre-parsed adjustments))
   (define op (parsed-name p))
   (define prefix? (eq? 'prefix (parsed-fixity p)))
   (define make-id (if prefix? make-prefix-id make-infix-id))
-  (build-cases (list p) prefix? make-id adjustments))
+  (build-cases (list p) prefix? make-id space-sym adjustments))
 
 ;; multi-case macro definition:
 (define-for-syntax (parse-operator-definitions-rhs orig-stx pre-parseds
+                                                   space-sym
                                                    make-prefix-id make-infix-id prefix+infix-id
                                                    #:adjustments [adjustments no-adjustments])
   (define ps (map (lambda (p) (parse-one-macro-definition p adjustments)) pre-parseds))
@@ -264,11 +269,11 @@
   (check-fixity-consistent "prefix" "precedence" prefixes)
   (check-fixity-consistent "infix" "precedence and associativity" infixes)
   (cond
-    [(null? prefixes) (build-cases infixes #f make-infix-id adjustments)]
-    [(null? infixes) (build-cases prefixes #t make-prefix-id adjustments)]
+    [(null? prefixes) (build-cases infixes #f make-infix-id space-sym adjustments)]
+    [(null? infixes) (build-cases prefixes #t make-prefix-id space-sym adjustments)]
     [else #`(#,prefix+infix-id
-             #,(build-cases prefixes #t make-prefix-id adjustments)
-             #,(build-cases infixes #f make-infix-id adjustments))]))
+             #,(build-cases prefixes #t make-prefix-id space-sym adjustments)
+             #,(build-cases infixes #f make-infix-id space-sym adjustments))]))
 
 (define-for-syntax (adjust-result adjustments arity b)
   ((entry-point-adjustments-wrap-body adjustments) arity b))

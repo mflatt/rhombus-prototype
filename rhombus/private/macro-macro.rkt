@@ -300,7 +300,8 @@
            (define-syntax compiletime-id
              (make-operator-definition-transformer-compiletime #'make-prefix-id
                                                                #'make-infix-id
-                                                               #'prefix+infix-id))))]))
+                                                               #'prefix+infix-id
+                                                               'space))))]))
 
 (define-for-syntax (make-operator-definition-transformer-runtime protocol
                                                                  space-sym
@@ -332,16 +333,19 @@
 (begin-for-syntax
   (define-for-syntax (make-operator-definition-transformer-compiletime make-prefix-id
                                                                        make-infix-id
-                                                                       prefix+infix-id)
+                                                                       prefix+infix-id
+                                                                       space-sym)
     (lambda (stx)
       (syntax-parse stx
         #:datum-literals (group block alts op)
         [(form-id pre-parsed)
          (parse-operator-definition-rhs #'pre-parsed
+                                        space-sym
                                         make-prefix-id
                                         make-infix-id)]
         [(form-id orig-stx pre-parsed ...)
          (parse-operator-definitions-rhs #'orig-stx (syntax->list #'(pre-parsed ...))
+                                         space-sym
                                          make-prefix-id
                                          make-infix-id
                                          prefix+infix-id)]))))

@@ -9,7 +9,6 @@
                      shrubbery/print)
          "provide.rkt"
          "expression.rkt"
-         "expression+binding.rkt"
          "binding.rkt"
          "repetition.rkt"
          "compound-repetition.rkt"
@@ -108,17 +107,15 @@
 (define (hash-pairs ht)
   (for/list ([p (in-hash-pairs ht)]) p))
 
-(define-syntax empty-map
-  (make-expression+binding-prefix-operator
-   #'empty-map
-   '((default . stronger))
-   'macro
-   ;; expression
+(define-expression-syntax empty-map
+  (expression-transformer
    (lambda (stx)
      (syntax-parse stx
        [(form-id . tail)
-        (values #'#hashalw() #'tail)]))
-   ;; binding
+        (values #'#hashalw() #'tail)]))))
+
+(define-binding-syntax empty-map
+  (binding-transformer
    (lambda (stx)
      (syntax-parse stx
        [(form-id . tail)

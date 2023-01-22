@@ -21,7 +21,6 @@
          "definition.rkt"
          "expression.rkt"
          "binding.rkt"
-         "expression+binding.rkt"
          "name-root.rkt"
          "name-root-ref.rkt"
          "static-info.rkt"
