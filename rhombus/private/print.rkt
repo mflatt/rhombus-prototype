@@ -11,7 +11,7 @@
          "static-info.rkt"
          "expression.rkt")
 
-(provide (for-spaces (rhombus/expr
+(provide (for-spaces (#f
                       rhombus/statinfo)
                      (rename-out
                       [rhombus-print print]
@@ -214,9 +214,6 @@
   #:property prop:custom-write
   (lambda (r op mode)
     (racket-print (racket-print-redirect-val r) op mode)))
-
-(define-expression current-output-port current-output-port)
-(define-expression current-error-port current-error-port)
 
 (define-static-info-syntaxes (current-output-port current-error-port)
   (#%function-arity 6))

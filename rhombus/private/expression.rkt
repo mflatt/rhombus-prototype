@@ -20,6 +20,7 @@
 
            in-expression-space
            expr-quote
+           out-of-expression-space
 
            (struct-out expression-prefix+infix-operator)))
 
@@ -50,6 +51,8 @@
           ;; leading to confusing error messages; the trade-off is
           ;; that we don't compile some things that could (would?)
           ;; end up reporting a use before definition
+          (local-require racket/pretty)
+          (pretty-print (syntax-debug-info id))
           (raise-syntax-error #f "unbound identifier" id)))
       id))
 
@@ -59,7 +62,7 @@
 
   (define-syntax (expr-quote stx)
     (syntax-case stx ()
-      [(_ id) #`(quote-syntax #,((make-interned-syntax-introducer 'rhombus/expr) #'id))])))
+      [(_ id) #`(quote-syntax id)])))
 
 (define-syntax (define-expression-syntax stx)
   (syntax-parse stx

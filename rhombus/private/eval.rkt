@@ -7,7 +7,7 @@
          "function-arity-key.rkt"
          "static-info.rkt")
 
-(provide (for-spaces (rhombus/expr
+(provide (for-spaces (#f
                       rhombus/statinfo)
                      make_rhombus_toplevel
                      make_rhombus_empty_toplevel
@@ -32,8 +32,6 @@
   (unless (syntax? e)
     (raise-argument-error 'eval "Syntax" e))
   (eval #`(rhombus-top #,@(unpack-multi e 'eval #f))))
-
-(define-expression current-namespace current-namespace)
 
 (define-static-info-syntaxes (current-namespace)
   (#%function-arity 6))

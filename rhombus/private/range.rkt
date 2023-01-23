@@ -6,7 +6,7 @@
          "parse.rkt"
          (prefix-in rhombus-a: "arithmetic.rkt"))
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     ..))
 
 (define-expression-syntax ..

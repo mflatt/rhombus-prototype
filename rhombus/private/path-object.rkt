@@ -9,7 +9,7 @@
          "define-arity.rkt")
 
 (provide (for-spaces (rhombus/namespace
-                      rhombus/expr
+                      #f
                       rhombus/bind
                       rhombus/annot)
                      Path))

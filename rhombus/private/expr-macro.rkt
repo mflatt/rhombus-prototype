@@ -21,7 +21,7 @@
   (provide (for-syntax make-expression-infix-operator
                        make-expression-prefix-operator)))
 
-(define+provide-space expr rhombus/expr
+(define+provide-space expr #f
   #:fields
   (macro))
 
@@ -34,7 +34,7 @@
 
 (define-operator-definition-transformer macro
   'macro
-  rhombus/expr
+  #f
   #'make-expression-prefix-operator
   #'make-expression-infix-operator
   #'expression-prefix+infix-operator)

@@ -22,7 +22,7 @@
 ;; operator definition and generates a combination of a transformer and
 ;; a function
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     (rename-out
                      [rhombus-operator operator])))
 
@@ -31,7 +31,7 @@
   (define-splicing-syntax-class :prefix-case
     (pattern (~seq (parens (~and g (group op-name-seq::dotted-operator-or-identifier-sequence arg)))
                    ret::ret-annotation
-                   ((~and tag block) (~var options (:prefix-operator-options 'rhombus/expr))
+                   ((~and tag block) (~var options (:prefix-operator-options '#f))
                                      body ...))
              #:with op-name::dotted-operator-or-identifier #'op-name-seq
              #:attr name #'op-name.name
@@ -43,7 +43,7 @@
   (define-splicing-syntax-class :infix-case
     (pattern (~seq (parens (~and g (group left op-name-seq::dotted-operator-or-identifier-sequence right)))
                    ret::ret-annotation
-                   ((~and tag block) (~var options (:infix-operator-options 'rhombus/expr))
+                   ((~and tag block) (~var options (:infix-operator-options '#f))
                                      body ...))
              #:with op-name::dotted-operator-or-identifier #'op-name-seq
              #:attr name #'op-name.name

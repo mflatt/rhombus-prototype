@@ -15,7 +15,7 @@
          "literal.rkt"
          "parens.rkt")
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     #%body
                     #%block
                     #%ref
@@ -40,7 +40,7 @@
                     #%call))
 
 (module+ for-dynamic-static
-  (provide (for-spaces (rhombus/expr
+  (provide (for-spaces (#f
                         rhombus/repet)
                        #%ref
                        static-#%ref

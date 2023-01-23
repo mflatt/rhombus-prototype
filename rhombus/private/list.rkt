@@ -26,7 +26,7 @@
          "define-arity.rkt")
 
 (provide (for-spaces (rhombus/namespace
-                      rhombus/expr
+                      #f
                       rhombus/bind
                       rhombus/annot
                       rhombus/reducer)
@@ -68,8 +68,6 @@
   (unless (list? d) (raise-argument-error* 'List.cons rhombus-realm "List" d))
   (cons a d))
 
-(define-expression List.cons List.cons)
-
 (define/arity (first l)
   (unless (list? l) (raise-argument-error* 'List.first rhombus-realm "List" l))
   (car l))
@@ -78,8 +76,6 @@
   (unless (and (pair? l) (list? l)) (raise-argument-error* 'List.rest rhombus-realm "NonemptyList" l))
   (cdr l))
 
-(define-expression null null)
-
 (define-expression iota
   (lambda (n)
     (unless (exact-nonnegative-integer? n)
@@ -87,11 +83,9 @@
     (for/list ([i (in-range n)])
       i)))
 
-(define-expression length length)
 (define-static-info-syntax length
   (#%function-arity 2))
 
-(define-expression reverse reverse)
 (define-static-info-syntax reverse
   (#%function-arity 2))
 

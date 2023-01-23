@@ -28,7 +28,7 @@
          "parse.rkt"
          "realm.rkt")
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     ::
                     -:
                     is_a)

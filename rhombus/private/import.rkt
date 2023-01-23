@@ -37,7 +37,7 @@
                   [/ rhombus/])
          "dotted-sequence-parse.rkt")
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     import)
 
          (for-space rhombus/impo

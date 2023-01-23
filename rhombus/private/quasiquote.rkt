@@ -25,12 +25,12 @@
          "unquote-binding.rkt"
          "unquote-binding-identifier.rkt")
 
-(provide (for-spaces (rhombus/expr
+(provide (for-spaces (#f
                       rhombus/bind
                       rhombus/repet
                       rhombus/unquote_bind)
                      #%quotes)
-         (for-spaces (rhombus/expr
+         (for-spaces (#f
                       rhombus/bind)
                      syntax_term)
          (for-space rhombus/unquote_bind

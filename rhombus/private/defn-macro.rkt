@@ -10,7 +10,7 @@
          "macro-macro.rkt"
          "parse.rkt")
 
-(define+provide-space defn rhombus/expr
+(define+provide-space defn #f
   #:fields
   (macro
    sequence_macro))
@@ -18,7 +18,7 @@
 ;; ----------------------------------------
 
 (define-identifier-syntax-definition-transformer macro
-  rhombus/expr
+  #f
   #'make-definition-transformer)
 
 (define-for-syntax (make-definition-transformer proc)
@@ -38,7 +38,7 @@
 ;; ----------------------------------------
 
 (define-identifier-syntax-definition-sequence-transformer sequence_macro
-  rhombus/expr
+  #f
   #'make-definition-sequence-transformer)
 
 (define-for-syntax (make-definition-sequence-transformer proc)

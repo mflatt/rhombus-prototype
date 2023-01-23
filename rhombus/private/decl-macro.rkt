@@ -11,7 +11,7 @@
          "parse.rkt"
          "implicit.rkt")
 
-(define+provide-space decl rhombus/expr
+(define+provide-space decl #f
   #:fields
   (macro))
 

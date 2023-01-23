@@ -10,7 +10,7 @@
          "name-root.rkt"
          "name-root-ref.rkt")
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     namespace))
 
 (module+ for-exports

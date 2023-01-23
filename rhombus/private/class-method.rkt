@@ -36,7 +36,7 @@
 
                      get-private-table)
 
-         (for-space rhombus/expr
+         (for-space #f
                     this
                     super)
 

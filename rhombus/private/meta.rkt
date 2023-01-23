@@ -10,7 +10,7 @@
          (for-syntax "parse.rkt"))
 
 (provide (for-spaces (rhombus/namespace
-                      rhombus/expr)
+                      #f)
                      meta))
 
 (define-name-root meta

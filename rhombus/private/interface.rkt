@@ -33,7 +33,7 @@
          "parse.rkt"
          (submod "namespace.rkt" for-exports))
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     interface))
 
 (module+ for-together

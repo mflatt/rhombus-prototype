@@ -6,7 +6,7 @@
          "binding.rkt"
          "expression.rkt")
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     :=)
          (for-space rhombus/bind
                     mutable))

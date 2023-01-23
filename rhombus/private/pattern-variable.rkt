@@ -24,7 +24,7 @@
            (eqv? 0 (pattern-variable-depth (list->pattern-variable a))))))
   (define ids (if no-repetition?
                   (list name-id)
-                  (list (in-expression-space name-id) (in-repetition-space name-id))))
+                  (list name-id (in-repetition-space name-id))))
   #`[#,ids (make-pattern-variable-syntaxes
              (quote-syntax #,name-id)
              (quote-syntax #,temp-id)
@@ -39,7 +39,7 @@
     [(ids (make-pattern-variable-syntaxes self-id temp-id unpack* depth splice? attrs expr?))
      (define new-ids
        (syntax-parse #'ids
-         [(id) #`(#,(in-expression-space #'id) #,(in-repetition-space #'id))]
+         [(id) #`(id #,(in-repetition-space #'id))]
          [_ #'ids]))
      #`(#,new-ids (make-pattern-variable-syntaxes self-id temp-id unpack* #,(add1 (syntax-e #'depth)) splice? attrs #f))]))
 

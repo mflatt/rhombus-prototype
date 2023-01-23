@@ -20,7 +20,7 @@
          (only-in "equal.rkt"
                   [= rhombus=]))
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     def
                     (rename-out [rhombus-let let])))
 

@@ -10,7 +10,7 @@
 (bounce #:only (|.|)
         #:spaces (rhombus/impo rhombus/expo)
         "main.rkt")
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     |.|
                     #%ref
                     #%call)

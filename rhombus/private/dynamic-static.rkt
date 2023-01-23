@@ -8,7 +8,7 @@
          (submod "dot.rkt" for-dynamic-static)
          (submod "implicit.rkt" for-dynamic-static))
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     dynamic
                     use_dynamic
                     use_static))

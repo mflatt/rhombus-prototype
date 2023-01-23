@@ -17,7 +17,7 @@
          "dot-parse.rkt")
 
 (provide (for-spaces (rhombus/namespace
-                      rhombus/expr
+                      #f
                       rhombus/bind
                       rhombus/annot)
                      Array))

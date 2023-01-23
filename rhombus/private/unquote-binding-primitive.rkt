@@ -424,7 +424,9 @@
                               stxes
                               #'sp.name))
         (values #`((~var _ (:free=-in-space
-                            (quote-syntax #,((make-interned-syntax-introducer (space-name-symbol sn)) #'bound.name 'add))
+                            (quote-syntax #,(if (space-name-symbol sn)
+                                                ((make-interned-syntax-introducer (space-name-symbol sn)) #'bound.name 'add)
+                                                #'bound.name))
                             '#,(space-name-symbol sn)))
                    ()
                    ()
@@ -434,4 +436,6 @@
 (define-syntax-class (:free=-in-space bound-id space-sym)
   #:datum-literals (group)
   (pattern (group t::name)
-           #:when (free-identifier=? bound-id ((make-interned-syntax-introducer space-sym) #'t.name 'add))))
+           #:when (free-identifier=? bound-id (if space-sym
+                                                  ((make-interned-syntax-introducer space-sym) #'t.name 'add)
+                                                  #'t.name))))

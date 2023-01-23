@@ -7,7 +7,7 @@
                   [_ rhombus-_])
          "error.rkt")
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     (rename-out [rhombus-if if]
                                 [rhombus-cond cond]
                                 [rhombus-when when]

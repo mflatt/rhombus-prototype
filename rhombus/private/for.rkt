@@ -19,7 +19,7 @@
          (rename-in "values.rkt"
                     [values rhombus-values]))
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     (rename-out [rhombus-for for]))
          (for-space rhombus/for_clause
                     each

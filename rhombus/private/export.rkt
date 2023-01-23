@@ -27,7 +27,7 @@
          "dotted-sequence-parse.rkt"
          (submod "module-path.rkt" for-import-export))
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     export)
 
          (for-space rhombus/expo

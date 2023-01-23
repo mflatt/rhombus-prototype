@@ -11,8 +11,6 @@
 (define-syntax (define-name-root stx)
   (syntax-parse stx
     [(_ id (~alt (~once (~seq #:fields (content ...)))
-                 (~optional (~seq #:space space)
-                            #:defaults ([space #'#f]))
                  (~optional (~seq #:extends extends)
                             #:defaults ([extends #'#f]))
                  (~optional (~seq #:orig-id orig-id)

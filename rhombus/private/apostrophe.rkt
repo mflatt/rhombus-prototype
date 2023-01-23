@@ -6,7 +6,7 @@
          "binding.rkt"
          "literal.rkt")
 
-(provide (for-spaces (rhombus/expr
+(provide (for-spaces (#f
                       rhombus/bind)
                      |#'|))
 

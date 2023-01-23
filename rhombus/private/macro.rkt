@@ -21,7 +21,7 @@
          "parens.rkt"
          (submod "expr-macro.rkt" for-define))
 
-(provide (for-spaces (rhombus/expr
+(provide (for-spaces (#f
                       rhombus/entry_point)
                      macro))
 
@@ -43,7 +43,7 @@
                                    (syntax->list #'(rhs ...))
                                    #f
                                    #f)
-       'rhombus/expr
+       '#f
        #'wrap-prefix
        #f
        #f
@@ -60,7 +60,7 @@
                                   #'rhs
                                   #f
                                   #f)
-       'rhombus/expr
+       '#f
        #'wrap-prefix
        #f
        #:adjustments adjustments))]))
@@ -92,7 +92,7 @@
                                        stx
                                        (syntax->list #'(q.g ...))
                                        (syntax->list #'(rhs ...))
-                                       'rhombus/expr
+                                       '#f
                                        #'rules-rhs))]
          [(form-id q::operator-syntax-quote
                    (~and rhs (_::block body ...)))
@@ -101,7 +101,7 @@
                                       'rule
                                       #'q.g
                                       #'rhs
-                                      'rhombus/expr
+                                      '#f
                                       #'rule-rhs))])))))
 
 (define-entry-point-syntax macro
@@ -130,7 +130,7 @@
     (syntax-parse stx
       [(_ orig-stx pre-parsed ...)
        (parse-operator-definitions-rhs #'orig-stx (syntax->list #'(pre-parsed ...))
-                                       'rhombus/expr
+                                       '#f
                                        #'make-expression-prefix-operator
                                        #'make-expression-infix-operator
                                        #'expression-prefix+infix-operator)]))
@@ -138,6 +138,6 @@
     (syntax-parse stx
       [(_ pre-parsed)
        (parse-operator-definition-rhs #'pre-parsed
-                                      'rhombus/expr
+                                      '#f
                                       #'make-expression-prefix-operator
                                       #'make-expression-infix-operator)])))

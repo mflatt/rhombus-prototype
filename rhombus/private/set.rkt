@@ -31,15 +31,14 @@
          "op-literal.rkt")
 
 (provide (for-spaces (rhombus/namespace
-                      rhombus/expr
+                      #f
                       rhombus/bind
                       rhombus/repet
                       rhombus/reducer
                       rhombus/annot)
                      Set)
-         (for-spaces (rhombus/expr
-                      rhombus/repet
-                      rhombus/statinfo)
+         (for-spaces (#f
+                      rhombus/repet)
                      MutableSet))
 
 (module+ for-binding
@@ -326,7 +325,7 @@
   (#%call-result #,set-static-info)
   (#%function-arity -1))
 
-(define (MutableSet . vals)
+(define (MutableSet-build . vals)
   (define ht (make-hashalw))
   (for ([v (in-list vals)])
     (hash-set! ht v #t))
@@ -349,16 +348,16 @@
                  (car argss)
                  (lambda args
                    (values (quasisyntax/loc stx
-                             (MutableSet #,@args))
+                             (MutableSet-build #,@args))
                            mutable-set-static-info)))]
                [else (wrap-static-info*
                       (quasisyntax/loc stx
-                        (MutableSet #,@(car argss)))
+                        (MutableSet-build #,@(car argss)))
                       mutable-set-static-info)])
              #'tail)]
     [(_ . tail) (values (if repetition?
-                            (identifier-repetition-use #'MutableSet)
-                            #'MutableSet)
+                            (identifier-repetition-use #'MutableSet-build)
+                            #'MutableSet-build)
                         #'tail)]))
 
 (define-expression-syntax MutableSet
@@ -369,7 +368,7 @@
   (repetition-transformer
    (lambda (stx) (parse-mutable-set stx #t))))
 
-(define-static-info-syntax MutableSet
+(define-static-info-syntax MutableSet-build
   (#%call-result #,mutable-set-static-info))
 
 (define (set-ref s v)

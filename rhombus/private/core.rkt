@@ -17,7 +17,7 @@
          #%top-interaction
          #%top
          (for-syntax
-          (for-space rhombus/expr
+          (for-space #f
                      (rename-out [rhombus... ...])
                      $
                      &

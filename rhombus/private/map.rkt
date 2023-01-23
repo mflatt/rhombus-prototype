@@ -34,15 +34,14 @@
                   Pair))
 
 (provide (for-spaces (rhombus/namespace
-                      rhombus/expr
+                      #f
                       rhombus/bind
                       rhombus/repet
                       rhombus/annot
                       rhombus/reducer)
                      Map)
-         (for-spaces (rhombus/expr
-                      rhombus/repet
-                      rhombus/statinfo)
+         (for-spaces (#f
+                      rhombus/repet)
                      MutableMap))
 
 (module+ for-binding
@@ -251,9 +250,10 @@
   (let-values ([(k v) e])
     (hash-set ht k v)))
 
-(define MutableMap
-  (lambda args
-    (hash-copy (build-map 'MutableMap args))))
+(define MutableMap-build
+  (let ([MutableMap (lambda args
+                      (hash-copy (build-map 'MutableMap args)))])
+    MutableMap))
 
 (define-for-syntax (parse-mutable-map stx repetition?)
   (syntax-parse stx
@@ -282,8 +282,8 @@
                  mutable-map-static-info)])
              #'tail)]
     [(_ . tail) (values (if repetition?
-                            (identifier-repetition-use #'MutableMap)
-                            #'MutableMap)
+                            (identifier-repetition-use #'MutableMap-build)
+                            #'MutableMap-build)
                         #'tail)]))
 
 (define-expression-syntax MutableMap
@@ -294,7 +294,7 @@
   (repetition-transformer
    (lambda (stx) (parse-mutable-map stx #t))))
 
-(define-static-info-syntax MutableMap
+(define-static-info-syntax MutableMap-build
   (#%call-result #,mutable-map-static-info))
 
 (define-for-syntax (parse-map-binding who stx opener+closer)

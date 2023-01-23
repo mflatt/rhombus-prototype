@@ -10,13 +10,11 @@
          "function-arity-key.rkt"
          (submod "equal.rkt" for-parse))
 
-(provide (for-spaces (rhombus/expr
+(provide (for-spaces (#f
                       rhombus/bind
                       rhombus/reducer
                       rhombus/statinfo)
                      values))
-
-(define-expression values values)
 
 (define-binding-syntax values
   (binding-prefix-operator

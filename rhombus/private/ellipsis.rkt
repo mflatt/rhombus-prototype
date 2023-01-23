@@ -6,7 +6,7 @@
          "placeholder.rkt"
          "expression.rkt")
 
-(provide (for-spaces (rhombus/expr
+(provide (for-spaces (#f
                       rhombus/bind)
                      (rename-out [rhombus... ...])))
 

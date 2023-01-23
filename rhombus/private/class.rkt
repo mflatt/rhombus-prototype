@@ -37,7 +37,7 @@
          (submod "print.rkt" for-class))
 
 ;; the `class` form is provided by "class-together.rkt"
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     this
                     super))
 

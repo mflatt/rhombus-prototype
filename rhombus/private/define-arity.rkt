@@ -14,12 +14,10 @@
          (define id
            (let ([name (lambda args . body)])
              name))
-         (define-expression id id)
          (define-static-info-syntax id (#%function-arity #,(extract-arity #'args))))]
     [(_ (id . args) . body)
      #'(begin
          (define (id . args) . body)
-         (define-expression id id)
          (define-static-info-syntax id (#%function-arity #,(extract-arity #'args))))]))
 
 (define-for-syntax (extract-arity args)

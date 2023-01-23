@@ -46,7 +46,7 @@
          "compound-repetition.rkt"
          "function-arity.rkt")
 
-(provide (for-spaces (rhombus/expr
+(provide (for-spaces (#f
                       rhombus/entry_point)
                      fun)
          (for-spaces (rhombus/namespace

@@ -21,7 +21,7 @@
          "compound-repetition.rkt"
          "realm.rkt")
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     ++))
 
 (module+ for-ref

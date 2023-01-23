@@ -58,7 +58,6 @@
                   #t))
 
 (define-name-root Printable
-  #:space rhombus/expr
   #:fields
   ([print print-method]
    [display display-mthod]))

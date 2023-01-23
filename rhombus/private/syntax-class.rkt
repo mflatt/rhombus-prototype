@@ -23,7 +23,7 @@
          (rename-in "ellipsis.rkt"
                     [... rhombus...]))
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     syntax_class))
 
 (module+ for-pattern-clause

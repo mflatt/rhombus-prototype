@@ -11,7 +11,7 @@
          (only-in "dot.rkt"
                   |.|))
 
-(provide (for-spaces (rhombus/expr
+(provide (for-spaces (#f
                       rhombus/repet)
 
                      (rename-out [rhombus+ +]
@@ -33,7 +33,7 @@
 
                      ===)
 
-         (for-spaces (rhombus/expr
+         (for-spaces (#f
                       rhombus/statinfo)
                      sqrt cos sin tan log exp expt acos asin atan
                      floor ceiling round))
@@ -96,16 +96,6 @@
 (define-eql-infix === eq?)
 
 (define (not-equal-always? a b) (not (equal-always? a b)))
-
-(define-syntax (bounce-functions stx)
-  (syntax-parse stx
-    [(_ id ...)
-     #`(begin
-         #,@(for/list ([id (in-list (syntax->list #'(id ...)))])
-              #`(define #,(in-expression-space id) #,id)))]))
-      
-(bounce-functions sqrt cos sin tan log exp expt acos asin atan
-                 floor ceiling round)
 
 (define-static-info-syntaxes (sqrt cos sin tan exp acos asin
                                    floor ceiling round)

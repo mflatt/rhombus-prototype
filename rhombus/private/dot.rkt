@@ -19,7 +19,7 @@
          "assign.rkt"
          "op-literal.rkt")
 
-(provide (for-spaces (rhombus/expr
+(provide (for-spaces (#f
                       rhombus/repet
                       rhombus/annot)
 
@@ -43,7 +43,7 @@
   (provide set-builtin->accessor-ref!))
 
 (module+ for-dynamic-static
-  (provide (for-spaces (rhombus/expr
+  (provide (for-spaces (#f
                         rhombus/repet)
                        |.|
                        static-|.|)))

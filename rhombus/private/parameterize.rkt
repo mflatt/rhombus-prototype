@@ -4,7 +4,7 @@
          "expression.rkt"
          "parse.rkt")
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     (rename-out
                      [rhombus-parameterize parameterize])))
 

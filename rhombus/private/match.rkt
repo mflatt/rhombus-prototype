@@ -12,7 +12,7 @@
          "parens.rkt"
          (only-in "entry-point.rkt" no-adjustments))
 
-(provide (for-space rhombus/expr
+(provide (for-space #f
                     match))
 
 (begin-for-syntax

@@ -14,7 +14,7 @@
              #:spaces (rhombus/impo rhombus/expo)
              "../meta.rkt")
 (provide (for-syntax
-          (for-space rhombus/expr
+          (for-space #f
                      |.|
                      #%ref
                      #%call)

@@ -9,7 +9,7 @@
          (only-in (submod "print.rkt" for-string)
                   [display rhombus:display]))
 
-(provide (for-spaces (rhombus/expr
+(provide (for-spaces (#f
                       rhombus/repet)
 
                      +&))

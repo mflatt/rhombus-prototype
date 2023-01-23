@@ -38,9 +38,6 @@
   (property static-info (stxs))
 
   (define in-static-info-space (make-interned-syntax-introducer/add 'rhombus/statinfo))
-  (define out-of-expression-space (let ([intro (make-interned-syntax-introducer 'rhombus/expr)])
-                                    (lambda (id)
-                                      (intro id 'remove))))
 
   (define (wrap-static-info expr key-id val-stx)
     (quasisyntax/loc expr

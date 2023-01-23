@@ -17,7 +17,7 @@
 
 (provide (for-spaces (rhombus/namespace
                       rhombus/space
-                      rhombus/expr)
+                      #f)
                      class))
 
 (define-space-syntax class

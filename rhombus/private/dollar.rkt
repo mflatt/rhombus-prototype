@@ -4,7 +4,7 @@
          "provide.rkt"
          "placeholder.rkt")
 
-(provide (for-spaces (rhombus/expr
+(provide (for-spaces (#f
                       rhombus/bind)
                      $
                      $&))
