@@ -444,7 +444,12 @@
                               [(dotted-elems? elems)
                                (cons (car elems) (loop (cddr elems)))]
                               [else (list (car elems))])))
-     (define target+rest (resolve-name-ref space-name (add-space (car elems) space-name) dotted-elems))
+     (define target+rest (resolve-name-ref space-name
+                                           (add-space (car elems)
+                                                      (if (pair? (cdr elems))
+                                                          'namespace
+                                                          space-name))
+                                           dotted-elems))
      (define target (and target+rest (car target+rest)))
      (cond
        [target
