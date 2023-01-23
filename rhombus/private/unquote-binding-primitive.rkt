@@ -280,27 +280,19 @@
                  attribute-bindings)
          #,(append
             (if (identifier? form1)
-                (list #`[id (make-pattern-variable-syntaxes
-                             (quote-syntax id)
-                             (quote-syntax #,temp-id)
-                             (quote-syntax #,unpack*)
-                             #,pack-depth
-                             #,(rhombus-syntax-class-splicing? rsc)
-                             (quote-syntax #,(for/list ([var (in-list attribute-vars)])
-                                               (pattern-variable->list var #:keep-id? #f))))])
+                (list (make-pattern-variable-bind #'id temp-id unpack*
+                                                  pack-depth
+                                                  (rhombus-syntax-class-splicing? rsc)
+                                                  (for/list ([var (in-list attribute-vars)])
+                                                    (pattern-variable->list var #:keep-id? #f))))
                 null)
             (if (not open-attributes)
                 null
                 (for/list ([oa (in-list open-attributes)])
                   (define bind-id (open-attrib-bind-id oa))
                   (define var (open-attrib-var oa))
-                  #`[#,bind-id (make-pattern-variable-syntaxes
-                                (quote-syntax #,bind-id)
-                                (quote-syntax #,(pattern-variable-val-id var))
-                                (quote-syntax #,(pattern-variable-unpack*-id var))
-                                #,(pattern-variable-depth var)
-                                #f
-                                #'())])))
+                  (make-pattern-variable-bind bind-id (pattern-variable-val-id var) (pattern-variable-unpack*-id var)
+                                              (pattern-variable-depth var) #f null))))
          #,(append
             (if (identifier? form1)
                 (list (list #'id #'id temp-id pack-depth unpack*))

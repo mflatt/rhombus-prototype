@@ -126,7 +126,7 @@
        ;; Note: this is where `depth` would be incremented, when `tag` is `quotes`, if we wanted that
        (let loop ([gs #'(g ...)] [pend-idrs #f] [pend-sidrs #f] [pend-vars #f]
                                  [idrs '()]  ; list of #`[#,id #,rhs] for definitions
-                                 [sidrs '()] ; list of #`[#,id #,rhs] for syntax definitions
+                                 [sidrs '()] ; list of #`[(#,id ...) #,rhs] for syntax definitions
                                  [vars '()]  ; list of `[,id . ,depth] for visible subset of `idrs` and `sidrs`
                                  [ps '()] [can-be-empty? #t] [pend-is-rep? #f] [tail #f] [depth depth])
          (define really-can-be-empty? (and can-be-empty? (or pend-is-rep? (not pend-idrs))))
@@ -328,9 +328,7 @@
                        #`(id (pack (syntax (stx (... ...))) #,(add1 (syntax-e #'depth))))]))
                   ;; deepen-syntax-escape
                   (lambda (sidr)
-                    (syntax-parse sidr
-                      [(id (make-pattern-variable-syntaxes self-id temp-id unpack* depth splice? attrs))
-                       #`(id (make-pattern-variable-syntaxes self-id temp-id unpack* #,(add1 (syntax-e #'depth)) splice? attrs))]))
+                    (deepen-pattern-variable-bind sidr))
                   ;; handle-tail-escape:
                   (lambda (name e in-e)
                     (syntax-parse e
@@ -341,12 +339,8 @@
                              [temp-id (car (generate-temporaries (list e)))])
                          (values temp0-id
                                  (list #`[#,temp-id (pack-tail* (syntax #,temp0-id) 0)])
-                                 (list #`[#,e (make-pattern-variable-syntaxes (quote-syntax #,e)
-                                                                              (quote-syntax #,temp-id)
-                                                                              (quote-syntax unpack-tail-list*)
-                                                                              1
-                                                                              #f
-                                                                              #'())])
+                                 (list (make-pattern-variable-bind e temp-id (quote-syntax unpack-tail-list*)
+                                                                   1 #f '()))
                                  (list (pattern-variable (syntax-e e) e temp-id 1 (quote-syntax unpack-tail-list*)))))]))
                   ;; handle-block-tail-escape:
                   (lambda (name e in-e)
@@ -354,12 +348,8 @@
                           [temp-id (car (generate-temporaries (list e)))])
                       (values temp0-id
                               (list #`[#,temp-id (pack-multi-tail* (syntax #,temp0-id) 0)])
-                              (list #`[#,e (make-pattern-variable-syntaxes (quote-syntax #,e)
-                                                                           (quote-syntax #,temp-id)
-                                                                           (quote-syntax unpack-multi-tail-list*)
-                                                                           1
-                                                                           #f
-                                                                           #'())])
+                              (list (make-pattern-variable-bind e temp-id (quote-syntax unpack-multi-tail-list*)
+                                                                1 #f null))
                               (list (pattern-variable (syntax-e e) e temp-id 1 (quote-syntax unpack-multi-tail-list*))))))
                   ;; handle-maybe-empty-sole-group
                   (lambda (tag pat idrs sidrs vars)
@@ -720,7 +710,7 @@
 (define-for-syntax ((convert-pattern/generate-match repack-id) e)
   (define-values (pattern idrs sidrs vars can-be-empty?) (convert-pattern e))
   (with-syntax ([((id id-ref) ...) idrs]
-                [((sid sid-ref) ...) sidrs])
+                [(((sid ...) sid-ref) ...) sidrs])
     (with-syntax ([(tmp-id ...) (generate-temporaries #'(id ...))])
       (binding-form
        #'syntax-infoer
@@ -730,7 +720,7 @@
           (tmp-id ...)
           (id ...)
           (id-ref ...)
-          (sid ...)
+          ((sid ...) ...)
           (sid-ref ...))))))
 
 (define-expression-syntax #%quotes
@@ -812,13 +802,14 @@
 
 (define-syntax (syntax-infoer stx)
   (syntax-parse stx
-    [(_ static-infos (annotation-str pattern repack tmp-ids (id ...) id-refs (sid ...) sid-refs))
+    [(_ static-infos (annotation-str pattern repack tmp-ids (id ...) id-refs (sids ...) sid-refs))
      (with-syntax ([(id-depth ...) (for/list ([id-ref (in-list (syntax->list #'id-refs))])
                                      (syntax-parse id-ref
                                        [(pack _ depth) #'depth]))]
-                   [(sid-depth ...) (for/list ([sid-ref (in-list (syntax->list #'sid-refs))])
-                                      (syntax-parse sid-ref
-                                        [(make-pattern-variable-syntaxes _ _ _ depth . _) #'depth]))])
+                   [((sid sid-depth) ...)
+                    (for/list ([sids (in-list (syntax->list #'(sids ...)))]
+                               [sid-ref (in-list (syntax->list #'sid-refs))])
+                      (extract-pattern-variable-bind-id-and-depth sids sid-ref))])
        (binding-info #'annotation-str
                      #'syntax
                      #'()
@@ -826,7 +817,7 @@
                      #'syntax-matcher
                      #'syntax-committer
                      #'syntax-binder
-                     #'(pattern repack tmp-ids (id ...) id-refs (sid ...) sid-refs)))]))
+                     #'(pattern repack tmp-ids (id ...) id-refs (sids ...) sid-refs)))]))
 
 (define-syntax (syntax-matcher stx)
   (syntax-parse stx
@@ -849,10 +840,8 @@
 
 (define-syntax (syntax-binder stx)
   (syntax-parse stx
-    [(_ arg-id (pattern repack (tmp-id ...) (id ...) (id-ref ...) (sid ...) (sid-ref ...)))
-     (with-syntax ([(sid-expr ...) (in-expression-space #'(sid ...))]
-                   [(sid-repet ...) (in-repetition-space #'(sid ...))])
-       #'(begin
-           (define id tmp-id) ...
-           (define-syntaxes (sid-expr sid-repet) sid-ref)
-           ...))]))
+    [(_ arg-id (pattern repack (tmp-id ...) (id ...) (id-ref ...) ((sid ...) ...) (sid-ref ...)))
+     #'(begin
+         (define id tmp-id) ...
+         (define-syntaxes (sid ...) sid-ref)
+         ...)]))

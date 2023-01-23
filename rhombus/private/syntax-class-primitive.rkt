@@ -32,6 +32,7 @@
              syntax-class-parser-proc
              (struct-out pattern-variable)
              pattern-variable->list
+             list->pattern-variable
              syntax-list->pattern-variable)))
 
 (module+ for-syntax-class-syntax
@@ -61,6 +62,8 @@
           (pattern-variable-val-id pv)
           (pattern-variable-depth pv)
           (pattern-variable-unpack*-id pv)))
+  (define (list->pattern-variable l)
+    (apply pattern-variable l))
   (define (syntax-list->pattern-variable pv)
     (define l (syntax->list pv))
     (pattern-variable (syntax-e (car l))
@@ -109,6 +112,6 @@
     (define-syntax AfterInfixGroup (make-syntax-class #':infix-op+form+tail
                                                       #:kind 'group
                                                       #:arity 2
-                                                       #:fields #'((parsed #f parsed 0 unpack-parsed*)
-                                                                   (tail #f tail tail unpack-tail-list*))))))
+                                                      #:fields #'((parsed #f parsed 0 unpack-parsed*)
+                                                                  (tail #f tail tail unpack-tail-list*))))))
 
