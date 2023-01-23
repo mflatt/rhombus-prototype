@@ -10,13 +10,12 @@
          "name-root.rkt"
          "name-root-ref.rkt")
 
-(provide (for-space #f
-                    namespace))
+(provide namespace)
 
 (module+ for-exports
   (provide (for-syntax parse-exports)))
 
-(define-definition-syntax namespace
+(define-syntax namespace
   (definition-transformer
    (lambda (stx)
      (syntax-parse stx

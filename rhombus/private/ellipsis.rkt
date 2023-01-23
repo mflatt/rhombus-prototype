@@ -22,7 +22,7 @@
     (syntax-parse stx
       #:datum-literals (group)
       [((group op::name) . gs)
-       #:when (free-identifier=? (in-expression-space #'op.name)
-                                 (in-expression-space (quote-syntax rhombus...)))
+       #:when (free-identifier=? #'op.name
+                                 (quote-syntax rhombus...))
        (loop #'gs (add1 count))]
       [_ (values stx count)])))

@@ -19,8 +19,7 @@
          (rename-in "values.rkt"
                     [values rhombus-values]))
 
-(provide (for-space #f
-                    (rename-out [rhombus-for for]))
+(provide (rename-out [rhombus-for for])
          (for-space rhombus/for_clause
                     each
                     keep_when
@@ -28,7 +27,7 @@
                     break_when
                     final_when))
 
-(define-expression-syntax rhombus-for
+(define-syntax rhombus-for
   (expression-transformer
    (lambda (stx)
      (syntax-parse (respan stx)

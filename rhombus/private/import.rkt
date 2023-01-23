@@ -37,8 +37,7 @@
                   [/ rhombus/])
          "dotted-sequence-parse.rkt")
 
-(provide (for-space #f
-                    import)
+(provide import
 
          (for-space rhombus/impo
                     #%juxtapose
@@ -196,7 +195,7 @@
              #:when (syntax-local-value* (in-import-space #'mod-id) import-modifier-ref)
              #:attr mod #'(group mod-id mod-arg ...))))
 
-(define-definition-syntax import
+(define-syntax import
   (definition-transformer
    (lambda (stx)
      (syntax-parse stx
@@ -759,8 +758,6 @@
      (let loop ([g g])
        (syntax-parse g
          [() null]
-         [(#:default . rest)
-          (cons #f (loop #'rest))]
          [(~var h (:hier-name-seq in-name-root-space in-space-space name-path-op name-root-ref))
           (define sp (syntax-local-value* (in-space-space #'h.name) space-name-ref))
           (unless (space-name? sp)

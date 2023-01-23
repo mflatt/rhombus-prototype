@@ -14,7 +14,7 @@
   (provide (for-syntax :equal
                        :not-equal)))
 
-(define-expression-syntax rhombus=
+(define-syntax rhombus=
   (expression-infix-operator
    (expr-quote rhombus=)
    '((default . weaker))
@@ -46,7 +46,7 @@
   (define-syntax-class :equal
     #:attributes ()
     (pattern op::name
-             #:when (free-identifier=? (in-expression-space #'op.name)
+             #:when (free-identifier=? #'op.name
                                        (expr-quote rhombus=))))
   (define-syntax-class :not-equal
     #:attributes ()

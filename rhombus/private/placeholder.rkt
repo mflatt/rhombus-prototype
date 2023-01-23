@@ -11,7 +11,7 @@
   (syntax-parse stx
     [(_ id expr-misuse bind-misuse)
      #'(begin
-         (define-expression-syntax id
+         (define-syntax id
            (expression-transformer
             (lambda (stx)
               (syntax-parse stx

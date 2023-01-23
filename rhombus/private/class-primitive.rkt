@@ -73,7 +73,7 @@
          #,@(cond
               [(or transparent?
                    translucent?)
-               #`((define-expression-syntax Name
+               #`((define-syntax Name
                     (expression-transformer
                      (lambda (stx)
                        (syntax-parse stx

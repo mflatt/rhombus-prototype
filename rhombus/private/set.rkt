@@ -113,7 +113,7 @@
 
 (define (set->list s) (hash-keys (set-ht s)))
 
-(define-expression-syntax empty-set
+(define-syntax empty-set
   (expression-transformer
    (lambda (stx)
      (syntax-parse stx
@@ -184,7 +184,7 @@
    [length set-count]
    of))
 
-(define-expression-syntax Set
+(define-syntax Set
   (expression-transformer
    (lambda (stx) (parse-set stx #f))))
 
@@ -360,7 +360,7 @@
                             #'MutableSet-build)
                         #'tail)]))
 
-(define-expression-syntax MutableSet
+(define-syntax MutableSet
   (expression-transformer
    (lambda (stx) (parse-mutable-set stx #f))))
 
@@ -380,7 +380,7 @@
     [(_ set1 set2)
      (syntax-parse (unwrap-static-infos #'set2)
        [(id:identifier v)
-        #:when (free-identifier=? (expr-quote Set-build) (in-expression-space #'id))
+        #:when (free-identifier=? (expr-quote Set-build) #'id)
         #'(set (hash-set (set-ht set1) v #t))]
        [_
         #'(set-append/proc set1 set2)])]))

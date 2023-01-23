@@ -65,7 +65,7 @@
        #f
        #:adjustments adjustments))]))
 
-(define-expression-syntax macro
+(define-syntax macro
   (make-expression+definition-transformer
    (expression-transformer
     (lambda (stx)

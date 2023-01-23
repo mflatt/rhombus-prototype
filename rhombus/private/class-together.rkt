@@ -27,9 +27,9 @@
   #:fields
   (together))
 
-(define-expression-syntax class class-transformer)
+(define-syntax class class-transformer)
 
-(define-definition-syntax together
+(define-syntax together
   (definition-transformer
     (lambda (stx)
       (syntax-parse stx
@@ -39,10 +39,10 @@
                           (syntax-parse defn
                             #:datum-literals (group block)
                             [((~and tag group) id . rest)
-                             #:when (free-identifier=? (in-expression-space #'id) (in-expression-space #'class))
+                             #:when (free-identifier=? #'id #'class)
                              #`(tag #,(datum->syntax #'here 'class_for_together #'id #'id) . rest)]
                             [((~and tag group) id . rest)
-                             #:when (free-identifier=? (in-expression-space #'id) (in-expression-space #'interface))
+                             #:when (free-identifier=? #'id #'interface)
                              #`(tag #,(datum->syntax #'here 'interface_for_together #'id #'id) . rest)]
                             [_
                              (raise-syntax-error #f

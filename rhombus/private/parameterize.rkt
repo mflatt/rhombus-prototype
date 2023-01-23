@@ -4,9 +4,8 @@
          "expression.rkt"
          "parse.rkt")
 
-(provide (for-space #f
-                    (rename-out
-                     [rhombus-parameterize parameterize])))
+(provide (rename-out
+          [rhombus-parameterize parameterize]))
 
 (begin-for-syntax
   (define-syntax-class :binding
@@ -15,7 +14,7 @@
       (group n ... ((~and block-tag block) body ...))
       #:attr name (syntax/loc #'(n ...) (group n ...)))))
 
-(define-expression-syntax rhombus-parameterize
+(define-syntax rhombus-parameterize
   (expression-transformer
    (lambda (stx)
      (syntax-parse stx

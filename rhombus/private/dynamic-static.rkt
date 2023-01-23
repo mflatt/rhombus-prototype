@@ -8,12 +8,11 @@
          (submod "dot.rkt" for-dynamic-static)
          (submod "implicit.rkt" for-dynamic-static))
 
-(provide (for-space #f
-                    dynamic
-                    use_dynamic
-                    use_static))
+(provide dynamic
+         use_dynamic
+         use_static)
          
-(define-expression dynamic (lambda (v) v))
+(define dynamic (lambda (v) v))
 
 (begin-for-syntax
   (define-values (use_dynamic use_static)
@@ -28,12 +27,12 @@
       (values (mk #f)
               (mk #t)))))
 
-(define-definition-syntax use_dynamic use_dynamic)
-(define-definition-syntax use_static use_static)
+(define-syntax use_dynamic use_dynamic)
+(define-syntax use_static use_static)
 
 (define-for-syntax (build-definitions ctx sym id)
   (define sym-id (datum->syntax ctx sym))
-  #`((define-syntax #,(in-expression-space sym-id)
-       (make-rename-transformer (quote-syntax #,(in-expression-space id))))
+  #`((define-syntax #,sym-id
+       (make-rename-transformer (quote-syntax #,id)))
      (define-syntax #,(in-repetition-space sym-id)
        (make-rename-transformer (quote-syntax #,(in-repetition-space id))))))

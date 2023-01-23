@@ -12,11 +12,8 @@
 
 ;; see also "unquote-binding-primitive.rkt"
 
-(define-expression-syntax |#'|
-  (expression-prefix-operator
-   (in-expression-space #'|#'|)
-   '((default . stronger))
-   'macro
+(define-syntax |#'|
+  (expression-transformer
    (lambda (stx)
      (syntax-parse stx
        #:datum-literals (parens quotes group)
@@ -26,10 +23,7 @@
                 #'tail)]))))
 
 (define-binding-syntax |#'|
-  (binding-prefix-operator
-   (in-binding-space #'|#'|)
-   '((default . stronger))
-   'macro
+  (binding-transformer
    (lambda (stx)
      (syntax-parse stx
        #:datum-literals (parens quotes group)

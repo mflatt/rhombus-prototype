@@ -117,8 +117,8 @@
    'left))
 
 
-(define-expression-syntax |.| (make-|.|-expression #f))
-(define-expression-syntax static-|.| (make-|.|-expression #t))
+(define-syntax |.| (make-|.|-expression #f))
+(define-syntax static-|.| (make-|.|-expression #t))
 
 (define-repetition-syntax |.| (make-|.|-repetition #f))
 (define-repetition-syntax static-|.| (make-|.|-repetition #t))
@@ -161,7 +161,7 @@
           #:datum-literals (op)
           [(_:::=-expr . tail)
            #:when (not repetition?)
-           #:with (~var e (:infix-op+expression+tail (in-expression-space #':=))) #'(group . tail)
+           #:with (~var e (:infix-op+expression+tail #':=)) #'(group . tail)
            (values #`(dot-assign-by-name #,form1 '#,field-id e.parsed)
                    #'e.tail)]
           [else

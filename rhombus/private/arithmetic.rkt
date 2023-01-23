@@ -47,7 +47,7 @@
 (define-values-for-syntax (minus-expr-infix minus-repet-infix)
   (infix rhombus- - #:weaker-than (rhombus* rhombus/)))
 
-(define-expression-syntax rhombus-
+(define-syntax rhombus-
   (expression-prefix+infix-operator
    minus-expr-prefix
    minus-expr-infix))

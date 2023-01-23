@@ -27,8 +27,7 @@
          "dotted-sequence-parse.rkt"
          (submod "module-path.rkt" for-import-export))
 
-(provide (for-space #f
-                    export)
+(provide export
 
          (for-space rhombus/expo
                     rename
@@ -110,7 +109,7 @@
                               "not an export modifier"
                               #'form)])])))
 
-(define-definition-syntax export
+(define-syntax export
   (nestable-declaration-transformer
    (lambda (stx)
      (syntax-parse stx

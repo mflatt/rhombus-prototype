@@ -10,7 +10,7 @@
                       rhombus/bind)
                      (rename-out [rhombus-_ _])))
 
-(define-expression-syntax rhombus-_
+(define-syntax rhombus-_
   (expression-transformer
    (lambda (stx)
      (syntax-parse stx

@@ -22,9 +22,8 @@
 ;; operator definition and generates a combination of a transformer and
 ;; a function
 
-(provide (for-space #f
-                    (rename-out
-                     [rhombus-operator operator])))
+(provide (rename-out
+          [rhombus-operator operator]))
 
 (begin-for-syntax
   
@@ -115,7 +114,7 @@
       (list
        #`(define op-proc
            #,(build-prefix-function name arg rhs form-id g ret-predicate))
-       #`(define-syntaxes (#,(in-expression-space name) #,(in-repetition-space name))
+       #`(define-syntaxes (#,name #,(in-repetition-space name))
            #,(make-prefix name #'op-proc prec ret-static-infos)))))
 
   (define (generate-infix form-id g name left right prec assc rhs ret-predicate ret-static-infos)
@@ -123,7 +122,7 @@
       (list
        #`(define op-proc
            #,(build-infix-function name left right rhs form-id g ret-predicate))
-       #`(define-syntaxes (#,(in-expression-space name) #,(in-repetition-space name))
+       #`(define-syntaxes (#,name #,(in-repetition-space name))
            #,(make-infix name #'op-proc prec assc ret-static-infos)))))
     
   (define (generate-prefix+infix stx
@@ -136,7 +135,7 @@
            #,(build-prefix-function p-name p-arg p-rhs p-g p-g p-ret-predicate))
        #`(define i-op-proc
            #,(build-infix-function i-name i-left i-right i-rhs i-g i-g i-ret-predicate))
-       #`(define-syntaxes (#,(in-expression-space p-name) #,(in-repetition-space i-name))
+       #`(define-syntaxes (#,p-name #,(in-repetition-space i-name))
            (let-values ([(prefix-expr prefix-repet)
                          #,(make-prefix p-name #'p-op-proc p-prec p-ret-static-infos)]
                         [(infix-expr infix-repet)
@@ -145,7 +144,7 @@
               (expression-prefix+infix-operator prefix-expr infix-expr)
               (repetition-prefix+infix-operator prefix-repet infix-repet))))))))
 
-(define-definition-syntax rhombus-operator
+(define-syntax rhombus-operator
   (definition-transformer
     (lambda (stx)
       (syntax-parse stx

@@ -36,9 +36,8 @@
 
                      get-private-table)
 
-         (for-space #f
-                    this
-                    super)
+         this
+         super
 
          prop:methods
          prop-methods-ref
@@ -351,7 +350,7 @@
       (class-desc-method-map p)
       (interface-desc-method-map p)))
 
-(define-expression-syntax this
+(define-syntax this
   (expression-transformer
    (lambda (stxs)
      (syntax-parse stxs
@@ -371,7 +370,7 @@
                                "allowed only within methods"
                                #'head)])]))))
 
-(define-expression-syntax super
+(define-syntax super
   (expression-transformer
    (lambda (stxs)
      (define c-or-id+dp+supers (syntax-parameter-value #'this-id))

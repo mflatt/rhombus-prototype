@@ -21,8 +21,7 @@
          "compound-repetition.rkt"
          "realm.rkt")
 
-(provide (for-space #f
-                    ++))
+(provide ++)
 
 (module+ for-ref
   (provide (for-syntax parse-map-ref-or-set)))
@@ -38,7 +37,7 @@
     #:datum-literals (brackets op)
     [(_ ((~and head brackets) index) _:::=-expr . rhs+tail)
      #:when (not repetition?)
-     #:with (~var rhs (:infix-op+expression+tail (in-expression-space #':=))) #'(group . rhs+tail)
+     #:with (~var rhs (:infix-op+expression+tail #':=)) #'(group . rhs+tail)
      (define map-set!-id (or (syntax-local-static-info map #'#%map-set!)
                              (if more-static?
                                  (raise-syntax-error who (not-static) map-in)
@@ -105,7 +104,7 @@
     [else
      (raise-argument-error* 'Map.assign rhombus-realm "Mutable_Map" map)]))
 
-(define-expression-syntax ++
+(define-syntax ++
   (expression-infix-operator
    (expr-quote ++)
    `((,(expr-quote +&) . same))

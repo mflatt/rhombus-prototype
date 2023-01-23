@@ -723,7 +723,7 @@
           ((sid ...) ...)
           (sid-ref ...))))))
 
-(define-expression-syntax #%quotes
+(define-syntax #%quotes
   (expression-prefix-operator
    (expr-quote #%quotes)
    '((default . stronger))
@@ -778,7 +778,7 @@
                                                               #'()
                                                               #t))))))
 
-(define-expression-syntax syntax_term
+(define-syntax syntax_term
   (expression-prefix-operator
    (expr-quote syntax_term)
    '((default . stronger))

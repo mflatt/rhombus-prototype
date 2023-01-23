@@ -51,7 +51,7 @@
    [rest cdr]
    of))
 
-(define-expression-syntax Pair
+(define-syntax Pair
   (expression-transformer
    (lambda (stx)
      (syntax-parse stx

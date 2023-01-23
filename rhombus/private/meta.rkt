@@ -17,7 +17,7 @@
   #:fields
   (bridge))
 
-(define-definition-syntax meta
+(define-syntax meta
   (declaration-transformer
    (lambda (stx)
      (syntax-parse stx

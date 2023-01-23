@@ -37,7 +37,7 @@
         #:attributes (name)
         #:description desc
         [pattern op::name
-                 #:when (free-identifier=? (expr-quote orig-id) (in-expression-space #'op.name))
+                 #:when (free-identifier=? (expr-quote orig-id) #'op.name)
                  #:attr name #'op.name])
       (define-syntax-class id-bind
         #:attributes (name)

@@ -37,9 +37,8 @@
          (submod "print.rkt" for-class))
 
 ;; the `class` form is provided by "class-together.rkt"
-(provide (for-space #f
-                    this
-                    super))
+(provide this
+         super)
 
 (module+ for-together
   (provide (for-syntax class-transformer)

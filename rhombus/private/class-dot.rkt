@@ -55,17 +55,17 @@
         (list
          (cond
            [expression-macro-rhs
-            #`(define-expression-syntax name
+            #`(define-syntax name
                 (wrap-class-transformer name
                                         #,(intro expression-macro-rhs)
                                         make-expression-prefix-operator
                                         "class"))]
            [(and constructor-given-name
                  (not (free-identifier=? #'name constructor-given-name)))
-            #`(define-expression-syntax name
+            #`(define-syntax name
                 no-constructor-transformer)]
            [else
-            #`(define-syntaxes (#,(in-expression-space #'name) #,(in-repetition-space #'name))
+            #`(define-syntaxes (name #,(in-repetition-space #'name))
                 (class-expression-transformers (quote-syntax name) (quote-syntax constructor-name)))])
          #`(define-name-root name
              #:fields ([public-field-name public-name-field]
@@ -86,7 +86,7 @@
                              (define id (if (pair? id/prop) (car id/prop) id/prop))
                              (list sym id id/prop))])
               (list
-               #`(define-syntaxes (#,(in-expression-space exposed-internal-id) #,(in-repetition-space exposed-internal-id))
+               #`(define-syntaxes (#,exposed-internal-id #,(in-repetition-space exposed-internal-id))
                    (class-expression-transformers (quote-syntax name) (quote-syntax make-internal-name)))
                #`(define-name-root #,exposed-internal-id
                    #:fields ([field-name name-field]
@@ -123,7 +123,7 @@
       (append
        method-defns
        (list
-        #`(define-expression-syntax name
+        #`(define-syntax name
             #,(cond
                 [expression-macro-rhs
                  #`(wrap-class-transformer name

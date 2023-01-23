@@ -7,5 +7,5 @@
 (provide (for-syntax is-static-call-context?))
 
 (define-for-syntax (is-static-call-context? tag)
-  (free-identifier=? (in-expression-space (datum->syntax tag '#%call))
+  (free-identifier=? (datum->syntax tag '#%call)
                      (expr-quote static-#%call)))

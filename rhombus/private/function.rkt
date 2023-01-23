@@ -253,7 +253,7 @@
                     (~optional ::kwp-arity-rest #:defaults ([kwrest? #'#f])))
               ...))))
 
-(define-expression-syntax fun
+(define-syntax fun
   (make-expression+definition-transformer
    (expression-transformer
     (lambda (stx)

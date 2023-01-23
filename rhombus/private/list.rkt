@@ -76,7 +76,7 @@
   (unless (and (pair? l) (list? l)) (raise-argument-error* 'List.rest rhombus-realm "NonemptyList" l))
   (cdr l))
 
-(define-expression iota
+(define iota
   (lambda (n)
     (unless (exact-nonnegative-integer? n)
       (raise-argument-error* 'List.iota rhombus-realm "NonnegativeInteger" n))
@@ -101,7 +101,7 @@
    repet
    of))
 
-(define-expression-syntax List
+(define-syntax List
   (expression-transformer
    ;; special cases optimize for `...` and `&`; letting it expand
    ;; instead to `(apply list ....)` is not so bad, but but we can

@@ -40,7 +40,7 @@
    [length vector-length]
    of))
 
-(define-expression-syntax Array
+(define-syntax Array
   (expression-transformer
    (lambda (stx)
      (syntax-parse stx

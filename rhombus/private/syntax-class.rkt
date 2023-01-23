@@ -23,8 +23,7 @@
          (rename-in "ellipsis.rkt"
                     [... rhombus...]))
 
-(provide (for-space #f
-                    syntax_class))
+(provide syntax_class)
 
 (module+ for-pattern-clause
   (provide (for-syntax parse-pattern-clause)))
@@ -61,7 +60,7 @@
     #:property prop:definition-transformer (lambda (self) (definition+syntax-class-parser-def self))
     #:property prop:syntax-class-parser (lambda (self) (definition+syntax-class-parser-pars self))))
 
-(define-definition-syntax syntax_class (definition+syntax-class-parser
+(define-syntax syntax_class (definition+syntax-class-parser
                                          (make-class-definer #'define-syntax)
                                          (syntax-class-parser
                                           (lambda (who stx expected-kind name tail)

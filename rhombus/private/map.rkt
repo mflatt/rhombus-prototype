@@ -106,7 +106,7 @@
 (define (hash-pairs ht)
   (for/list ([p (in-hash-pairs ht)]) p))
 
-(define-expression-syntax empty-map
+(define-syntax empty-map
   (expression-transformer
    (lambda (stx)
      (syntax-parse stx
@@ -171,7 +171,7 @@
    [has_key hash-has-key?]
    of))
 
-(define-expression-syntax Map
+(define-syntax Map
   (expression-transformer
    (lambda (stx) (parse-map stx #f))))
 
@@ -286,7 +286,7 @@
                             #'MutableMap-build)
                         #'tail)]))
 
-(define-expression-syntax MutableMap
+(define-syntax MutableMap
   (expression-transformer
    (lambda (stx) (parse-mutable-map stx #f))))
 
@@ -417,10 +417,10 @@
     [(_ map1 map2)
      (syntax-parse (unwrap-static-infos #'map2)
        [(id:identifier k:keyword v)
-        #:when (free-identifier=? (expr-quote Map-build) (in-expression-space #'id))
+        #:when (free-identifier=? (expr-quote Map-build) #'id)
         #'(hash-set map1 'k v)]
        [(id:identifier k v)
-        #:when (free-identifier=? (expr-quote Map-build) (in-expression-space #'id))
+        #:when (free-identifier=? (expr-quote Map-build) #'id)
         #'(hash-set map1 k v)]
        [_
         #'(hash-append/proc map1 map2)])]))

@@ -20,9 +20,8 @@
          (only-in "equal.rkt"
                   [= rhombus=]))
 
-(provide (for-space #f
-                    def
-                    (rename-out [rhombus-let let])))
+(provide def
+         (rename-out [rhombus-let let]))
 
 (module+ for-define
   (provide (for-syntax build-value-definitions
@@ -60,10 +59,10 @@
                                   #'rhs
                                   wrap-definition)]))))
 
-(define-definition-syntax def
+(define-syntax def
   (make-def))
 
-(define-definition-syntax rhombus-let
+(define-syntax rhombus-let
   (make-def #:wrap-definition (lambda (defn) #`(rhombus-forward #,defn))
             #:check-context (lambda (stx)
                               (when (eq? (syntax-local-context) 'top-level)

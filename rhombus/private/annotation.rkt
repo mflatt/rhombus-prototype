@@ -17,6 +17,7 @@
                      "realm.rkt"
                      "keyword-sort.rkt"
                      (for-syntax racket/base))
+         "provide.rkt"
          "enforest.rkt"
          "annotation-operator.rkt"
          "definition.rkt"
@@ -28,13 +29,11 @@
          "parse.rkt"
          "realm.rkt")
 
-(provide (for-space #f
-                    ::
-                    -:
-                    is_a)
-         (for-space rhombus/bind
-                    ::
-                    -:)
+(provide is_a
+         (for-spaces (#f
+                      rhombus/bind)
+                     ::
+                     -:)
          (for-space rhombus/annot
 
                     Any
@@ -298,17 +297,17 @@
          #'t.tail)]))
    'none))
 
-(define-expression-syntax ::
+(define-syntax ::
   (make-annotation-apply-expression-operator (expr-quote ::) #t))
 (define-binding-syntax ::
   (make-annotation-apply-binding-operator (bind-quote ::) #t))
 
-(define-expression-syntax -:
+(define-syntax -:
   (make-annotation-apply-expression-operator (expr-quote -:) #f))
 (define-binding-syntax -:
   (make-annotation-apply-binding-operator (bind-quote -:) #f))
 
-(define-expression-syntax is_a
+(define-syntax is_a
   (expression-infix-operator
    (expr-quote is_a)
    '((default . weaker))

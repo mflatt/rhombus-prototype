@@ -6,8 +6,7 @@
          "binding.rkt"
          "expression.rkt")
 
-(provide (for-space #f
-                    :=)
+(provide :=
          (for-space rhombus/bind
                     mutable))
 
@@ -50,7 +49,7 @@
 (define-syntax (mutable-bind stx)
   (syntax-parse stx
     [(_ arg-id [bind-id mutable-id])
-     #'(define-expression-syntax bind-id
+     #'(define-syntax bind-id
          (mutable-variable #'mutable-id))]))
 
 (begin-for-syntax
@@ -58,7 +57,7 @@
     #:property prop:rename-transformer (struct-field-index id))
   (define (mutable-variable-ref v) (and (mutable-variable? v) v)))
 
-(define-expression-syntax :=
+(define-syntax :=
   (expression-infix-operator
    (expr-quote :=)
    '((default . weaker))

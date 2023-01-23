@@ -47,7 +47,7 @@
                        #%call
                        static-#%call)))
 
-(define-expression-syntax #%body
+(define-syntax #%body
   (expression-transformer
    (lambda (stxes)
      (syntax-parse stxes
@@ -55,7 +55,7 @@
         (values (datum->syntax #f (cons (datum->syntax #'here 'rhombus-body #'tag #'tag) #'body) #'tag)
                 #'tail)]))))
 
-(define-expression-syntax #%block
+(define-syntax #%block
   (expression-transformer
    (lambda (stxes)
      (syntax-parse stxes
@@ -73,7 +73,7 @@
                             "misplaced;\n not allowed as a binding by itself"
                             #'b)]))))
 
-(define-expression-syntax #%literal
+(define-syntax #%literal
   (expression-transformer
    (lambda (stxes)
      (syntax-parse stxes
@@ -112,7 +112,7 @@
                       "misplaced keyword"
                       datum))
 
-(define-expression-syntax #%parens
+(define-syntax #%parens
   (expression-transformer
    (lambda (stxes)
      (syntax-parse stxes
@@ -168,8 +168,8 @@
      (parse-function-call rator '() stxes #:static? static?))
    'left))
 
-(define-expression-syntax #%call (make-#%call-expression (expr-quote #%call) #f))
-(define-expression-syntax static-#%call (make-#%call-expression (expr-quote static-#%call) #t))
+(define-syntax #%call (make-#%call-expression (expr-quote #%call) #f))
+(define-syntax static-#%call (make-#%call-expression (expr-quote static-#%call) #t))
 
 (define-for-syntax (make-#%call-repetition name static?)
   (repetition-infix-operator
@@ -183,7 +183,7 @@
 (define-repetition-syntax #%call (make-#%call-repetition (repet-quote #%call) #f))
 (define-repetition-syntax static-#%call (make-#%call-repetition (repet-quote static-#%call) #t))
 
-(define-expression-syntax #%brackets
+(define-syntax #%brackets
   (expression-transformer
    (lambda (stxes)
      (check-brackets stxes)
@@ -214,9 +214,9 @@
      (parse-map-ref-or-set array stxes more-static?))
    'left))
 
-(define-expression-syntax #%ref
+(define-syntax #%ref
   (make-#%ref (expr-quote #%ref) #f))
-(define-expression-syntax static-#%ref
+(define-syntax static-#%ref
   (make-#%ref (expr-quote #%static-ref) #t))
 
 (define-for-syntax (make-repetition-#%ref name more-static?)
@@ -233,7 +233,7 @@
 (define-repetition-syntax static-#%ref
   (make-repetition-#%ref (repet-quote static-#%ref) #t))
 
-(define-expression-syntax #%braces
+(define-syntax #%braces
   (expression-transformer
    (lambda (stxes)
      (syntax-parse stxes
