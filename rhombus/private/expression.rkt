@@ -17,7 +17,7 @@
            make-identifier-expression
 
            check-expression-result
-
+           
            in-expression-space
            expr-quote
            out-of-expression-space
@@ -47,8 +47,6 @@
         ;; leading to confusing error messages; the trade-off is
         ;; that we don't compile some things that could (would?)
         ;; end up reporting a use before definition
-        (local-require racket/pretty)
-        (pretty-print (syntax-debug-info id))
         (raise-syntax-error #f "unbound identifier" id)))
     id)
 

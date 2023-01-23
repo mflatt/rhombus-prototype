@@ -1,10 +1,9 @@
 #lang racket/base
 (require (for-syntax racket/base
                      syntax/parse/pre)
-         "provide.rkt"
          (submod "annotation.rkt" for-class))
 
-(provide (at-spaces (rhombus/ann)
+(provide (for-space rhombus/annot
                     Maybe))
 
 (define-annotation-syntax Maybe

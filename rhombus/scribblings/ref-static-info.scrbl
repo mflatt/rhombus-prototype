@@ -149,12 +149,3 @@
  See @secref("annotation-macro") for examples using some of these keys.
 
 }
-
-@doc(
-  defn.macro 'statinfo.only.macro $macro_decl'
-){
-
- Like @rhombus(statinfo.macro), but the identifier is bound only in the
- @rhombus(statinfo, ~space) @tech{space}.
-
-}

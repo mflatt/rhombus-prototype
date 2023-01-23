@@ -104,20 +104,6 @@ Like @rhombus(class_clause.macro), but for @rhombus(interface) clauses.
 }
 
 @doc(
-  defn.macro 'class_clause.only.macro $macro_decl'
-  defn.macro 'interface_clause.only.macro $macro_decl'
-  defn.macro 'class_and_interface_clause.only.macro $macro_impl'
-){
-
- Like @rhombus(class_clause.macro), @rhombus(interface_clause.macro),
- and @rhombus(class_and_interface_clause.macro), but the identifier is
- bound only in the @rhombus(class, ~space) space,
- @rhombus(interface, ~space) space, or both @tech{spaces},
- respectively.
-
-}
-
-@doc(
   fun class_meta.describe(name :: Identifier) :: class_meta.Info
   fun interface_meta.describe(name :: Identifier) :: interface_meta.Info
 ){

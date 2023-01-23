@@ -452,7 +452,9 @@
         (define id (car elems))
         (cons (datum->syntax target
                              (element tt-style
-                               (make-id-element (add-space id space-name)
+                               (make-id-element (add-space id (if (pair? (cdr elems))
+                                                                  'namespace
+                                                                  space-name))
                                                 (shrubbery-syntax->string target)
                                                 #f
                                                 #:space (list (syntax-e target) space-name)

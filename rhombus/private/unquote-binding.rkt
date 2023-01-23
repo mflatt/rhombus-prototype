@@ -43,8 +43,8 @@
 
   (define-rhombus-enforest
     #:syntax-class :unquote-binding
-    #:desc "syntax binding"
-    #:operator-desc "syntax binding operator"
+    #:desc "unquote binding"
+    #:operator-desc "unquote binding operator"
     #:in-space in-unquote-binding-space
     #:prefix-operator-ref unquote-binding-prefix-operator-ref
     #:infix-operator-ref unquote-binding-infix-operator-ref

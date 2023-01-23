@@ -60,15 +60,6 @@
 
 
 @doc(
-  defn.macro 'annot.only.macro $macro_patterns'
-){
-
- Like @rhombus(annot.macro), but the identifier
- or operator is bound only in the @rhombus(rhombus/annot, ~datum) @tech{space}.
-
-}
-
-@doc(
   syntax_class annot_meta.Group:
     kind: ~group
     field parsed
