@@ -21,18 +21,18 @@ export:
 // Instantiate enforestation and macro machinery for the
 // regexp sublanguage:
 space.enforest regexp:
-  ~space_path my/space
-  ~macro macro
-  ~meta_namespace regexp_meta:
-    ~syntax_class Group
-    ~macro_result: fun (stx, who):
-                     unless (stx is_a Syntax
-                               && (stx -: Syntax).unwrap() is_a String)
-                     | Syntax.error("bad result", stx)
-                     stx
-    ~identifier_transformer: fun (id):
+  space_path my/space
+  export_macro macro
+  meta_namespace regexp_meta:
+    export_syntax_class Group
+    macro_result: fun (stx, who):
+                    unless (stx is_a Syntax
+                              && (stx -: Syntax).unwrap() is_a String)
+                    | Syntax.error("bad result", stx)
+                    stx
+    identifier_transformer: fun (id):
                                Syntax.error("identifier not allowed", id)
-    ~desc "regexp"
+    description "regexp"
 
 expr.macro '«rx '$(pat :: regexp_meta.Group)'»':
   'pregexp($pat.parsed)'
