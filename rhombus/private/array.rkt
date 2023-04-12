@@ -17,14 +17,18 @@
          "dot-parse.rkt"
          "reducer.rkt"
          "parens.rkt"
-         "parse.rkt")
+         "parse.rkt"
+         "mutability.rkt")
 
 (provide (for-spaces (rhombus/namespace
                       #f
                       rhombus/bind
                       rhombus/annot
                       rhombus/reducer)
-                     Array))
+                     Array)
+         (for-space rhombus/annot
+                    MutableArray
+                    ImmutableArray))
 
 (module+ for-builtin
   (provide array-method-table))
@@ -59,6 +63,9 @@
         (#,(car predicate-stxs) e)))
   (lambda (static-infoss)
     #`((#%ref-result #,(car static-infoss)))))
+
+(define-annotation-syntax MutableArray (identifier-annotation #'mutable-vector? array-static-infos))
+(define-annotation-syntax ImmutableArray (identifier-annotation #'immutable-vector? array-static-infos))
 
 (define-static-info-syntax vector
   (#%call-result #,array-static-infos)

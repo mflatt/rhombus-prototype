@@ -11,11 +11,32 @@ normally bound to implement an array reference or assignment, as well
 as other operations.  An array can be used as @tech{sequence}, in which case
 it supplies its elements in order.
 
+An array is normally mutable, but immutable arrays can originate from
+Racket. The @rhombus(Array, ~annot) annotation is satisfied by both
+mutable and immutable arrays, while @rhombus(MutableArray, ~annot) and
+@rhombus(ImmutableArray, ~annot) require one or the other.
+
 @dispatch_table(
   "array",
   @rhombus(Array),
   [arr.length(), Array.length(arr)]
 )
+
+@doc(
+  annot.macro 'Array'
+  annot.macro 'Array.of($annot)'
+  annot.macro 'MutableArray'
+  annot.macro 'ImmutableArray'
+){
+
+ Matches any array in the form without @rhombus(of). The @rhombus(of)
+ variant matches an array whose elements satisfy @rhombus(annotation).
+
+ @rhombus(MutableArray, ~annot) matches only mutable arrays, and and
+ @rhombus(ImmutableArray, ~annot) matches only immutable arrays (that may
+ originate from Racket).
+
+}
 
 @doc(
   fun Array(v :: Any, ...) :: Array
@@ -37,23 +58,13 @@ it supplies its elements in order.
   bind.macro 'Array($bind, ...)'
 ){
 
- Matches an array with as many elements as @rhombus(binding)s, where
- each element matches its corresponding @rhombus(binding).
+ Matches an array with as many elements as @rhombus(bind)s, where
+ each element matches its corresponding @rhombus(bind).
 
 @examples(
   def Array(1, x, y): Array(1, 2, 3)
   y
 )
-
-}
-
-@doc(
-  annot.macro 'Array'
-  annot.macro 'Array.of($annot)'
-){
-
- Matches any array in the form without @rhombus(of). The @rhombus(of)
- variant matches an array whose elements satisfy @rhombus(annotation).
 
 }
 
