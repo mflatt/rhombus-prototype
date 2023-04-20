@@ -109,6 +109,10 @@
                (hash-set options 'binding-rhs (extract-rhs #'block))]
               [(#:annotation block) ; checked in `parse-annotation-options`
                (hash-set options 'annotation-rhs (extract-rhs #'block))]
+              [(#:dot_provider block)
+               (when (hash-has-key? options 'dot-provider-rhs)
+                 (raise-syntax-error #f "multiple binding clauses" orig-stx clause))
+               (hash-set options 'dot-provider-rhs (extract-rhs #'block))]
               [(#:nonfinal)
                (when (hash-has-key? options 'final?)
                  (raise-syntax-error #f "multiple finality clauses" orig-stx clause))

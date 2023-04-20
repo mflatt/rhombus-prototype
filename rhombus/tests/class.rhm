@@ -675,3 +675,61 @@ check:
              | me2 := other: "no"
   (CPosn(1, 2).me2 := 10).x
   ~raises values("no such field or method", "static")
+
+check:
+  ~eval
+  class Posn(x, y):
+    annotation 'Posn':
+      1
+  ~raises "result must be a template expression"
+
+check:
+  ~eval
+  class Posn(x, y):
+    dot_provider '$left Posn $right':
+      '77'
+  ~raises "dot_provider: unbound"
+
+check:
+  import rhombus/meta open
+  class Posn(x, y):
+    dot_provider '$left $dot $right':
+      '77'
+  Posn(1, 2).x
+  ~is 77
+
+block:
+  import rhombus/meta open
+  class Posn(x, y):
+    dot_provider
+    | '$left $dot z':
+        '3'
+    | '$left $dot w':
+        ~tail: tail
+        '4 $tail'
+    | '$_': #false
+  check:
+    Posn(1, 2).x + 10 ~is 11
+    Posn(1, 2).y + 10 ~is 12
+    Posn(1, 2).z + 10 ~is 13
+    Posn(1, 2).w + 10 ~is 24
+  check:
+    use_dynamic
+    Posn(1, 2).bananas + 10
+    ~raises "no such field or method"
+
+block:
+  import rhombus/meta open
+  class Posn(x, y):
+    dot_provider:
+      fun (stx, options):
+        values('[$(options[#'~is_static]),
+                 '$(options[#'~tail])']',
+               '')
+  check:
+    Posn(1, 2).x * "hi"
+    ~prints_like [#true, '* "hi"']
+  check:
+    use_dynamic
+    Posn(1, 2).x * "hi"
+    ~prints_like [#false, '* "hi"']

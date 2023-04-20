@@ -317,6 +317,8 @@
                            (class-desc-constructor-makers super)))
                   'synthesize)))
 
+       (define dot-provider-rhs (hash-ref options 'dot-provider-rhs #f))
+
        (define added-methods (reverse (hash-ref options 'methods '())))
        (define-values (method-mindex   ; symbol -> mindex
                        method-names    ; index -> symbol-or-identifier
@@ -478,7 +480,7 @@
                (build-class-dot-handling method-mindex method-vtable method-results final?
                                          has-private? method-private exposed-internal-id #'internal-of
                                          expression-macro-rhs intro (hash-ref options 'constructor-name #f)
-                                         (not annotation-rhs)
+                                         dot-provider-rhs (not annotation-rhs)
                                          #'(name constructor-name name-instance name-ref name-of
                                                  make-internal-name internal-name-instance
                                                  [public-field-name ...] [private-field-name ...] [field-name ...]

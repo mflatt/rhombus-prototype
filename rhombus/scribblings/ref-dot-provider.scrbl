@@ -58,3 +58,33 @@
  declared with the @rhombus(~tail) option.
 
 }
+
+
+@doc(
+  ~nonterminal:
+    option: dot.macro
+  class_clause.macro 'dot_provider: $entry_point'
+  class_clause.macro '«dot_provider '$pattern': $option; ...; $body; ...»',
+  class_clause.macro '«dot_provider | '$pattern': $option; ...; $body; ...
+                                    | ...»'
+  interface_clause.macro 'dot_provider: $entry_point'
+  interface_clause.macro '«dot_provider '$pattern': $option; ...; $body; ...»',
+  interface_clause.macro '«dot_provider | '$pattern': $option; ...; $body; ...
+                                        | ...»'
+){
+
+ Forms for @rhombus(class) or @rhombus(interface) to change the
+ resolution of @rhombus(.) access for an expression that has the class's
+ or interface's annotation.
+
+ When a quoted @rhombus(pattern) is specified, then it should match a
+ three-term sequence for a left-hand side, the @rhombus(.) operator, and
+ a right-hand identifier. The @rhombus(option)s and result @rhombus(body)
+ are as for @rhombus(dot.macro).
+
+ When an @rhombus(entry_point) is provided, then the resulting function
+ must accept two arguments: a three-term syntax object (like the one that
+ would be matched to a @rhombus(pattern)) and a map for options. The
+ map's keys are the keywords for @rhombus(option)s.
+
+}

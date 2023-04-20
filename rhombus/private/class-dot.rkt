@@ -26,6 +26,7 @@
          "parse.rkt"
          (submod "function-parse.rkt" for-call)
          (for-syntax "class-transformer.rkt")
+         "class-dot-transformer.rkt"
          "is-static.rkt")
 
 (provide (for-syntax build-class-dot-handling
@@ -36,7 +37,7 @@
 (define-for-syntax (build-class-dot-handling method-mindex method-vtable method-results final?
                                              has-private? method-private exposed-internal-id internal-of-id
                                              expression-macro-rhs intro constructor-given-name
-                                             export-of?
+                                             dot-provider-rhs export-of?
                                              names)
   (with-syntax ([(name constructor-name name-instance name-ref name-of
                        make-internal-name internal-name-instance
@@ -76,10 +77,15 @@
                        #,@(if export-of?
                               #`([of name-of])
                               null)))
-         #'(define-dot-provider-syntax name-instance
-             (dot-provider (make-handle-class-instance-dot (quote-syntax name)
-                                                           #hasheq()
-                                                           #hasheq()))))
+         #`(define-dot-provider-syntax name-instance
+             (dot-provider #,(let ([default #'(make-handle-class-instance-dot (quote-syntax name)
+                                                                              #hasheq()
+                                                                              #hasheq())])
+                               (if dot-provider-rhs
+                                   #`(compose-dot-providers
+                                      #,dot-provider-rhs
+                                      #,default)
+                                   default)))))
         (if exposed-internal-id
             (with-syntax ([([private-method-name private-method-id private-method-id/prop] ...)
                            (for/list ([(sym id/prop) (in-hash method-private)])

@@ -66,6 +66,7 @@
     #,(@rhombus(expression, ~class_clause)) $expression_decl
     #,(@rhombus(binding, ~class_clause)) $binding_decl
     #,(@rhombus(annotation, ~class_clause)) $annotation_decl
+    #,(@rhombus(dot_provider, ~class_clause)) $dot_provider_decl
     #,(@rhombus(opaque, ~class_clause))
     $other_class_clause
 ){
@@ -232,11 +233,16 @@
  @rhombus(binding, ~class_clause), and
  @rhombus(annotation, ~class_clause) replace default meanings of the
  defined @rhombus(id_path) for an expression context, binding
- context, and annotation context, respectively. See
+ context, and annotation context, respectively. The
+ @rhombus(dot_provider, ~class_clause) form (which must be imported
+ through @rhombusmodname(rhombus/meta)) replaces the way that
+ @rhombus(.) accesses are resolved for expressions that have the class's
+ annotation. See
  @rhombus(constructor, ~class_clause),
  @rhombus(expression, ~class_clause),
- @rhombus(binding, ~class_clause), and
- @rhombus(annotation, ~class_clause) for more information on those forms.
+ @rhombus(binding, ~class_clause),
+ @rhombus(annotation, ~class_clause), and
+ @rhombus(dot_provider, ~class_clause) for more information on those forms.
 
  When a method procedure is accessed from a class (as a namespace) via
  @rhombus(.), the procedure expects an extra by-position argument that
@@ -321,6 +327,7 @@
     #,(@rhombus(internal, ~interface_clause)) $internal_decl
     #,(@rhombus(expression, ~interface_clause)) $expression_decl
     #,(@rhombus(annotation, ~interface_clause)) $annotation_decl
+    #,(@rhombus(dot_provider, ~interface_clause)) $annotation_decl
     $other_interface_clause
 
 ){
