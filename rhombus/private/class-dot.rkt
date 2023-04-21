@@ -37,10 +37,10 @@
 (define-for-syntax (build-class-dot-handling method-mindex method-vtable method-results final?
                                              has-private? method-private exposed-internal-id internal-of-id
                                              expression-macro-rhs intro constructor-given-name
-                                             dot-provider-rhs export-of?
+                                             export-of? dot-provider-rhs parent-dot-providers
                                              names)
   (with-syntax ([(name constructor-name name-instance name-ref name-of
-                       make-internal-name internal-name-instance
+                       make-internal-name internal-name-instance dot-provider-name
                        [public-field-name ...] [private-field-name ...] [field-name ...]
                        [public-name-field ...] [name-field ...]
                        [private-field-desc ...]
@@ -76,14 +76,16 @@
                        ex ...
                        #,@(if export-of?
                               #`([of name-of])
-                              null)))
+                              null))))
+        (maybe-dot-provider-definition dot-provider-rhs #'dot-provider-name parent-dot-providers)
+        (list
          #`(define-dot-provider-syntax name-instance
              (dot-provider #,(let ([default #'(make-handle-class-instance-dot (quote-syntax name)
                                                                               #hasheq()
                                                                               #hasheq())])
-                               (if dot-provider-rhs
+                               (if (syntax-e #'dot-provider-name)
                                    #`(compose-dot-providers
-                                      #,dot-provider-rhs
+                                      (quote-syntax dot-provider-name)
                                       #,default)
                                    default)))))
         (if exposed-internal-id
@@ -117,9 +119,11 @@
 (define-for-syntax (build-interface-dot-handling method-mindex method-vtable method-results 
                                                  internal-name
                                                  expression-macro-rhs
+                                                 dot-provider-rhs parent-dot-providers
                                                  names)
   (with-syntax ([(name name-instance name-ref
                        internal-name-instance internal-name-ref
+                       dot-provider-name
                        [ex ...])
                  names])
     (define-values (method-names method-impl-ids method-defns)
@@ -140,14 +144,35 @@
         #`(define-name-root name
             #:fields ([method-name method-id]
                       ...
-                      ex ...))
-        #'(define-dot-provider-syntax name-instance
-            (dot-provider (make-handle-class-instance-dot (quote-syntax name) #hasheq() #hasheq()))))
+                      ex ...)))
+       (maybe-dot-provider-definition dot-provider-rhs #'dot-provider-name parent-dot-providers)
+       (list
+        #`(define-dot-provider-syntax name-instance
+             (dot-provider #,(let ([default #'(make-handle-class-instance-dot (quote-syntax name)
+                                                                              #hasheq()
+                                                                              #hasheq())])
+                               
+                               (if (syntax-e #'dot-provider-name)
+                                   #`(compose-dot-providers
+                                      (quote-syntax dot-provider-name)
+                                      #,default)
+                                   default)))))
        (if internal-name
            (list
             #`(define-dot-provider-syntax internal-name-instance
                 (dot-provider (make-handle-class-instance-dot (quote-syntax #,internal-name) #hasheq() #hasheq()))))
            null)))))
+
+(define-for-syntax (maybe-dot-provider-definition dot-provider-rhs dot-provider-name parent-dot-providers)
+  (if (and (syntax-e dot-provider-name)
+           (or dot-provider-rhs ((length parent-dot-providers) . > . 1)))
+      (list
+       #`(define-syntax #,dot-provider-name
+           (compose-dot-providers
+            #,@(if dot-provider-rhs (list #`(wrap-dot-provider-transformer #,dot-provider-rhs)) null)
+            #,@(for/list ([name (in-list parent-dot-providers)])
+                 #`(quote-syntax name)))))
+      null))
 
 (define-for-syntax (method-static-entries method-mindex method-vtable method-results name-ref-id final?)
   (for/fold ([names '()] [ids '()] [defns '()])

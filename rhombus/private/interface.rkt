@@ -168,6 +168,13 @@
                                (and (syntax-e id) id)))
 
        (define expression-macro-rhs (hash-ref options 'expression-macro-rhs #f))
+       (define dot-provider-rhs (hash-ref options 'dot-provider-rhs #f))
+
+       (define parent-dot-providers
+         (for/list ([parent (in-list supers)]
+                    #:do [(define dp (interface-desc-dot-provider parent))]
+                    #:when dp)
+           dp))
 
        (define (temporary template #:name [name #'name])
          (and name
@@ -177,7 +184,12 @@
                      [name-ref (temporary "~a-ref")]
                      [prop-internal:name (temporary "prop:~a" #:name internal-name)]
                      [(super-name ...) parent-names]
-                     [(export ...) exs])
+                     [(export ...) exs]
+                     [dot-provider-name (or (and (or dot-provider-rhs
+                                                     ((length parent-dot-providers) . > . 1))
+                                                 (temporary "dot-provider-~a"))
+                                            (and (pair? parent-dot-providers)
+                                                 (car parent-dot-providers)))])
          (with-syntax ([internal-name-ref (if internal-name
                                               (temporary "~a-ref" #:name internal-name)
                                               #'name-ref)])
@@ -203,15 +215,17 @@
                                                  prop:internal-name internal-name? internal-name-ref))
                (build-interface-dot-handling method-mindex method-vtable method-results
                                              internal-name
-                                             expression-macro-rhs
+                                             expression-macro-rhs dot-provider-rhs parent-dot-providers
                                              #'(name name-instance name-ref
                                                      internal-name-instance internal-name-ref
+                                                     dot-provider-name
                                                      [export ...]))
                (build-interface-desc parent-names options
                                      method-mindex method-names method-vtable method-results method-private
                                      internal-name
                                      #'(name prop:name name-ref
-                                             prop:internal-name internal-name? internal-name-ref))
+                                             prop:internal-name internal-name? internal-name-ref
+                                             dot-provider-name))
                (build-method-results added-methods
                                      method-mindex method-vtable method-private
                                      method-results
@@ -263,7 +277,8 @@
                                          internal-name
                                          names)
   (with-syntax ([(name prop:name name-ref
-                       prop:internal-name internal-name? internal-name-ref)
+                       prop:internal-name internal-name? internal-name-ref
+                       dot-provider-name)
                  names])
     (let ([method-shapes (build-quoted-method-shapes method-vtable method-names method-mindex)]
           [method-map (build-quoted-method-map method-mindex)]
@@ -284,6 +299,7 @@
                                          '#,method-map
                                          #,method-result-expr
                                          #,custom-annotation?
+                                         #f
                                          (quote #,(build-quoted-private-method-list 'method method-private))
                                          (quote #,(build-quoted-private-method-list 'property method-private)))))
            null)
@@ -299,4 +315,6 @@
                             (quote-syntax #,method-vtable)
                             '#,method-map
                             #,method-result-expr
-                            #,custom-annotation?)))))))
+                            #,custom-annotation?
+                            #,(and (syntax-e #'dot-provider-name)
+                                   #'(quote-syntax dot-provider-name)))))))))

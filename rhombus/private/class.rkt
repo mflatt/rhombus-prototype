@@ -318,6 +318,14 @@
                   'synthesize)))
 
        (define dot-provider-rhs (hash-ref options 'dot-provider-rhs #f))
+       (define parent-dot-providers
+         (for/list ([parent (in-list (cons super interfaces))]
+                    #:do [(define dp (cond
+                                       [(class-desc? parent) (class-desc-dot-provider parent)]
+                                       [(interface-desc? parent) (interface-desc-dot-provider parent)]
+                                       [else #f]))]
+                    #:when dp)
+           dp))
 
        (define added-methods (reverse (hash-ref options 'methods '())))
        (define-values (method-mindex   ; symbol -> mindex
@@ -412,7 +420,12 @@
                        [(constructor-public-field-keyword ...) constructor-public-keywords]
                        [(super-name* ...) (if super #'(super-name) '())]
                        [make-internal-name (and exposed-internal-id
-                                                (temporary "make-internal-~a"))])
+                                                (temporary "make-internal-~a"))]
+                       [dot-provider-name (or (and (or dot-provider-rhs
+                                                       ((length parent-dot-providers) . > . 1))
+                                                   (temporary "dot-provider-~a"))
+                                              (and (pair? parent-dot-providers)
+                                                   (car parent-dot-providers)))])
            (define defns
              (reorder-for-top-level
               (append
@@ -480,9 +493,9 @@
                (build-class-dot-handling method-mindex method-vtable method-results final?
                                          has-private? method-private exposed-internal-id #'internal-of
                                          expression-macro-rhs intro (hash-ref options 'constructor-name #f)
-                                         dot-provider-rhs (not annotation-rhs)
+                                         (not annotation-rhs) dot-provider-rhs parent-dot-providers
                                          #'(name constructor-name name-instance name-ref name-of
-                                                 make-internal-name internal-name-instance
+                                                 make-internal-name internal-name-instance dot-provider-name
                                                  [public-field-name ...] [private-field-name ...] [field-name ...]
                                                  [public-name-field ...] [name-field ...]
                                                  [(list 'private-field-name
@@ -512,6 +525,7 @@
                                  parent-name interface-names all-interfaces private-interfaces
                                  method-mindex method-names method-vtable method-results method-private
                                  #'(name class:name constructor-maker-name name-defaults name-ref
+                                         dot-provider-name
                                          (list (list 'super-field-name
                                                      (quote-syntax super-name-field)
                                                      (quote-syntax super-maybe-set-name-field!)
@@ -669,6 +683,7 @@
                                      method-mindex method-names method-vtable method-results method-private
                                      names)
   (with-syntax ([(name class:name constructor-maker-name name-defaults name-ref
+                       dot-provider-name
                        fields
                        ([field-name field-argument maybe-set-name-field!] ...))
                  names])
@@ -733,6 +748,8 @@
                              #t)
                       #,(and (hash-ref options 'binding-rhs #f) #t)
                       #,(and (hash-ref options 'annotation-rhs #f) #t)
+                      #,(and (syntax-e #'dot-provider-name)
+                             #'(quote-syntax dot-provider-name))
                       #,(and (syntax-e #'name-defaults)
                              #'(quote-syntax name-defaults)))))
      (if exposed-internal-id

@@ -34,7 +34,7 @@ interface DC:
     (this :: _DCer).dc
 
   dot_provider
-  | '$left . $(name && 'save_and_restore')':
+  | '$left $dot $(name && 'save_and_restore')':
       ~tail: tail
       match tail
       | ': $body':

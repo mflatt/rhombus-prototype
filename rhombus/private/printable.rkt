@@ -35,7 +35,8 @@
                   (hasheq 'print 1
                           'display 2)
                   #hasheq()
-                  #t))
+                  #t
+                  #f))
 
 (define (display_as_print v op)
   (print-internal-method v op))

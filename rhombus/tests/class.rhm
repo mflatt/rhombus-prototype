@@ -701,6 +701,7 @@ check:
 block:
   import rhombus/meta open
   class Posn(x, y):
+    nonfinal
     dot_provider
     | '$left $dot z':
         '3'
@@ -708,11 +709,15 @@ block:
         ~tail: tail
         '4 $tail'
     | '$_': #false
+  class Posn3D(z):
+    extends Posn
   check:
     Posn(1, 2).x + 10 ~is 11
     Posn(1, 2).y + 10 ~is 12
     Posn(1, 2).z + 10 ~is 13
     Posn(1, 2).w + 10 ~is 24
+    Posn3D(1, 2, 3).z + 10 ~is 13
+    Posn3D(1, 2, 3).w + 10 ~is 24
   check:
     use_dynamic
     Posn(1, 2).bananas + 10

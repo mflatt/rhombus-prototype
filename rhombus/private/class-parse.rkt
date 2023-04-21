@@ -67,6 +67,7 @@
                     custom-constructor?
                     custom-binding?
                     custom-annotation?
+                    dot-provider  ; #f or compile-time identifier
                     defaults-id)) ; #f if no arguments with defaults
 (define (class-desc-ref v) (and (class-desc? v) v))
 

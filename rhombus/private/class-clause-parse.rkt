@@ -111,7 +111,7 @@
                (hash-set options 'annotation-rhs (extract-rhs #'block))]
               [(#:dot_provider block)
                (when (hash-has-key? options 'dot-provider-rhs)
-                 (raise-syntax-error #f "multiple binding clauses" orig-stx clause))
+                 (raise-syntax-error #f "multiple dot-provider clauses" orig-stx clause))
                (hash-set options 'dot-provider-rhs (extract-rhs #'block))]
               [(#:nonfinal)
                (when (hash-has-key? options 'final?)

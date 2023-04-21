@@ -96,5 +96,5 @@
        (parse-transformer-definition-rhs (syntax->list #'pre-parseds)
                                          (syntax->list #'self-ids)
                                          (syntax->list #'extra-argument-ids)
-                                         values
+                                         #'values
                                          #`(#'() syntax-static-infos))])))
