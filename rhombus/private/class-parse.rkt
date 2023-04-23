@@ -34,7 +34,7 @@
          :options-block
 
          check-duplicate-field-names
-         check-fields-methods-distinct
+         check-fields-methods-dots-distinct
          check-consistent-subclass
          check-consistent-construction
          check-consistent-unimmplemented
@@ -67,6 +67,7 @@
                     custom-constructor?
                     custom-binding?
                     custom-annotation?
+                    dots ; list of symbols for dot syntax
                     dot-provider  ; #f or compile-time identifier
                     defaults-id)) ; #f if no arguments with defaults
 (define (class-desc-ref v) (and (class-desc? v) v))
@@ -145,8 +146,10 @@
                             id))
       (hash-set ht (syntax-e id) id))))
   
-(define (check-fields-methods-distinct stxes field-ht method-mindex method-names method-decls)
-  (for ([k (in-hash-keys field-ht)])
+(define (check-fields-methods-dots-distinct stxes field-ht method-mindex method-names method-decls dots)
+  (define dots-ht (for/hasheq ([dot (in-list dots)])
+                    (values (syntax-e (car dot)) (car dot))))
+  (define (check-method k what)
     (define id-or-sym (or (hash-ref method-decls k #f)
                           (let ([mix (hash-ref method-mindex k #f)])
                             (and mix
@@ -156,7 +159,16 @@
                      (hash-ref field-ht k #f)
                      id-or-sym))
       (raise-syntax-error #f
-                          "identifier used as both a field name and method name"
+                          (format "identifier used as both a ~a name and method name" what)
+                          stxes
+                          id)))
+  (for ([k (in-hash-keys field-ht)])
+    (check-method k "field"))
+  (for ([(k id) (in-hash dots-ht)])
+    (check-method k "dot-syntax")
+    (when (hash-ref field-ht k #f)
+      (raise-syntax-error #f
+                          "identifier used as both a field name and dot-syntax name"
                           stxes
                           id))))
 

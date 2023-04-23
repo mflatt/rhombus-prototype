@@ -42,6 +42,7 @@
                   (hasheq 'equals 0 'hash_code 1)
                   #hasheq()
                   #t
+                  '()
                   #f))
 
 (define (equal-recur-internal-method this other recur)

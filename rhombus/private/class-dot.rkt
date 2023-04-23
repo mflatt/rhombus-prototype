@@ -169,9 +169,9 @@
       (list
        #`(define-syntax #,dot-provider-name
            (compose-dot-providers
-            #,@(if dot-provider-rhs (list #`(wrap-dot-provider-transformer #,dot-provider-rhs)) null)
+            #,@(if dot-provider-rhs (list #`(wrap-class-dot-provider-transformer #,dot-provider-rhs)) null)
             #,@(for/list ([name (in-list parent-dot-providers)])
-                 #`(quote-syntax name)))))
+                 #`(quote-syntax #,name)))))
       null))
 
 (define-for-syntax (method-static-entries method-mindex method-vtable method-results name-ref-id final?)

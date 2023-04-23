@@ -317,7 +317,8 @@
                            (class-desc-constructor-makers super)))
                   'synthesize)))
 
-       (define dot-provider-rhs (hash-ref options 'dot-provider-rhs #f))
+       (define dots (hash-ref options 'dots '()))
+       (define dot-provider-rhs (and (pair? dots) #`(list #,@(map cdr dots))))
        (define parent-dot-providers
          (for/list ([parent (in-list (cons super interfaces))]
                     #:do [(define dp (cond
@@ -337,7 +338,7 @@
                        abstract-name)  ; #f or identifier for a still-abstract method
          (extract-method-tables stxes added-methods super interfaces private-interfaces final?))
 
-       (check-fields-methods-distinct stxes field-ht method-mindex method-names method-decls)
+       (check-fields-methods-dots-distinct stxes field-ht method-mindex method-names method-decls dots)
        (check-consistent-unimmplemented stxes final? abstract-name)
 
        (define exs (parse-exports #'(combine-out . exports)))
@@ -523,7 +524,7 @@
                                  constructor-defaults super-constructor+-defaults
                                  final? has-private-fields? private?s
                                  parent-name interface-names all-interfaces private-interfaces
-                                 method-mindex method-names method-vtable method-results method-private
+                                 method-mindex method-names method-vtable method-results method-private dots
                                  #'(name class:name constructor-maker-name name-defaults name-ref
                                          dot-provider-name
                                          (list (list 'super-field-name
@@ -680,7 +681,7 @@
                                      constructor-defaults super-constructor+-defaults
                                      final? has-private-fields? private?s
                                      parent-name interface-names all-interfaces private-interfaces
-                                     method-mindex method-names method-vtable method-results method-private
+                                     method-mindex method-names method-vtable method-results method-private dots
                                      names)
   (with-syntax ([(name class:name constructor-maker-name name-defaults name-ref
                        dot-provider-name
@@ -748,6 +749,7 @@
                              #t)
                       #,(and (hash-ref options 'binding-rhs #f) #t)
                       #,(and (hash-ref options 'annotation-rhs #f) #t)
+                      '#,(map car dots)
                       #,(and (syntax-e #'dot-provider-name)
                              #'(quote-syntax dot-provider-name))
                       #,(and (syntax-e #'name-defaults)

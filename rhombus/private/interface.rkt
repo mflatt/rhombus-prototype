@@ -12,7 +12,8 @@
                      (only-in "class-parse.rkt"
                               :options-block
                               in-class-desc-space
-                              check-exports-distinct))
+                              check-exports-distinct
+                              check-fields-methods-dots-distinct))
          "forwarding-sequence.rkt"
          "definition.rkt"
          "expression.rkt"
@@ -168,7 +169,10 @@
                                (and (syntax-e id) id)))
 
        (define expression-macro-rhs (hash-ref options 'expression-macro-rhs #f))
-       (define dot-provider-rhs (hash-ref options 'dot-provider-rhs #f))
+
+       (define dots (hash-ref options 'dots '()))
+       (define dot-provider-rhs (and (pair? dots) #`(list . #,(map cdr dots))))
+       (check-fields-methods-dots-distinct stxes #hasheq() method-mindex method-names method-decls dots)
 
        (define parent-dot-providers
          (for/list ([parent (in-list supers)]
@@ -221,7 +225,7 @@
                                                      dot-provider-name
                                                      [export ...]))
                (build-interface-desc parent-names options
-                                     method-mindex method-names method-vtable method-results method-private
+                                     method-mindex method-names method-vtable method-results method-private dots
                                      internal-name
                                      #'(name prop:name name-ref
                                              prop:internal-name internal-name? internal-name-ref
@@ -273,7 +277,7 @@
                                                                   (quote-syntax ((#%dot-provider name-instance))))))))))
   
 (define-for-syntax (build-interface-desc parent-names options
-                                         method-mindex method-names method-vtable method-results method-private
+                                         method-mindex method-names method-vtable method-results method-private dots
                                          internal-name
                                          names)
   (with-syntax ([(name prop:name name-ref
@@ -299,6 +303,7 @@
                                          '#,method-map
                                          #,method-result-expr
                                          #,custom-annotation?
+                                         '()
                                          #f
                                          (quote #,(build-quoted-private-method-list 'method method-private))
                                          (quote #,(build-quoted-private-method-list 'property method-private)))))
@@ -316,5 +321,6 @@
                             '#,method-map
                             #,method-result-expr
                             #,custom-annotation?
+                            '#,(map car dots)
                             #,(and (syntax-e #'dot-provider-name)
                                    #'(quote-syntax dot-provider-name)))))))))

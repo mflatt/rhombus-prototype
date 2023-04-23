@@ -23,6 +23,7 @@
                         method-map      ; same as `class-desc`
                         method-result   ; same as `class-desc`
                         custom-annotation?
+                        dots ; list of symbols for dot syntax
                         dot-provider))  ; #f or compile-time identifier
 (struct interface-internal-desc interface-desc (private-methods      ; (list symbol ...)
                                                 private-properties)) ; (list symbol ...)

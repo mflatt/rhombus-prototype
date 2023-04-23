@@ -5,7 +5,6 @@
                      (submod "syntax-object.rkt" for-quasiquote)
                      "macro-rhs.rkt"
                      (submod "dot.rkt" for-dot-provider)
-                     "entry-point.rkt"
                      "srcloc.rkt"
                      (for-syntax racket/base
                                  syntax/parse/pre
@@ -15,11 +14,12 @@
          "class-clause.rkt"
          "class-clause-tag.rkt"
          "interface-clause.rkt"
+         "op-literal.rkt"
          "parens.rkt")
 
 (provide (for-spaces (rhombus/class_clause
                       rhombus/interface_clause)
-                     dot_provider))
+                     dot))
 
 ;; see also "class-clause-primitive-macro.rkt"; this one has only
 ;; forms that need meta-time bindings, so we don't want a mate-time
@@ -27,64 +27,44 @@
 ;; meta-meta rhombus)
 
 (define-for-syntax (make-macro-clause-transformer
-                    key
                     #:clause-transformer [clause-transformer class-clause-transformer])
   (clause-transformer
    (lambda (stx data)
      (syntax-parse stx
-       #:datum-literals (group)
-       [(form-name (q-tag::quotes ((~and g-tag group) . pat))
+       #:datum-literals (group op |.|)
+       [(form-name (q-tag::quotes ((~and g-tag group)
+                                   d1::$-bind
+                                   left:identifier
+                                   (op |.|)
+                                   name:identifier))
                    (~and (_::block . _)
                          template-block))
-        (wrap-class-clause #`(#,key (block
-                                     #,(no-srcloc
-                                        #`(wrap-class-dot-transformer
-                                           (form-name (q-tag (g-tag dot-provider . pat))
-                                                      template-block))))))]
-       [(form-name (a-tag::alts
-                    (b-tag::block ((~and g0-tag group)
-                                   (q-tag::quotes ((~and g-tag group) . pat))
-                                   (~and (_::block . _)
-                                         template-block)))
-                    ...))
-        (wrap-class-clause #`(#,key (block
-                                     #,(no-srcloc
-                                        #`(wrap-class-dot-transformer
-                                           (form-name (a-tag
-                                                       (b-tag (g0-tag (q-tag (g-tag dot-provider . pat))
-                                                                      template-block))
-                                                       ...)))))))]
-       [(form-name (_::block g))
-        (wrap-class-clause #`(#,key (block (wrap-class-dot-transformer #:entry-point g))))]))))
+        (wrap-class-clause #`(#:dot
+                              name
+                              (block
+                               #,(no-srcloc
+                                  #`(class-dot-transformer
+                                     (form-name (q-tag (g-tag dot
+                                                              d1 left
+                                                              d1 dot-op
+                                                              name))
+                                                template-block))))))]))))
 
-(define-class-clause-syntax dot_provider
-  ;; note: the generated `dot_provider` summary will have `macro-expression`, but tat
-  ;; will be ignored, because a dot provider has a different shape, and we make no
-  ;; attempt to support a dot provider without meta imports; this shape is handled
-  ;; more directly in "class-dot.rkt"
-  (make-macro-clause-transformer #'#:dot_provider))
+(define-class-clause-syntax dot
+  (make-macro-clause-transformer))
 
-(define-interface-clause-syntax dot_provider
-  ;; same note as for class variant
-  (make-macro-clause-transformer #'#:dot_provider
-                                 #:clause-transformer interface-clause-transformer))
+(define-interface-clause-syntax dot
+  (make-macro-clause-transformer #:clause-transformer interface-clause-transformer))
 
 (begin-for-syntax
-  (define-syntax (wrap-class-dot-transformer stx)
+  (define-syntax (class-dot-transformer stx)
     (syntax-parse stx
       #:literals ()
       #:datum-literals (group named-macro)
-      [(_ #:entry-point g)
-       (with-syntax-parse ([(~var lam (:entry-point no-adjustments)) (respan #'g)])
-         #`(let ([name (lambda (seq dot-op static? tail)
-                         (lam.parsed seq (hash '#:op_stx dot-op
-                                               '#:is_static static?
-                                               '#:tail tail)))])
-             name))]
-      [(_ orig-stx)
-       (parse-identifier-syntax-transformer #'orig-stx
+      [(_ pat)
+       (parse-identifier-syntax-transformer #'pat
                                             #'dot-transformer-compiletime
-                                            '(#:is_static #:tail)
+                                            '(#:name_stx #:is_static #:tail)
                                             (lambda (p ct)
                                               ct)
                                             (lambda (ps ct)
@@ -97,4 +77,5 @@
                                          (syntax->list #'self-ids)
                                          (syntax->list #'extra-argument-ids)
                                          #'values
-                                         #`(#'() syntax-static-infos))])))
+                                         #`(syntax-static-infos #'() syntax-static-infos)
+                                         #:else #'#f)])))

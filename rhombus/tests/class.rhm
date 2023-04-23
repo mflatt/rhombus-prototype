@@ -686,29 +686,27 @@ check:
 check:
   ~eval
   class Posn(x, y):
-    dot_provider '$left Posn $right':
+    dot '$left . sevens':
       '77'
-  ~raises "dot_provider: unbound"
+  ~raises "dot: unbound"
 
 check:
   import rhombus/meta open
   class Posn(x, y):
-    dot_provider '$left $dot $right':
+    dot '$left . sevens':
       '77'
-  Posn(1, 2).x
+  Posn(1, 2).sevens
   ~is 77
 
 block:
   import rhombus/meta open
   class Posn(x, y):
     nonfinal
-    dot_provider
-    | '$left $dot z':
-        '3'
-    | '$left $dot w':
-        ~tail: tail
-        '4 $tail'
-    | '$_': #false
+    dot '$left . z':
+      '3'
+    dot '$left . w':
+      ~tail: tail
+      '4 $tail'
   class Posn3D(z):
     extends Posn
   check:
@@ -726,15 +724,45 @@ block:
 block:
   import rhombus/meta open
   class Posn(x, y):
-    dot_provider:
-      fun (stx, options):
-        values('[$(options[#'~is_static]),
-                 '$(options[#'~tail])']',
-               '')
+    dot '$left . eat':
+      ~is_static: is_static
+      ~tail: tail
+      values('[$is_static,
+               '$tail']',
+             '')
   check:
-    Posn(1, 2).x * "hi"
+    Posn(1, 2).eat * "hi"
     ~prints_like [#true, '* "hi"']
   check:
     use_dynamic
-    Posn(1, 2).x * "hi"
+    Posn(1, 2).eat * "hi"
     ~prints_like [#false, '* "hi"']
+
+check:
+  ~eval
+  import rhombus/meta open
+  class Posn(x, y):
+    dot '$left . x':
+      '77'
+  ~raises "identifier used as both a field name and dot-syntax name"
+
+check:
+  ~eval
+  import rhombus/meta open
+  class Posn(x, y):
+    method sevens(): 777
+    dot '$left . sevens':
+      '77'
+  ~raises "identifier used as both a dot-syntax name and method name"
+
+check:
+  ~eval
+  import rhombus/meta open
+  class Posn(x, y):
+    nonfinal
+    dot '$left . sevens':
+      '77'
+  class Posn3D(z):
+    extends Posn
+    method sevens(): 777
+  ~raises "identifier used as both a dot-syntax name and method name"

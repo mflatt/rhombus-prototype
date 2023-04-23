@@ -33,21 +33,20 @@ interface DC:
   private method get_dc():
     (this :: _DCer).dc
 
-  dot_provider
-  | '$left . $(name && 'save_and_restore')':
-      ~tail: tail
-      match tail
-      | ': $body':
-          values('block:
-                    let dc :: DC = $left
-                    try:
-                      ~initially dc.push()
-                      block $tail
-                      ~finally dc.pop()',
-                 '')
-      | _:
-          Syntax.error("expected a block afterward", name)
-  | '$_': #false    
+  dot '$left . save_and_restore':
+    ~name_stx: name
+    ~tail: tail
+    match tail
+    | ': $body':
+        values('block:
+                  let dc :: DC = $left
+                  try:
+                    ~initially dc.push()
+                    block $tail
+                    ~finally dc.pop()',
+               '')
+    | _:
+        Syntax.error("expected a block afterward", name)
 
   property size :: matching([_ :: NonnegReal,
                              _ :: NonnegReal]):
