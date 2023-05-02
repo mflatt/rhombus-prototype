@@ -165,19 +165,16 @@
                   converter)   ; can be `(lambda (arg ... success-k fail-k) ....)` for multiple results
     #:description "return annotation"
     #:datum-literals (block group)
-    (pattern (~seq op::name (~optional vls:identifier) (_::parens g ...))
-             #:do [(define check? (free-identifier=? (in-binding-space #'op.name) (in-binding-space #'::)))]
-             #:when (and (or check?
-                             (free-identifier=? (in-binding-space #'op.name) (in-binding-space #':~)))
-                         (or (not (attribute vls))
-                             (free-identifier=? #'vls #'values)))
+    (pattern (~seq ann-op::annotate-op (~optional vls:identifier) (_::parens g ...))
+             #:when (or (not (attribute vls))
+                        (free-identifier=? #'vls #'values))
              #:with (c::annotation ...) #'(g ...)
              #:with (arg ...) (generate-temporaries #'(g ...))
              #:do [(define-values (sis cvtr)
                      (syntax-parse #'(c.parsed ...)
                        [(c-parsed::annotation-predicate-form ...)
                         (values #'((#%values (c-parsed.static-infos ...)))
-                                (if check?
+                                (if (syntax-e #'ann-op.check?)
                                     #'(lambda (arg ... success-k fail-k)
                                         (if (and (c-parsed.predicate arg) ...)
                                             (success-k arg ...)
@@ -187,39 +184,37 @@
                         #:with (arg-parsed::binding-form ...) #'(c-parsed.binding ...)
                         #:with (arg-impl::binding-impl ...) #'((arg-parsed.infoer-id () arg-parsed.data) ...)
                         #:with (all-arg-info::binding-info ...) #'(arg-impl.info ...)
-                        (syntax-parse #'(all-arg-info.bind-infos ...)
-                          [(((bind-id bind-use . static-infos)) ...)
-                           (values #'((#%values (static-infos ...)))
-                                   #`(lambda (arg ... success-k fail-k)
-                                       #,(let loop ([args (syntax->list #'(arg ...))]
-                                                    [arg-impl-infos (syntax->list #'(arg-impl.info ...))]
-                                                    [bind-ids (syntax->list #'(bind-id ...))])
-                                           (cond
-                                             [(null? args) #'(success-k arg ...)]
-                                             [else
-                                              (with-syntax-parse ([arg-info::binding-info (car arg-impl-infos)]
-                                                                  [v (car args)])
-                                                #`(arg-info.matcher-id v
-                                                                       arg-info.data
-                                                                       if/blocked
-                                                                       (begin
-                                                                         (arg-info.committer-id v arg-info.data)
-                                                                         (arg-info.binder-id v arg-info.data)
-                                                                         (let ([#,(car args) #,(car bind-ids)])
-                                                                           #,(loop (cdr args) (cdr arg-impl-infos) (cdr bind-ids))))
-                                                                       (fail-k)))]))))])]))]
+                        (values #'((#%values (c-parsed.static-infos ...)))
+                                #`(lambda (arg ... success-k fail-k)
+                                    #,(let loop ([args (syntax->list #'(arg ...))]
+                                                 [arg-impl-infos (syntax->list #'(arg-impl.info ...))]
+                                                 [bodys (syntax->list #'(c-parsed.body ...))])
+                                        (cond
+                                          [(null? args) #'(success-k arg ...)]
+                                          [else
+                                           (with-syntax-parse ([arg-info::binding-info (car arg-impl-infos)]
+                                                               [((bind-id bind-use . bind-static-infos) ...) #'arg-info.bind-infos]
+                                                               [v (car args)])
+                                             #`(arg-info.matcher-id v
+                                                                    arg-info.data
+                                                                    if/blocked
+                                                                    (begin
+                                                                      (arg-info.committer-id v arg-info.data)
+                                                                      (arg-info.binder-id v arg-info.data)
+                                                                      (define-static-info-syntax/maybe bind-id . bind-static-infos)
+                                                                      ...
+                                                                      (let ([#,(car args) #,(car bodys)])
+                                                                        #,(loop (cdr args) (cdr arg-impl-infos) (cdr bodys))))
+                                                                    (fail-k)))]))))]))]
              #:attr static-infos sis
              #:attr converter cvtr)
-    (pattern (~seq op::name ctc0::not-block ctc::not-block ...)
-             #:do [(define check? (free-identifier=? (in-binding-space #'op.name) (in-binding-space #'::)))]
-             #:when (or check?
-                        (free-identifier=? (in-binding-space #'op.name) (in-binding-space #':~)))
+    (pattern (~seq ann-op::annotate-op ctc0::not-block ctc::not-block ...)
              #:with c::annotation (no-srcloc #`(#,group-tag ctc0 ctc ...))
              #:do [(define-values (sis cvtr)
                      (syntax-parse #'c.parsed
                        [c-parsed::annotation-predicate-form
                         (values #'c-parsed.static-infos
-                                (if check?
+                                (if (syntax-e #'ann-op.check?)
                                     #'(lambda (v success-k fail-k)
                                         (if (c-parsed.predicate v)
                                             (success-k v)
@@ -230,8 +225,8 @@
                         #:with arg-impl::binding-impl #'(arg-parsed.infoer-id () arg-parsed.data)
                         #:with arg-info::binding-info #'arg-impl.info
                         (syntax-parse #'arg-info.bind-infos
-                          [((bind-id bind-use . static-infos))
-                           (values #'static-infos
+                          [((bind-id bind-use . bind-static-infos) ...)
+                           (values #'c-parsed.static-infos
                                    #'(lambda (v success-k fail-k)
                                        (arg-info.matcher-id v
                                                             arg-info.data
@@ -239,7 +234,9 @@
                                                             (begin
                                                               (arg-info.committer-id v arg-info.data)
                                                               (arg-info.binder-id v arg-info.data)
-                                                              (success-k bind-id))
+                                                              (define-static-info-syntax/maybe bind-id . bind-static-infos)
+                                                              ...
+                                                              (success-k c-parsed.body))
                                                             (fail-k))))])]))]
              #:attr static-infos sis
              #:attr converter cvtr)

@@ -75,25 +75,6 @@
                          #'name-instance
                          #'make-converted-name)])))))
 
-(define-for-syntax (make-curried-annotation-of-tranformer super-annotation-id)
-  (lambda (tail predicate-stx static-infos
-                sub-n kws predicate-maker info-maker)
-    (syntax-parse tail
-      [(form-id p-term (tag::parens g ...) . new-tail)
-       #:with p::annotation #`(#,group-tag #,super-annotation-id (op |.|) of p-term)
-       (define-values (ann c-tail) (parse-annotation-of #'(form-id (tag g ...))
-                                                        predicate-stx static-infos
-                                                        sub-n kws predicate-maker info-maker))
-       (with-syntax-parse ([p::annotation-predicate-form #'p.parsed]
-                           [c::annotation-predicate-form ann])
-         (values (annotation-predicate-form
-                  #`(let ([p? p.predicate]
-                          [c? c.predicate])
-                      (lambda (v) (and (p? v) (c? v))))
-                  (append (syntax->list #'p.static-infos)
-                          #'c.static-infos))
-                 #'new-tail))])))
-
 (define-for-syntax (make-class-instance-predicate accessors)
   (lambda (arg predicate-stxs)
     #`(and #,@(for/list ([acc (in-list accessors)]

@@ -36,13 +36,12 @@
     [(_ static-infos (lhs-i::binding-form rhs-i::binding-form))
      #:with lhs-impl::binding-impl #'(lhs-i.infoer-id static-infos lhs-i.data)
      #:with lhs::binding-info #'lhs-impl.info
-     #:with (lhs-static-info ...) #'lhs.static-infos
-     #:with rhs-impl::binding-impl #'(rhs-i.infoer-id (lhs-static-info ... . static-infos) rhs-i.data)
+     #:with rhs-impl::binding-impl #`(rhs-i.infoer-id #,(static-infos-union #'lhs.static-infos #'static-infos) rhs-i.data)
      #:with rhs::binding-info #'rhs-impl.info
      #:with (lhs-bind-info ...) #'lhs.bind-infos
      (binding-info (annotation-string-and (syntax-e #'lhs.annotation-str) (syntax-e #'rhs.annotation-str))
                    #'lhs.name-id
-                   #'(lhs-static-info ... . rhs.static-infos)
+                   #'rhs.static-infos ; presumably includes `lhs.static-infos` as passed to `rhs-id.infoer-id`
                    #'(lhs-bind-info ... . rhs.bind-infos)
                    #'and-matcher
                    #'and-committer
