@@ -154,7 +154,7 @@
                                 #'((arg ...) ...) #'((arg.parsed ...) ...)
                                 #'(rest.arg ...) #'(rest.parsed ...)
                                 #'(rest.kwarg ...) #'(rest.kwparsed ...)
-                                #'(ret.predicate ...)
+                                #'(ret.converter ...)
                                 #'(rhs ...)
                                 #'form-id #'alts-tag))
          (maybe-add-function-result-definition
@@ -178,12 +178,12 @@
          (check-consistent stx (cons the-name names) "name" #:has-main? #t)
          (define-values (proc arity)
            (build-case-function no-adjustments
-                                the-name #'main-ret.predicate
+                                the-name #'main-ret.converter
                                 #'((arg.kw ...) ...)
                                 #'((arg ...) ...) #'((arg.parsed ...) ...)
                                 #'(rest.arg ...) #'(rest.parsed ...)
                                 #'(rest.kwarg ...) #'(rest.kwparsed ...)
-                                #'(ret.predicate ...)
+                                #'(ret.converter ...)
                                 #'(rhs ...)
                                 #'form-id #'alts-tag))
          (maybe-add-function-result-definition
@@ -201,7 +201,7 @@
                            #'(arg.kw ...) #'(arg ...) #'(arg.parsed ...) #'(arg.default ...)
                            #'rest.arg #'rest.parsed
                            #'rest.kwarg #'rest.kwparsed
-                           #'ret.predicate
+                           #'ret.converter
                            #'rhs
                            #'form-id #'parens-tag))
          (maybe-add-function-result-definition
@@ -257,7 +257,7 @@
                             #'((arg ...) ...) #'((arg.parsed ...) ...)
                             #'(rest.arg ...) #'(rest.parsed ...)
                             #'(rest.kwarg ...) #'(rest.kwparsed ...)
-                            #'(ret.predicate ...)
+                            #'(ret.converter ...)
                             #'(rhs ...)
                             #'form-id #'alts-tag))
      (values (if arity
@@ -276,12 +276,12 @@
                       . tail)))
      (define-values (proc arity)
        (build-case-function adjustments
-                            (get-local-name #'form-id) #'main-ret.predicate
+                            (get-local-name #'form-id) #'main-ret.converter
                             #'((arg.kw ...) ...)
                             #'((arg ...) ...) #'((arg.parsed ...) ...)
                             #'(rest.arg ...) #'(rest.parsed ...)
                             #'(rest.kwarg ...) #'(rest.kwparsed ...)
-                            #'(ret.predicate ...)
+                            #'(ret.converter ...)
                             #'(rhs ...)
                             #'form-id #'alts-tag))
      (values (wrap-function-static-info
@@ -299,7 +299,7 @@
                        #'(arg.kw ...) #'(arg ...) #'(arg.parsed ...) #'(arg.default ...)
                        #'rest.arg #'rest.parsed
                        #'rest.kwarg #'rest.kwparsed
-                       #'ret.predicate
+                       #'ret.converter
                        #'rhs
                        #'form-id #'parens-tag))
      (values (let* ([fun (if (pair? (syntax-e #'ret.static-infos))

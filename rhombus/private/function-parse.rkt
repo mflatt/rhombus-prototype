@@ -162,7 +162,7 @@
 
   (define-splicing-syntax-class :ret-annotation
     #:attributes (static-infos ; can be `(#%values (static-infos ...))` for multiple results
-                  predicate)   ; can be `(lambda (arg ...) ....)` for multiple results
+                  converter)   ; can be `(lambda (arg ... success-k fail-k) ....)` for multiple results
     #:description "return annotation"
     #:datum-literals (block group)
     (pattern (~seq op::name (~optional vls:identifier) (_::parens g ...))
@@ -172,21 +172,80 @@
                          (or (not (attribute vls))
                              (free-identifier=? #'vls #'values)))
              #:with (c::annotation ...) #'(g ...)
-             #:with (c-parsed::annotation-predicate-form ...) #'(c.parsed ...)
              #:with (arg ...) (generate-temporaries #'(g ...))
-             #:attr static-infos #'((#%values (c-parsed.static-infos ...)))
-             #:attr predicate (if check? #'(lambda (arg ...) (and (c-parsed.predicate arg) ...)) #'#f))
+             #:do [(define-values (sis cvtr)
+                     (syntax-parse #'(c.parsed ...)
+                       [(c-parsed::annotation-predicate-form ...)
+                        (values #'((#%values (c-parsed.static-infos ...)))
+                                (if check?
+                                    #'(lambda (arg ... success-k fail-k)
+                                        (if (and (c-parsed.predicate arg) ...)
+                                            (success-k arg ...)
+                                            (fail-k)))
+                                    #'#f))]
+                       [(c-parsed::annotation-binding-form ...)
+                        #:with (arg-parsed::binding-form ...) #'(c-parsed.binding ...)
+                        #:with (arg-impl::binding-impl ...) #'((arg-parsed.infoer-id () arg-parsed.data) ...)
+                        #:with (all-arg-info::binding-info ...) #'(arg-impl.info ...)
+                        (syntax-parse #'(all-arg-info.bind-infos ...)
+                          [(((bind-id bind-use . static-infos)) ...)
+                           (values #'((#%values (static-infos ...)))
+                                   #`(lambda (arg ... success-k fail-k)
+                                       #,(let loop ([args (syntax->list #'(arg ...))]
+                                                    [arg-impl-infos (syntax->list #'(arg-impl.info ...))]
+                                                    [bind-ids (syntax->list #'(bind-id ...))])
+                                           (cond
+                                             [(null? args) #'(success-k arg ...)]
+                                             [else
+                                              (with-syntax-parse ([arg-info::binding-info (car arg-impl-infos)]
+                                                                  [v (car args)])
+                                                #`(arg-info.matcher-id v
+                                                                       arg-info.data
+                                                                       if/blocked
+                                                                       (begin
+                                                                         (arg-info.committer-id v arg-info.data)
+                                                                         (arg-info.binder-id v arg-info.data)
+                                                                         (let ([#,(car args) #,(car bind-ids)])
+                                                                           #,(loop (cdr args) (cdr arg-impl-infos) (cdr bind-ids))))
+                                                                       (fail-k)))]))))])]))]
+             #:attr static-infos sis
+             #:attr converter cvtr)
     (pattern (~seq op::name ctc0::not-block ctc::not-block ...)
              #:do [(define check? (free-identifier=? (in-binding-space #'op.name) (in-binding-space #'::)))]
              #:when (or check?
                         (free-identifier=? (in-binding-space #'op.name) (in-binding-space #':~)))
              #:with c::annotation (no-srcloc #`(#,group-tag ctc0 ctc ...))
-             #:with c-parsed::annotation-predicate-form #'c.parsed
-             #:attr static-infos #'c-parsed.static-infos
-             #:attr predicate (if check? #'c-parsed.predicate #'#f))
+             #:do [(define-values (sis cvtr)
+                     (syntax-parse #'c.parsed
+                       [c-parsed::annotation-predicate-form
+                        (values #'c-parsed.static-infos
+                                (if check?
+                                    #'(lambda (v success-k fail-k)
+                                        (if (c-parsed.predicate v)
+                                            (success-k v)
+                                            (fail-k)))
+                                    #'#f))]
+                       [c-parsed::annotation-binding-form
+                        #:with arg-parsed::binding-form #'c-parsed.binding
+                        #:with arg-impl::binding-impl #'(arg-parsed.infoer-id () arg-parsed.data)
+                        #:with arg-info::binding-info #'arg-impl.info
+                        (syntax-parse #'arg-info.bind-infos
+                          [((bind-id bind-use . static-infos))
+                           (values #'static-infos
+                                   #'(lambda (v success-k fail-k)
+                                       (arg-info.matcher-id v
+                                                            arg-info.data
+                                                            if/blocked
+                                                            (begin
+                                                              (arg-info.committer-id v arg-info.data)
+                                                              (arg-info.binder-id v arg-info.data)
+                                                              (success-k bind-id))
+                                                            (fail-k))))])]))]
+             #:attr static-infos sis
+             #:attr converter cvtr)
     (pattern (~seq)
              #:attr static-infos #'()
-             #:attr predicate #'#f))
+             #:attr converter #'#f))
 
   (define-splicing-syntax-class :pos-rest
     #:attributes [arg parsed]
@@ -255,7 +314,7 @@
 
 (begin-for-syntax
 
-  (struct fcase (kws args arg-parseds rest-arg rest-arg-parsed kwrest-arg kwrest-arg-parsed pred rhs))
+  (struct fcase (kws args arg-parseds rest-arg rest-arg-parsed kwrest-arg kwrest-arg-parsed converter rhs))
 
   ;; usage: (fcase-pos fcase-args fc) or (fcase-pos fcase-arg-parseds fc)
   (define (fcase-pos get-args fc)
@@ -269,7 +328,7 @@
                           kws args arg-parseds defaults
                           rest-arg rest-parsed
                           kwrest-arg kwrest-parsed
-                          pred
+                          converter
                           rhs
                           start end)
     (with-syntax-parse ([(arg-parsed::binding-form ...) arg-parseds]
@@ -323,7 +382,7 @@
                 maybe-match-kwrest
                 (begin
                   (add-annotation-check
-                   #,function-name #,pred #f
+                   #,function-name #,converter #f
                    (rhombus-body-expression rhs))))))
           (define (adjust-args args)
             (append (entry-point-adjustments-prefix-arguments adjustments)
@@ -342,11 +401,11 @@
            arity)))))
 
   (define (build-case-function adjustments
-                               function-name main-pred-stx
+                               function-name main-converter-stx
                                kwss-stx argss-stx arg-parsedss-stx
                                rest-args-stx rest-parseds-stx
                                kwrest-args-stx kwrest-parseds-stx
-                               preds-stx
+                               converters-stx
                                rhss-stx
                                start end)
     (define kwss (map syntax->list (syntax->list kwss-stx)))
@@ -356,11 +415,11 @@
     (define rest-parseds (syntax->list rest-parseds-stx))
     (define kwrest-args (syntax->list kwrest-args-stx))
     (define kwrest-parseds (syntax->list kwrest-parseds-stx))
-    (define preds (syntax->list preds-stx))
+    (define converters (syntax->list converters-stx))
     (define rhss (syntax->list rhss-stx))
     (define n+sames
       (group-by-counts
-       (map fcase kwss argss arg-parsedss rest-args rest-parseds kwrest-args kwrest-parseds preds rhss)))
+       (map fcase kwss argss arg-parsedss rest-args rest-parseds kwrest-args kwrest-parseds converters rhss)))
     (define pos-arity
       (normalize-arity
        (let ([adj (length (entry-point-adjustments-prefix-arguments adjustments))])
@@ -433,7 +492,7 @@
                                                [(arg-impl::binding-impl ...) #'((arg-parsed.infoer-id () arg-parsed.data) ...)]
                                                [(arg-info::binding-info ...) #'(arg-impl.info ...)]
                                                [(this-arg-id ...) this-args]
-                                               [pred (fcase-pred fc)]
+                                               [converter (fcase-converter fc)]
                                                [rhs (fcase-rhs fc)]
                                                [(maybe-match-rest (maybe-bind-rest-seq ...) (maybe-bind-rest ...))
                                                 (cond
@@ -489,7 +548,7 @@
                                              (length (fcase-args fc)))
                                             #`(add-annotation-check
                                                #,function-name
-                                               pred #,main-pred-stx
+                                               converter #,main-converter-stx
                                                (rhombus-body-expression rhs))))))))]))])))))
      arity))
 
@@ -646,55 +705,63 @@
 
 (define-syntax (add-annotation-check stx)
   (syntax-parse stx
-    [(_ name pred main-pred e)
+    [(_ name converter main-converter e)
      (cond
-       [(or (syntax-e #'pred)
-            (syntax-e #'main-pred))
+       [(or (syntax-e #'converter)
+            (syntax-e #'main-converter))
         (define (multi-result? e) (syntax-parse e
                                     #:literals (lambda)
                                     [(lambda (_ _ . _) . _) #t]
                                     [(lambda () . _) #t]
                                     [_ #f]))
         (cond
-          [(or (multi-result? #'pred)
-               (multi-result? #'main-pred))
-           (define (wrap-values pred e)
-             (syntax-parse pred
+          [(or (multi-result? #'converter)
+               (multi-result? #'main-converter))
+           (define (wrap-values converter e)
+             (define (simple)
+               #`(let ([result #,e])
+                   (#,converter result
+                    (lambda (v) v)
+                    (lambda ()
+                      (raise-result-failure 'name result)))))
+             (syntax-parse converter
                #:literals (lambda)
-               [(lambda (arg ...) . _)
+               [(lambda (arg success-k fail-k) . _) (simple)]
+               [(lambda (arg ... success-k fail-k) . _)
                 #`(call-with-values
                    (lambda () #,e)
                    (case-lambda
                      [(arg ...)
-                      (if (#,pred arg ...)
-                          (values arg ...)
-                          (raise-results-failure 'name (list arg ...)))]
+                      (#,converter arg ...
+                       values
+                       (lambda ()
+                         (raise-results-failure 'name (list arg ...))))]
                      [args (raise-results-failure 'name args)]))]
-               [_ #`(let ([result #,e])
-                      (if (#,pred result)
-                          result
-                          (raise-result-failure 'name result)))]))
+               [_ (simple)]))
            (cond
-             [(and (syntax-e #'pred)
-                   (syntax-e #'main-pred))
-              (wrap-values #'main-pred (wrap-values #'pred #'e))]
-             [(syntax-e #'pred)
-              (wrap-values #'pred #'e)]
+             [(and (syntax-e #'converter)
+                   (syntax-e #'main-converter))
+              (wrap-values #'main-converter (wrap-values #'converter #'e))]
+             [(syntax-e #'converter)
+              (wrap-values #'converter #'e)]
              [else
-              (wrap-values #'main-pred #'e)])]
+              (wrap-values #'main-converter #'e)])]
           [else
            #`(let ([result e])
-               (if #,(cond
-                       [(and (syntax-e #'pred)
-                             (syntax-e #'main-pred))
-                        #'(and (pred result)
-                               (main-pred result))]
-                       [(syntax-e #'pred)
-                        #'(pred result)]
-                       [else
-                        #'(main-pred result)])
-                   result
-                   (raise-result-failure 'name result)))])]
+               #,(let ([succcess-k #'(lambda (x) x)]
+                       [fail-k #'(lambda () (raise-result-failure 'name result))])
+                   (cond
+                     [(and (syntax-e #'converter)
+                           (syntax-e #'main-converter))
+                      #'(let ([fail-k #,fail-k])
+                          (converter result
+                                     (lambda (result)
+                                       (main-converter #,success-k fail-k))
+                                     fail-k))]
+                     [(syntax-e #'converter)
+                      #'(converter result #,success-k #,fail-k)]
+                     [else
+                      #'(main-converter result #,success-k #,fail-k)])))])]
        [else #'e])]))
 
 (define (raise-result-failure who val)
@@ -1037,3 +1104,6 @@
                                 "duplicate keyword in in keyword-argument maps"
                                 "keyword" kw))
       (hash-set accum-ht kw arg))))
+
+(define-syntax-rule (if/blocked tst thn els)
+  (if tst (let () thn) els))

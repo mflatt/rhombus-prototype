@@ -16,6 +16,7 @@
                      "annotation-string.rkt"
                      "realm.rkt"
                      "keyword-sort.rkt"
+                     "with-syntax.rkt"
                      (for-syntax racket/base))
          "provide.rkt"
          "enforest.rkt"
@@ -84,8 +85,11 @@
              :annotation-infix-op+form+tail
 
              annotation-predicate-form
+             annotation-binding-form
 
-             parse-annotation-of))
+             parse-annotation-of
+
+             check-single-variable-binding))
   
   (provide define-annotation-syntax
            define-annotation-constructor
@@ -163,8 +167,9 @@
     (pattern (#:pred predicate static-infos)))
   (define-syntax-class :annotation-binding-form
     #:attributes (binding)
-    (pattern (#:bind binding))
+    (pattern (#:bind binding)) ; binding is `:binding-impl`, but the annotation-str of eventual `:binding-info` is not used
     (pattern (#:pred predicate static-infos)
+             ;; coerce to the more general binding form (so all annotations kinds can be handled this way)
              #:attr binding (binding-form #'annotation-predicate-binding-infoer
                                           #'(predicate static-infos))))
 
@@ -328,7 +333,7 @@
                                            (arg-info.committer-id tmp-id arg-info.data)
                                            (arg-info.binder-id tmp-id arg-info.data)
                                            bind-id)
-                                         (raise-::-annotation-failure tmp-id 'arg-info.annotation-str)))
+                                         (raise-::-annotation-failure tmp-id '#,(shrubbery-syntax->string #'t))))
                 #'static-infos)]
               [_
                (raise-syntax-error #f "binding form did not produce exactly one binding" #'t)])])
@@ -458,7 +463,7 @@
                         #'bind-via-converted
                         #'([left.matcher-id left.committer-id left.binder-id left.data]
                            bind-id tmp-id
-                           [arg-info.matcher-id arg-info.committer-id arg-info.binder-id arg-info.data])))
+                           [arg-info.matcher-id arg-info.committer-id arg-info.binder-id arg-info.data annotation-str])))
         (cond
           [(free-identifier=? #'always-succeed #'left.matcher-id)
            ;; in this case, we can commit and bind lazily for the annotation's binding
@@ -476,7 +481,7 @@
   (syntax-parse stx
     [(_ arg-id ([left-matcher-id left-committer-id left-binder-id left-data]
                 bind-id tmp-id
-                [arg-matcher-id arg-committer-id arg-binder-id arg-data])
+                [arg-matcher-id arg-committer-id arg-binder-id arg-data arg-annotation-str])
         IF success fail)
      ;; If we get here, then `left-matcher-id` is `always-succeed`
      #'(arg-matcher-id arg-id
@@ -489,7 +494,7 @@
   (syntax-parse stx
     [(_ arg-id ([left-matcher-id left-committer-id left-binder-id left-data]
                 bind-id tmp-id
-                [arg-matcher-id arg-committer-id arg-binder-id arg-data]))
+                [arg-matcher-id arg-committer-id arg-binder-id arg-data arg-annotation-str]))
      #'(begin
          (arg-committer-id arg-id arg-data)
          (arg-binder-id arg-id arg-data)
@@ -506,7 +511,7 @@
   (syntax-parse stx
     [(_ arg-id ([left-matcher-id left-committer-id left-binder-id left-data]
                 bind-id tmp-id
-                [arg-matcher-id arg-committer-id arg-binder-id arg-data])
+                [arg-matcher-id arg-committer-id arg-binder-id arg-data arg-annotation-str])
         IF success fail)
      ;; Since we need to use `left-matcher-id` on the converted value, we
      ;; cannot delay `arg-committer-id` and `arg-binder-id` if `arg-match-id`
@@ -519,7 +524,7 @@
                                               arg-info.data
                                               if/blocked
                                               (void)
-                                              (raise-::-annotation-failure tmp-id 'arg-info.annotation-str))
+                                              (raise-::-annotation-failure tmp-id 'arg-annotation-str))
                          (arg-info.committer-id tmp-id arg-info.data)
                          (arg-info.binder-id arg-info.name-id arg-info.data)
                          (left-matcher-id bind-id
@@ -536,7 +541,6 @@
                 arg-ignored-because-done))
      ;; If we get here, then `left-matcher-id` is `always-succeed`
      #'(left-committer-id bind-id left-data)]))
-
 
 (define-syntax (annotation-of-infoer stx)
   (syntax-parse stx
@@ -589,6 +593,35 @@
   (syntax-parse stx
     [(_ arg-id [bind-id temp-id convert])
      #'(define bind-id temp-id)]))
+
+(define-syntax (annotation-predicate-binding-infoer stx)
+  (syntax-parse stx
+    [(_ left-static-infos (predicate static-infos))
+     (binding-info #'"<converted predicate>"
+                   #'arg
+                   #'static-infos
+                   #`((arg (0) . static-infos))
+                   #'predicate-binding-matcher
+                   #'predicate-binding-committer
+                   #'predicate-binding-binder
+                   #`[arg predicate])]))
+
+(define-syntax (predicate-binding-matcher stx)
+  (syntax-parse stx
+    [(_ arg-id [bind-id predicate]
+        IF success fail)
+     #'(IF (predicate arg-id) success fail)]))
+
+
+(define-syntax (predicate-binding-committer stx)
+  (syntax-parse stx
+    [(_ arg-id [bind-id predicate])
+     #'(begin)]))
+
+(define-syntax (predicate-binding-binder stx)
+  (syntax-parse stx
+    [(_ arg-id [bind-id predicate])
+     #'(define bind-id arg-id)]))
 
 ;; ----------------------------------------
 
@@ -704,21 +737,25 @@
      (syntax-parse stx
        #:datum-literals (parens)
        [(_ (parens arg::binding) . tail)
-        ;; apply the binding, even though we're going to discard this expansion,
-        ;; to make sure that it produces a single binding
-        #:with arg-parsed::binding-form #'arg.parsed
-        #:with arg-impl::binding-impl #'(arg-parsed.infoer-id () arg-parsed.data)
-        #:with arg-info::binding-info #'arg-impl.info
-        (syntax-parse #'arg-info.bind-infos
-          [((bind-id bind-use . arg-static-infos))
-           (values
-            (annotation-binding-form
-             #'arg.parsed)
-            #'tail)]
-          [_ (raise-syntax-error #f
-                                 "binding does not bind exactly one variable"
-                                 stx
-                                 #'arg)])]))))
+        (check-single-variable-binding #'arg.parsed stx #'arg)
+        (values
+         (annotation-binding-form
+          #'arg.parsed)
+         #'tail)]))))
+
+(define-for-syntax (check-single-variable-binding arg-parsed stx arg-stx)
+  ;; apply the binding, even though we're going to discard this expansion,
+  ;; to make sure that it produces a single binding
+  (with-syntax-parse ([arg-parsed::binding-form arg-parsed]
+                      [arg-impl::binding-impl #'(arg-parsed.infoer-id () arg-parsed.data)]
+                      [arg-info::binding-info #'arg-impl.info])
+    (syntax-parse #'arg-info.bind-infos
+      [((bind-id bind-use . arg-static-infos))
+       (void)]
+      [_ (raise-syntax-error #f
+                             "binding does not bind exactly one variable"
+                             stx
+                             arg-stx)])))
 
 (define-syntax-rule (if/blocked tst thn els)
   (if tst (let () thn) els))
