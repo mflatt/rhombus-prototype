@@ -94,13 +94,13 @@
                                proc))))
   
 (define-for-syntax (pack_predicate predicate [static-infos #'(parens)])
-  #`(parsed #,(annotation-form (wrap-expression predicate)
-                               (pack-static-infos (unpack-term static-infos 'annot.pack_predicate #f)
-                                                  'annot.pack_predicate))))
+  #`(parsed #,(annotation-predicate-form (wrap-expression predicate)
+                                         (pack-static-infos (unpack-term static-infos 'annot.pack_predicate #f)
+                                                            'annot.pack_predicate))))
 
 (define-for-syntax (unpack_predicate stx)
   (syntax-parse (unpack-term stx 'annot_meta.unpack_predicate #f)
     #:datum-literals (parsed)
-    [(parsed a::annotation-form)
+    [(parsed a::annotation-predicate-form)
      (values #'(parsed a.predicate)
              (unpack-static-infos #'a.static-infos))]))

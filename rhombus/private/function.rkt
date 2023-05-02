@@ -86,14 +86,15 @@
                                                   (hash-set ht kw #t))
                                                 #`(#t (accepts-keywords? v '#,(sort (map syntax-e kws) keyword<?)))]))]
                         [(n ...) (generate-temporaries #'(g ...))])
-            (values (annotation-form #`(let ([n (check-nonneg-integer 'Function.of_arity (rhombus-expression g))]
-                                             ...)
-                                         (lambda (v)
-                                           (and (procedure? v)
-                                                (procedure-arity-includes? v n kw-ok?)
-                                                ...
-                                                kw-check)))
-                                     function-static-infos)
+            (values (annotation-predicate-form
+                     #`(let ([n (check-nonneg-integer 'Function.of_arity (rhombus-expression g))]
+                             ...)
+                         (lambda (v)
+                           (and (procedure? v)
+                                (procedure-arity-includes? v n kw-ok?)
+                                ...
+                                kw-check)))
+                     function-static-infos)
                     #'tail)))]))))
 
 (define (check-nonneg-integer who v)

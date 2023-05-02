@@ -55,6 +55,7 @@
                     False
 
                     matching
+                    converting
                     #%parens
                     #%literal)
          (for-spaces (rhombus/annot
@@ -76,12 +77,13 @@
              check-annotation-result
 
              :annotation
-             :annotation-form
+             :annotation-predicate-form
+             :annotation-binding-form
              :inline-annotation
              :unparsed-inline-annotation
              :annotation-infix-op+form+tail
 
-             annotation-form
+             annotation-predicate-form
 
              parse-annotation-of))
   
@@ -110,7 +112,11 @@
     (unless (and (syntax? stx)
                  (let ([l (syntax->list stx)])
                    (and l
-                        (= (length l) 2))))
+                        (pair? l)
+                        (or (and (eq? (syntax-e (car l)) '#:pred)
+                                 (= (length l) 3))
+                            (and (eq? (syntax-e (car l)) '#:bind)
+                                 (= (length l) 2))))))
       (raise-result-error* (proc-name proc)
                            rhombus-realm
                            "Annotation_Syntax"
@@ -141,7 +147,7 @@
              #:when (or check?
                         (free-identifier=? (in-binding-space #'op.name) (bind-quote :~)))
              #:with c::annotation #'(group ctc ...)
-             #:with c-parsed::annotation-form #'c.parsed
+             #:with c-parsed::annotation-predicate-form #'c.parsed
              #:attr predicate (if check? #'c-parsed.predicate #'#f)
              #:attr annotation-str (datum->syntax #f (shrubbery-syntax->string #'(ctc ...)))
              #:attr static-infos #'c-parsed.static-infos))
@@ -153,14 +159,22 @@
                         (free-identifier=? (in-binding-space #'o.name) (bind-quote :~)))
              #:attr seq #'(o ctc ...)))
 
-  (define-syntax-class :annotation-form
-    (pattern (predicate static-infos)))
+  (define-syntax-class :annotation-predicate-form
+    (pattern (#:pred predicate static-infos)))
+  (define-syntax-class :annotation-binding-form
+    #:attributes (binding)
+    (pattern (#:bind binding))
+    (pattern (#:pred predicate static-infos)
+             #:attr binding (binding-form #'annotation-predicate-binding-infoer
+                                          #'(predicate static-infos))))
 
-  (define (annotation-form predicate static-infos)
-    #`(#,predicate #,static-infos))
+  (define (annotation-predicate-form predicate static-infos)
+    #`(#:pred #,predicate #,static-infos))
+  (define (annotation-binding-form binding)
+    #`(#:bind #,binding))
   
   (define (identifier-annotation predicate-stx static-infos)
-    (define packed #`(#,predicate-stx #,static-infos))
+    (define packed (annotation-predicate-form predicate-stx static-infos))
     (annotation-prefix-operator
      (quote-syntax ignored)
      '((default . stronger))
@@ -171,7 +185,8 @@
                         [_ 'does-not-happen])))))
   
   (define (parse-annotation-of stx predicate-stx static-infos
-                               sub-n kws predicate-maker info-maker)
+                               sub-n kws predicate-maker info-maker
+                               binding-maker-id binding-maker-data)
     (syntax-parse stx
       #:datum-literals (parens)
       [(form-id ((~and tag parens) g ...) . tail)
@@ -184,21 +199,30 @@
        (define c-parseds (for/list ([g (in-list gs)])
                            (syntax-parse g
                              [c::annotation #'c.parsed])))
-       (define c-predicates (for/list ([c-parsed (in-list c-parseds)])
-                              (syntax-parse c-parsed
-                                [c::annotation-form #'c.predicate])))
-       (define c-static-infoss (for/list ([c-parsed (in-list c-parseds)])
-                                 (syntax-parse c-parsed
-                                   [c::annotation-form #'c.static-infos])))
-       (values (annotation-form #`(lambda (v)
-                                    (and (#,predicate-stx v)
-                                         #,(predicate-maker #'v c-predicates)))
-                                #`(#,@(info-maker c-static-infoss)
-                                   . #,static-infos))
-               #'tail)]))
-     
+       (values
+        (syntax-parse c-parseds
+          [(c::annotation-predicate-form ...)
+           (define c-predicates (syntax->list #'(c.predicate ...)))
+           (define c-static-infoss (syntax->list #'(c.static-infos ...)))
+           (annotation-predicate-form #`(lambda (v)
+                                          (and (#,predicate-stx v)
+                                               #,(predicate-maker #'v c-predicates)))
+                                      #`(#,@(info-maker c-static-infoss)
+                                         . #,static-infos))]
+          [(c::annotation-binding-form ...)
+           (annotation-binding-form
+            (binding-form #'annotation-of-infoer
+                          #`[#,(shrubbery-syntax->string #'(form-id (tag g ...)))
+                             #,binding-maker-id
+                             #,binding-maker-data
+                             (c.binding ...)
+                             #,kws
+                             #,static-infos]))])
+        #'tail)]))
+
   (define (annotation-constructor name predicate-stx static-infos
                                   sub-n kws predicate-maker info-maker
+                                  binding-maker-id binding-maker-data
                                   parse-annotation-of)
     (values
      ;; root
@@ -209,8 +233,8 @@
       (lambda (stx)
         (syntax-parse stx
           [(_ . tail)
-           (values (annotation-form predicate-stx
-                                    static-infos)
+           (values (annotation-predicate-form predicate-stx
+                                              static-infos)
                    #'tail)])))
      ;; `of`:
      (annotation-prefix-operator
@@ -220,10 +244,12 @@
       (lambda (stx)
         (parse-annotation-of (replace-head-dotted-name stx)
                              predicate-stx static-infos
-                             sub-n kws predicate-maker info-maker)))))
+                             sub-n kws predicate-maker info-maker
+                             binding-maker-id binding-maker-data)))))
 
   (define (annotation-of-constructor name predicate-stx static-infos
                                      sub-n kws predicate-maker info-maker
+                                     binding-maker-id binding-maker-data
                                      parse-annotation-of)
     (annotation-prefix-operator
       name
@@ -235,7 +261,8 @@
           [(form-id (op |.|) (~and of-id of) . tail)
            (parse-annotation-of #`(of-id . tail)
                                 predicate-stx static-infos
-                                sub-n kws predicate-maker info-maker)]
+                                sub-n kws predicate-maker info-maker
+                                binding-maker-id binding-maker-data)]
           [(form-id (op |.|) other:identifier . tail)
            (raise-syntax-error #f
                                "field not provided by annotation"
@@ -243,8 +270,8 @@
                                #'other)]
           [(_ . tail)
            ;; we don't get here when used specifically as `of`
-           (values (annotation-form predicate-stx
-                                    static-infos)
+           (values (annotation-predicate-form predicate-stx
+                                              static-infos)
                    #'tail)])))))
 
 (define-syntax (define-annotation-constructor stx)
@@ -253,6 +280,7 @@
         binds
         predicate-stx static-infos
         sub-n kws predicate-maker info-maker
+        binding-maker-id binding-maker-data
         (~optional (~seq #:parse-of parse-annotation-of-id)
                    #:defaults ([parse-annotation-of-id #'parse-annotation-of])))
      #:with annot-name (in-annotation-space #'name)
@@ -260,6 +288,7 @@
          (let binds
              (annotation-constructor #'annot-<name predicate-stx static-infos
                                      sub-n 'kws predicate-maker info-maker
+                                     binding-maker-id binding-maker-data
                                      parse-annotation-of-id)))]))
 
 (define-for-syntax (make-annotation-apply-expression-operator name checked?)
@@ -270,16 +299,39 @@
    (lambda (form tail)
      (syntax-parse tail
        [(op . t::annotation-seq)
-        #:with c-parsed::annotation-form #'t.parsed
         (values
-         (wrap-static-info*
-          (if checked?
-              #`(let ([val #,form])
-                  (if (c-parsed.predicate val)
-                      val
-                      (raise-::-annotation-failure val '#,(shrubbery-syntax->string #'t))))
-              form)
-          #'c-parsed.static-infos)
+         (syntax-parse #'t.parsed
+           [c-parsed::annotation-predicate-form
+            (wrap-static-info*
+             (if checked?
+                 #`(let ([val #,form])
+                     (if (c-parsed.predicate val)
+                         val
+                         (raise-::-annotation-failure val '#,(shrubbery-syntax->string #'t))))
+                 form)
+             #'c-parsed.static-infos)]
+           [c-parsed::annotation-binding-form
+            ;; not that `checked?` in this case is ignored, because converting
+            ;; via the binding protocol always involves first checking
+            #:with arg-parsed::binding-form #'c-parsed.binding
+            #:with arg-impl::binding-impl #'(arg-parsed.infoer-id () arg-parsed.data)
+            #:with arg-info::binding-info #'arg-impl.info
+            (syntax-parse #'arg-info.bind-infos
+              [((bind-id bind-use . static-infos))
+               (wrap-static-info*
+                #`(let ([tmp-id (let ([arg-info.name-id #,form])
+                                  arg-info.name-id)])
+                    (arg-info.matcher-id tmp-id
+                                         arg-info.data
+                                         if/blocked
+                                         (begin
+                                           (arg-info.committer-id tmp-id arg-info.data)
+                                           (arg-info.binder-id tmp-id arg-info.data)
+                                           bind-id)
+                                         (raise-::-annotation-failure tmp-id 'arg-info.annotation-str)))
+                #'static-infos)]
+              [_
+               (raise-syntax-error #f "binding form did not produce exactly one binding" #'t)])])
          #'t.tail)]))
    'none))
 
@@ -291,16 +343,25 @@
    (lambda (form tail)
      (syntax-parse tail
        [(op . t::annotation-seq)
-        #:with c-parsed::annotation-form #'t.parsed
         #:with left::binding-form form
         (values
-         (binding-form
-          #'annotation-infoer
-          #`(#,(shrubbery-syntax->string #'t)
-             #,(and checked? #'c-parsed.predicate)
-             c-parsed.static-infos
-             left.infoer-id
-             left.data))
+         (syntax-parse #'t.parsed
+           [c-parsed::annotation-predicate-form 
+            (binding-form
+             #'annotation-predicate-infoer
+             #`(#,(shrubbery-syntax->string #'t)
+                #,(and checked? #'c-parsed.predicate)
+                c-parsed.static-infos
+                left.infoer-id
+                left.data))]
+           [c-parsed::annotation-binding-form
+            ;; as above: `checked?` is ignored
+            (binding-form
+             #'annotation-binding-infoer
+             #`(#,(shrubbery-syntax->string #'t)
+                c-parsed.binding
+                left.infoer-id
+                left.data))])
          #'t.tail)]))
    'none))
 
@@ -322,13 +383,24 @@
    (lambda (form tail)
      (syntax-parse tail
        [(op . t::annotation-seq)
-        #:with c-parsed::annotation-form #'t.parsed
         (values
-         #`(c-parsed.predicate #,form)
+         (syntax-parse #'t.parsed
+           [c-parsed::annotation-predicate-form
+            #`(c-parsed.predicate #,form)]
+           [c-parsed::annotation-binding-form
+            #:with arg-parsed::binding-form #'c-parsed.binding
+            #:with arg-impl::binding-impl #'(arg-parsed.infoer-id () arg-parsed.data)
+            #:with arg-info::binding-info #'arg-impl.info
+            #`(let ([arg-info.name-id #,form])
+                (arg-info.matcher-id arg-info.name-id
+                                     arg-info.data
+                                     if/blocked
+                                     #t
+                                     #f))])
          #'t.tail)]))
    'none))
 
-(define-syntax (annotation-infoer stx)
+(define-syntax (annotation-predicate-infoer stx)
   (syntax-parse stx
     [(_ static-infos (annotation-str predicate (static-info ...) left-infoer-id left-data))
      #:with left-impl::binding-impl #'(left-infoer-id (static-info ... . static-infos) left-data)
@@ -365,6 +437,160 @@
   (syntax-parse stx
     [(_ arg-id (predicate left-matcher-id left-committer-id left-binder-id left-data))
      #'(left-binder-id arg-id left-data)]))
+
+(define-syntax (annotation-binding-infoer stx)
+  (syntax-parse stx
+    [(_ static-infos (annotation-str binding left-infoer-id left-data))
+     #:with arg-parsed::binding-form #'binding
+     #:with arg-impl::binding-impl #'(arg-parsed.infoer-id static-infos arg-parsed.data)
+     #:with arg-info::binding-info #'arg-impl.info
+     (syntax-parse #'arg-info.bind-infos
+       [((bind-id bind-use . arg-static-infos))
+        #:with left-impl::binding-impl #'(left-infoer-id arg-static-infos left-data)
+        #:with left::binding-info #'left-impl.info
+        (define (build-binding-info matcher-id committer-id)
+          (binding-info (annotation-string-and (syntax-e #'left.annotation-str) (syntax-e #'annotation-str))
+                        #'left.name-id
+                        #'left.static-infos
+                        #'left.bind-infos
+                        matcher-id
+                        committer-id
+                        #'bind-via-converted
+                        #'([left.matcher-id left.committer-id left.binder-id left.data]
+                           bind-id tmp-id
+                           [arg-info.matcher-id arg-info.committer-id arg-info.binder-id arg-info.data])))
+        (cond
+          [(free-identifier=? #'always-succeed #'left.matcher-id)
+           ;; in this case, we can commit and bind lazily for the annotation's binding
+           (build-binding-info #'check-binding-check-convert
+                               #'commit-convert-then-via-converted)]
+          [else
+           ;; in this case, we have to apply the annotation's binding's conversion before
+           ;; we can apply the left-hand's matcher
+           (build-binding-info #'check-binding-convert
+                               #'commit-via-converted)])]
+       [_
+        (raise-syntax-error #f "binding form did not produce exactly one binding" #'binding)])]))
+
+(define-syntax (check-binding-check-convert stx)
+  (syntax-parse stx
+    [(_ arg-id ([left-matcher-id left-committer-id left-binder-id left-data]
+                bind-id tmp-id
+                [arg-matcher-id arg-committer-id arg-binder-id arg-data])
+        IF success fail)
+     ;; If we get here, then `left-matcher-id` is `always-succeed`
+     #'(arg-matcher-id arg-id
+                       arg-data
+                       IF
+                       success
+                       fail)]))
+
+(define-syntax (commit-convert-then-via-converted stx)
+  (syntax-parse stx
+    [(_ arg-id ([left-matcher-id left-committer-id left-binder-id left-data]
+                bind-id tmp-id
+                [arg-matcher-id arg-committer-id arg-binder-id arg-data]))
+     #'(begin
+         (arg-committer-id arg-id arg-data)
+         (arg-binder-id arg-id arg-data)
+         (left-committer-id bind-id left-data))]))
+
+(define-syntax (bind-via-converted stx)
+  (syntax-parse stx
+    [(_ arg-id ([left-matcher-id left-committer-id left-binder-id left-data]
+                bind-id tmp-id
+                arg/ignored-because-done))
+     #'(left-binder-id bind-id left-data)]))
+
+(define-syntax (check-binding-convert stx)
+  (syntax-parse stx
+    [(_ arg-id ([left-matcher-id left-committer-id left-binder-id left-data]
+                bind-id tmp-id
+                [arg-matcher-id arg-committer-id arg-binder-id arg-data])
+        IF success fail)
+     ;; Since we need to use `left-matcher-id` on the converted value, we
+     ;; cannot delay `arg-committer-id` and `arg-binder-id` if `arg-match-id`
+     ;; branches to success
+     #'(arg-matcher-id arg-id
+                       arg-data
+                       IF
+                       (begin
+                         (arg-info.matcher-id tmp-id
+                                              arg-info.data
+                                              if/blocked
+                                              (void)
+                                              (raise-::-annotation-failure tmp-id 'arg-info.annotation-str))
+                         (arg-info.committer-id tmp-id arg-info.data)
+                         (arg-info.binder-id arg-info.name-id arg-info.data)
+                         (left-matcher-id bind-id
+                                          arg-data
+                                          IF
+                                          success
+                                          fail))
+                       fail)]))
+
+(define-syntax (commit-via-converted stx)
+  (syntax-parse stx
+    [(_ arg-id ([left-matcher-id left-committer-id left-binder-id left-data]
+                bind-id tmp-id
+                arg-ignored-because-done))
+     ;; If we get here, then `left-matcher-id` is `always-succeed`
+     #'(left-committer-id bind-id left-data)]))
+
+
+(define-syntax (annotation-of-infoer stx)
+  (syntax-parse stx
+    [(_ rhs-static-infos (annotation-str binding-maker-id binding-maker-data (c-binding ...) kws static-infos))
+     (define binding-maker (syntax-local-value #'binding-maker-id))
+     (define converter
+       #`(lambda (val-in)
+           #,(binding-maker #'val-in
+                            (for/list ([c-binding (in-list (syntax->list #'(c-binding ...)))])
+                              (syntax-parse c-binding
+                                [arg-parsed::binding-form
+                                 #:with arg-impl::binding-impl #'(arg-parsed.infoer-id () arg-parsed.data)
+                                 #:with arg-info::binding-info #'arg-impl.info
+                                 (syntax-parse #'arg-info.bind-infos
+                                   [((bind-id bind-use . static-infos))
+                                    #`(lambda (val-in success-k fail-k)
+                                        (arg-info.matcher-id val-in
+                                                             arg-info.data
+                                                             if/blocked
+                                                             (begin
+                                                               (arg-info.committer-id val-in arg-info.data)
+                                                               (arg-info.binder-id val-in arg-info.data)
+                                                               (success-k bind-id))
+                                                             (fail-k)))])]))
+                            (syntax->datum #'kws)
+                            #'binding-maker-data)))
+     (binding-info #'annotation-str
+                   #'composite
+                   #'static-infos
+                   #`((arg (0) . static-infos))
+                   #'annotation-of-matcher
+                   #'annotation-of-committer
+                   #'annotation-of-binder
+                   #`[arg temp #,converter])]))
+
+(define-syntax (annotation-of-matcher stx)
+  (syntax-parse stx
+    [(_ arg-id [bind-id temp-id convert]
+        IF success fail)
+     #'(begin
+         (define temp-id (convert arg-id))
+         (IF temp-id success fail))]))
+
+(define-syntax (annotation-of-committer stx)
+  (syntax-parse stx
+    [(_ arg-id [bind-id temp-id convert])
+     #'(begin)]))
+
+(define-syntax (annotation-of-binder stx)
+  (syntax-parse stx
+    [(_ arg-id [bind-id temp-id convert])
+     #'(define bind-id temp-id)]))
+
+;; ----------------------------------------
 
 (define-syntax (define-annotation-syntax stx)
   (syntax-parse stx
@@ -459,14 +685,40 @@
         #:with arg-impl::binding-impl #'(arg-parsed.infoer-id () arg-parsed.data)
         #:with arg-info::binding-info #'arg-impl.info
         (values
-         #`((lambda (arg-info.name-id)
+         (annotation-predicate-form
+          #`(lambda (arg-info.name-id)
               (arg-info.matcher-id arg-info.name-id
                                    arg-info.data
                                    if/blocked
                                    #t
                                    #f))
-            arg-info.static-infos)
+          #'arg-info.static-infos)
          #'tail)]))))
+
+(define-annotation-syntax converting
+  (annotation-prefix-operator
+   (annot-quote matching)
+   '((default . stronger))
+   'macro
+   (lambda (stx)
+     (syntax-parse stx
+       #:datum-literals (parens)
+       [(_ (parens arg::binding) . tail)
+        ;; apply the binding, even though we're going to discard this expansion,
+        ;; to make sure that it produces a single binding
+        #:with arg-parsed::binding-form #'arg.parsed
+        #:with arg-impl::binding-impl #'(arg-parsed.infoer-id () arg-parsed.data)
+        #:with arg-info::binding-info #'arg-impl.info
+        (syntax-parse #'arg-info.bind-infos
+          [((bind-id bind-use . arg-static-infos))
+           (values
+            (annotation-binding-form
+             #'arg.parsed)
+            #'tail)]
+          [_ (raise-syntax-error #f
+                                 "binding does not bind exactly one variable"
+                                 stx
+                                 #'arg)])]))))
 
 (define-syntax-rule (if/blocked tst thn els)
   (if tst (let () thn) els))

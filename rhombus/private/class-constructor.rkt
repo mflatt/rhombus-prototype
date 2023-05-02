@@ -34,6 +34,7 @@
                                             names)
   (with-syntax ([(name make-name make-all-name constructor-name constructor-maker-name
                        visible-name
+                       make-converted-name make-converted-internal
                        name?
                        name-defaults
                        make-internal-name
@@ -210,6 +211,8 @@
                                                  #f)))))]
                          [else #'(constructor-maker-name make-name)])))])))
          null)
+     (list
+      #`(define make-converted-name constructor-name))
      (if (syntax-e #'make-internal-name)
          (cond
            [(not super)

@@ -136,7 +136,17 @@
     #`(for/and ([e (in-list #,arg-id)])
         (#,(car predicate-stxs) e)))
   (lambda (static-infoss)
-    #`((#%ref-result #,(car static-infoss)))))
+    #`((#%ref-result #,(car static-infoss))))
+  #'list-build-convert #'())
+
+(define-syntax (list-build-convert arg-id build-convert-stxs kws data)
+  #`(for/fold ([lst '()] #:result (and lst (reverse lst)))
+              ([v (in-list #,arg-id)])
+      #:break (not lst)
+      (#,(car build-convert-stxs)
+       v
+       (lambda (v) (cons v lst))
+       (lambda () #f))))
 
 (define-binding-syntax null
   (binding-transformer
@@ -180,7 +190,17 @@
     #`(for/and ([e (in-list #,arg-id)])
         (#,(car predicate-stxs) e)))
   (lambda (static-infoss)
-    #`((#%ref-result #,(car static-infoss)))))
+    #`((#%ref-result #,(car static-infoss))))
+  #'nonempty-list-build-convert #'())
+
+(define-syntax (nonempty-list-build-convert arg-id build-convert-stxs kws data)
+  #`(for/fold ([lst '()] #:result (and lst (reverse lst)))
+              ([v (in-list #,arg-id)])
+      #:break (not lst)
+      (#,(car build-convert-stxs)
+       v
+       (lambda (v) (cons v lst))
+       (lambda () #f))))
 
 (define-syntax list-instance
   (dot-provider

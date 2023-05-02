@@ -18,8 +18,8 @@
    (list (cons (annot-quote \|\|) 'stronger))
    'automatic
    (lambda (lhs rhs stx)
-     (with-syntax-parse ([l::annotation-form lhs]
-                         [r::annotation-form rhs]
+     (with-syntax-parse ([l::annotation-predicate-form lhs]
+                         [r::annotation-predicate-form rhs]
                          [(r-static-info ...) #'r.static-infos])
        #`((let ([l-pred l.predicate]
                 [r-pred r.predicate])
@@ -34,8 +34,8 @@
    null
    'automatic
    (lambda (lhs rhs stx)
-     (with-syntax-parse ([l::annotation-form lhs]
-                         [r::annotation-form rhs]
+     (with-syntax-parse ([l::annotation-predicate-form lhs]
+                         [r::annotation-predicate-form rhs]
                          [(l-static-info ...) #'l.static-infos])
        #`((let ([l-pred l.predicate]
                 [r-pred r.predicate])

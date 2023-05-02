@@ -172,7 +172,7 @@
                          (or (not (attribute vls))
                              (free-identifier=? #'vls #'values)))
              #:with (c::annotation ...) #'(g ...)
-             #:with (c-parsed::annotation-form ...) #'(c.parsed ...)
+             #:with (c-parsed::annotation-predicate-form ...) #'(c.parsed ...)
              #:with (arg ...) (generate-temporaries #'(g ...))
              #:attr static-infos #'((#%values (c-parsed.static-infos ...)))
              #:attr predicate (if check? #'(lambda (arg ...) (and (c-parsed.predicate arg) ...)) #'#f))
@@ -181,7 +181,7 @@
              #:when (or check?
                         (free-identifier=? (in-binding-space #'op.name) (in-binding-space #':~)))
              #:with c::annotation (no-srcloc #`(#,group-tag ctc0 ctc ...))
-             #:with c-parsed::annotation-form #'c.parsed
+             #:with c-parsed::annotation-predicate-form #'c.parsed
              #:attr static-infos #'c-parsed.static-infos
              #:attr predicate (if check? #'c-parsed.predicate #'#f))
     (pattern (~seq)

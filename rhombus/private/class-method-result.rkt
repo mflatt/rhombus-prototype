@@ -72,6 +72,6 @@
      (parse #f #'#f #'())]
     [(_ _ ((op mode) ret ...) . _)
      #:with c::annotation (no-srcloc #`(#,group-tag ret ...))
-     #:with c-parsed::annotation-form #'c.parsed
+     #:with c-parsed::annotation-predicate-form #'c.parsed
      (parse #'mode #'c-parsed.predicate #'c-parsed.static-infos)]))
 
