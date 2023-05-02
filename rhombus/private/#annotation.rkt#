@@ -229,7 +229,8 @@
           [(c::annotation-binding-form ...)
            (unless binding-maker-id
              (raise-syntax-error #f
-                                 "converting annotations not supported for fields;\n default annotation form"
+                                 (string-append "converting annotations not supported for fields;"
+                                                "\n default annotation form combined with expression syntax")
                                  #'(form-id (tag g ...))))
            (define c-static-infoss (syntax->list #'(c.static-infos ...)))
            (annotation-binding-form

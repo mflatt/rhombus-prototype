@@ -143,6 +143,7 @@
                                             (car (generate-temporaries '(make-converted-internal)))))
 
        (define annotation-rhs (hash-ref options 'annotation-rhs #f))
+       (define expression-macro-rhs (hash-ref options 'expression-rhs #f))
 
        (define intro (make-syntax-introducer))
        (define constructor-name-fields
@@ -164,7 +165,10 @@
                      [internal-of internal-of-id]
                      [name? (datum->syntax #'name (string->symbol (format "~a?" (syntax-e #'name))) #'name)]
                      [name-of (intro (datum->syntax #'name (string->symbol (format "~a-of" (syntax-e #'name))) #'name))]
-                     [make-converted-name (intro (datum->syntax #'name (string->symbol (format "make-converted-~a" (syntax-e #'name))) #'name))]
+                     [make-converted-name (and (not expression-macro-rhs)
+                                               (intro (datum->syntax #'name
+                                                                     (string->symbol (format "make-converted-~a" (syntax-e #'name)))
+                                                                     #'name)))]
                      [make-converted-internal make-converted-internal]
                      [(super-field-keyword ...) super-keywords]
                      [((super-field-name super-name-field . _) ...) (if super

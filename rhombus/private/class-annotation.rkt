@@ -39,23 +39,32 @@
                       [(super-name-field ...) (if no-super? '() #'super-name-fields)]
                       [(super-field-keyword ...) (if no-super? '() #'super-field-keywords)]
                       [name-instance name-instance-stx]
-                      [name-build-convert (datum->syntax #'here
-                                                         (string->symbol
-                                                          (format "~a-build-convert" (syntax-e #'name))))])
-          (list
-           #`(define-annotation-constructor (#,id #,of-id)
-               ([accessors (list (quote-syntax super-name-field) ...
-                                 (quote-syntax constructor-name-field) ...)])
-               (quote-syntax name?)
-               (quote-syntax ((#%dot-provider name-instance)))
-               (quote #,(+ len (if no-super? 0 (length super-constructor-fields))))
-               (super-field-keyword ... field-keyword ...)
-               (make-class-instance-predicate accessors)
-               (make-class-instance-static-infos accessors)
-               (quote-syntax name-build-convert)
-               accessors)
-           #`(define-syntax name-build-convert
-               (make-class-instance-converter (quote-syntax #,make-converted-id))))))
+                      [name-build-convert (and
+                                           (syntax-e make-converted-id)
+                                           ((make-syntax-introducer)
+                                            (datum->syntax #f
+                                                           (string->symbol
+                                                            (format "~a-build-convert" (syntax-e #'name))))))])
+          (append
+           (list
+            #`(define-annotation-constructor (#,id #,of-id)
+                ([accessors (list (quote-syntax super-name-field) ...
+                                  (quote-syntax constructor-name-field) ...)])
+                (quote-syntax name?)
+                (quote-syntax ((#%dot-provider name-instance)))
+                (quote #,(+ len (if no-super? 0 (length super-constructor-fields))))
+                (super-field-keyword ... field-keyword ...)
+                (make-class-instance-predicate accessors)
+                (make-class-instance-static-infos accessors)
+                #,(and (syntax-e #'name-build-convert)
+                       #'(quote-syntax name-build-convert))
+                #,(and (syntax-e #'name-build-convert)
+                       #'accessors)))
+           (if (syntax-e #'name-build-convert)
+               (list
+                #`(define-syntax name-build-convert
+                    (make-class-instance-converter (quote-syntax #,make-converted-id))))
+               null))))
       (append
        (if exposed-internal-id
            (make-ann-defs exposed-internal-id internal-of-id #t #'constructor-name-fields #'field-keywords

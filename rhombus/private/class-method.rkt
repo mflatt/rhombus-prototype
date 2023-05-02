@@ -352,7 +352,7 @@
               (and (not (eq? (added-method-body added) 'abstract))
                    (let ([mix (hash-ref method-mindex (syntax-e (added-method-id added)) #f)])
                      (and (or (mindex-final? mix)
-                              in-final?)
+                              (not in-final?))
                           (vector-ref method-vtable (mindex-index mix))))))
         ;; result annotation can convert if final
         #,(or in-final?
@@ -734,7 +734,8 @@
                                                [(and (eq? (syntax-e #'kind) 'property)
                                                      (eqv? arity 1))
                                                 #`(begin #,body (void))]
-                                               [result-desc
+                                               [(and result-desc
+                                                     (method-result-handler-expr result-desc))
                                                 (if (method-result-predicate? result-desc)
                                                     #`(let ([result #,body])
                                                         (unless (#,(method-result-handler-expr result-desc) result)

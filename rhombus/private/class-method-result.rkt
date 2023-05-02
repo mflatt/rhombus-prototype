@@ -56,15 +56,19 @@
        #:with ((super-static-info ...) ...) (map method-result-static-infos super-results)
        #:with all-static-infos #'(static-info ... super-static-info ... ...)
        #:with handler-id (and (syntax-e #'handler)
-                              (datum->syntax #'here (string->symbol
-                                                     (format "~a-result-handler" (syntax-e #'id)))))
+                              (not (identifier? #'handler))
+                              ((make-syntax-introducer)
+                               (datum->syntax #f (string->symbol
+                                                  (format "~a-result-handler" (syntax-e #'id))))))
        (define def
          #`(begin
-             #,@(if (syntax-e #'handler)
+             #,@(if (syntax-e #'handler-id)
                     (list #'(define handler-id handler))
                     null)
              (define-syntax id (method-result #,(if (syntax-e #'handler)
-                                                    #'(quote-syntax handler-id)
+                                                    (if (syntax-e #'handler-id)
+                                                        #'(quote-syntax handler-id)
+                                                        #'(quote-syntax handler))
                                                     #'#f)
                                               #,predicate-handler?
                                               (quote-syntax all-static-infos)
@@ -88,8 +92,8 @@
     [(_ _ (op::annotate-op ret ...) _ _ convert-ok? . _)
      #:with c::annotation (respan (no-srcloc #`(#,group-tag ret ...)))
      (syntax-parse #'c.parsed
-       [c-parsed::annotation-predicate-form 
-        (parse (syntax-e #'mode.check?) #'c-parsed.predicate #'c-parsed.static-infos #t)]
+       [c-parsed::annotation-predicate-form
+        (parse (syntax-e #'op.check?) #'c-parsed.predicate #'c-parsed.static-infos #t)]
        [c-parsed::annotation-binding-form
         (unless (syntax-e #'convert-ok?)
           (raise-syntax-error #f
@@ -111,7 +115,7 @@
                                                        ...
                                                        c-parsed.body)
                                                      (fail-k))))
-          (parse (syntax-e #'mode.check?) converter #'c-parsed.static-infos #f))])]))
+          (parse (syntax-e #'op.check?) converter #'c-parsed.static-infos #f))])]))
 
 (define-syntax-rule (if/blocked tst thn els)
   (if tst (let () thn) els))

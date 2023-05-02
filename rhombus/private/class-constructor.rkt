@@ -211,8 +211,10 @@
                                                  #f)))))]
                          [else #'(constructor-maker-name make-name)])))])))
          null)
-     (list
-      #`(define make-converted-name constructor-name))
+     (if (syntax-e #'make-converted-name)
+         (list
+          #`(define make-converted-name constructor-name))
+         null)
      (if (syntax-e #'make-internal-name)
          (cond
            [(not super)
