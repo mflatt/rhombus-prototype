@@ -229,7 +229,8 @@
           [(c::annotation-binding-form ...)
            (unless binding-maker-id
              (raise-syntax-error #f
-                                 "converting annotations not supported for fields;\n default annotation form"
+                                 (string-append "converting annotations not supported for fields;"
+                                                "\n default annotation form combined with expression syntax")
                                  #'(form-id (tag g ...))))
            (define c-static-infoss (syntax->list #'(c.static-infos ...)))
            (annotation-binding-form
@@ -556,13 +557,13 @@
                        arg-data
                        IF
                        (begin
-                         (arg-committer-id arg-id arg-info.data)
-                         (arg-binder-id arg-info.name-id arg-info.data)
+                         (arg-committer-id arg-id arg-data)
+                         (arg-binder-id arg-id arg-data)
                          (define-static-info-syntax/maybe bind-id . bind-static-infos)
                          ...
                          (define converted-id body)
                          (left-matcher-id converted-id
-                                          arg-data
+                                          left-data
                                           IF
                                           success
                                           fail))
