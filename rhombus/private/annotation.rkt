@@ -91,7 +91,8 @@
 
              parse-annotation-of
 
-             build-annotated-expression))
+             build-annotated-expression
+             raise-unchecked-disallowed))
   
   (provide define-annotation-syntax
            define-annotation-constructor
@@ -177,13 +178,15 @@
              #:attr body #'result))
 
   (define-syntax-class :annotate-op
-    #:attributes (check?)
+    #:attributes (name check?)
     (pattern op::name
              #:when (free-identifier=? (in-binding-space #'op.name) (in-binding-space #'::))
-             #:attr check? #'#t)
+             #:attr check? #'#t
+             #:attr name #'op.name)
     (pattern op::name
              #:when (free-identifier=? (in-binding-space #'op.name) (in-binding-space #':~))
-             #:attr check? #'#f))
+             #:attr check? #'#f
+             #:attr name #'op.name))
 
   (define (annotation-predicate-form predicate static-infos)
     #`(#:pred #,predicate #,static-infos))
@@ -229,7 +232,7 @@
           [(c::annotation-binding-form ...)
            (unless binding-maker-id
              (raise-syntax-error #f
-                                 (string-append "converting annotations not supported for fields;"
+                                 (string-append "converter annotations not supported for fields;"
                                                 "\n default annotation form combined with expression syntax")
                                  #'(form-id (tag g ...))))
            (define c-static-infoss (syntax->list #'(c.static-infos ...)))
@@ -348,17 +351,15 @@
       #'c-parsed.static-infos)]
     [c-parsed::annotation-binding-form
      #:do [(unless checked?
-             (raise-syntax-error #f
-                                 "converting annotation not allowed in a non-checked position"
-                                 form-name
-                                 orig-stx))]
+             (raise-unchecked-disallowed form-name orig-stx))]
      #:with arg-parsed::binding-form #'c-parsed.binding
      #:with arg-impl::binding-impl #'(arg-parsed.infoer-id () arg-parsed.data)
      #:with arg-info::binding-info #'arg-impl.info
      #:with ((bind-id bind-use . bind-static-infos) ...) #'arg-info.bind-infos
      (k
-      #`(let ([tmp-id (let ([arg-info.name-id #,form])
-                        arg-info.name-id)])
+      #`(let* ([tmp-id (let ([arg-info.name-id #,form])
+                         arg-info.name-id)]
+               [fail-k (lambda () #,(build-fail #'tmp-id))])
           (arg-info.matcher-id tmp-id
                                arg-info.data
                                if/blocked
@@ -368,8 +369,14 @@
                                  (define-static-info-syntax/maybe bind-id . bind-static-infos)
                                  ...
                                  c-parsed.body)
-                               #,(build-fail #'tmp-id)))
+                               (fail-k)))
       #'c-parsed.static-infos)]))
+
+(define-for-syntax (raise-unchecked-disallowed in at)
+  (raise-syntax-error #f
+                      "converter annotation not allowed in a non-checked position"
+                      in
+                      at))
 
 (define-for-syntax (make-annotation-apply-binding-operator name checked?)
   (binding-infix-operator
@@ -378,7 +385,7 @@
    'macro
    (lambda (form tail)
      (syntax-parse tail
-       [(op . t::annotation-seq)
+       [(op::name . t::annotation-seq)
         #:with left::binding-form form
         (values
          (syntax-parse #'t.parsed
@@ -391,7 +398,8 @@
                 left.infoer-id
                 left.data))]
            [c-parsed::annotation-binding-form
-            ;; as above: `checked?` is ignored
+            #:do [(unless checked?
+                    (raise-unchecked-disallowed #'op.name #'t))]
             (binding-form
              #'annotation-binding-infoer
              #`(#,(shrubbery-syntax->string #'t)

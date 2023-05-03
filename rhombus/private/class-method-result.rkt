@@ -49,8 +49,9 @@
                                         [pp #,super-pred])
                                     (lambda (v fail-k)
                                       (let ([v (c v fail-k)])
-                                        (and (pp v)
-                                             v)))))
+                                        (if (pp v)
+                                            v
+                                            (fail-k))))))
                             super-pred))
        #:with (static-info ...) result-static-infos
        #:with ((super-static-info ...) ...) (map method-result-static-infos super-results)

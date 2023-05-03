@@ -84,6 +84,10 @@
  Produces @rhombus(#true) if the value of @rhombus(expr)
  satisfies @rhombus(annot), @rhombus(#false) otherwise.
 
+ If @rhombus(annot) is a @tech{converter annotation}, only the matching
+ component of the annotation is used, and the converting part is not
+ used. See also @secref("annotation-macro-protocol").
+
 @examples(
   [1, 2, 3] is_a List
   "oops" is_a List
@@ -108,11 +112,42 @@
 }
 
 @doc(
+  annot.macro 'converting(fun ($bind) $maybe_res_annot:
+                            $body
+                            ...)'
+  grammar maybe_res_annot:
+    #,(@rhombus(::, ~bind)) $annot
+    #,(@rhombus(:~, ~bind)) $annot
+    #,(epsilon)
+){
+
+ Produces a @tech{converter annotation} by pairing @rhombus(bind) with
+ @rhombus(body). The annotation matches when @rhombus(bind) matches, but
+ the value produced by the annotation is determined by the @rhombus(body)
+ sequence, which can refer to variables bound by @rhombus(bind).
+
+ When @rhombus(annot) is provided, then it's static information is
+ propoagted to the new converter annotation. If @rhombus(annot) is
+ supplied with @rhombus(::, ~bind), then the result of the @rhombus(body)
+ sequence is checked against @rhombus(annot).
+
+ See also @secref("annotation-macro-protocol").
+
+@examples(
+  def x :: converting(fun (x :: Int): x + 1): 11
+  ~error: def x :: converting(fun (x :: Int): x + 1): "eleven"
+)
+
+}
+
+@doc(
   annot.macro 'Maybe($annot)'
 ){
 
- An annotation that is satisfied by either @rhombus(#false) or a value
- that satisfies @rhombus(annot).
+ Equivalent to @rhombus(False || annot): an annotation that is
+ satisfied by either @rhombus(#false) or a value that satisfies
+ @rhombus(annot). If @rhombus(annot) is a @tech{converter annotation},
+ its conversion applies to a non-@rhombus(#false) value.
 
 @examples(
   #false :: Maybe(String)

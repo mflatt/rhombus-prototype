@@ -98,6 +98,7 @@
    reverse
    iota
    [map List.map]
+   [sort List.sort]
    repet
    of
    [append List.append]))
@@ -219,6 +220,7 @@
                                                                '())))))]
         [(reverse) (0ary #'reverse list-static-infos)]
         [(map) (nary #'List.map 2 #'List.map list-static-infos)]
+        [(sort) (nary #'List.sort 3 #'List.sort list-static-infos)]
         [else (fail-k)])))))
 
 (define-reducer-syntax List
@@ -268,6 +270,16 @@
 (define-static-info-syntax List.map
   (#%call-result #,list-static-infos)
   (#%function-arity 4))
+
+(define (List.sort lst [less-than? <])
+  (unless (and (procedure? less-than?)
+               (procedure-arity-includes? less-than? 2))
+    (raise-argument-error* 'List.map rhombus-realm "Function.of_arity(2)" less-than?))
+  (sort lst less-than?))
+
+(define-static-info-syntax List.sort
+  (#%call-result #,list-static-infos)
+  (#%function-arity 6))
 
 (define-static-info-syntax List.cons
   (#%call-result #,list-static-infos)

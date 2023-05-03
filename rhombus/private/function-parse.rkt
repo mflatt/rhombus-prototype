@@ -181,6 +181,12 @@
                                             (fail-k)))
                                     #'#f))]
                        [(c-parsed::annotation-binding-form ...)
+                        #:do [(unless (syntax-e #'ann-op.check?)
+                                (for ([c (in-list (syntax->list #'(c ...)))]
+                                      [c-p (in-list (syntax->list #'(c.parsed ...)))])
+                                  (syntax-parse c-p
+                                    [_::annotation-predicate-form (void)]
+                                    [_ (raise-unchecked-disallowed #'ann-op.name c)])))]
                         #:with (arg-parsed::binding-form ...) #'(c-parsed.binding ...)
                         #:with (arg-impl::binding-impl ...) #'((arg-parsed.infoer-id () arg-parsed.data) ...)
                         #:with (all-arg-info::binding-info ...) #'(arg-impl.info ...)
@@ -221,6 +227,8 @@
                                             (fail-k)))
                                     #'#f))]
                        [c-parsed::annotation-binding-form
+                        #:do [(unless (syntax-e #'ann-op.check?)
+                                (raise-unchecked-disallowed #'ann-op.name #'c))]
                         #:with arg-parsed::binding-form #'c-parsed.binding
                         #:with arg-impl::binding-impl #'(arg-parsed.infoer-id () arg-parsed.data)
                         #:with arg-info::binding-info #'arg-impl.info
