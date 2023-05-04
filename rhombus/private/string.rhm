@@ -3,8 +3,12 @@ import:
   "core-meta.rkt" open
 
 export:
-  StringViewAsString
+  StringView
 
-annot.macro 'StringViewAsString':
-  'converting(fun (s :: StringView) :: String:
-               to_string(s))'
+namespace StringView:
+  export:
+    asString
+
+  annot.macro 'asString':
+    'converting(fun (s :: StringView) :: String:
+                 to_string(s))'

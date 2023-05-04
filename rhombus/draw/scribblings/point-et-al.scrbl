@@ -20,7 +20,7 @@
 @doc(
   class Point(x :: Real, y :: Real)
   annot.macro 'PointLike'
-  annot.macro 'PointLikeAsPoint'
+  annot.macro 'PointLike.asPoint'
   def Point.zero :: Point = Point(0, 0)
 ){
 
@@ -42,7 +42,7 @@
 
 )
 
- The @rhombus(PointLikeAsPoint, ~annot) annotation is satified by any
+ The @rhombus(PointLike.asPoint, ~annot) annotation is satified by any
  value that satisfis @rhombus(PointLike, ~annot), and the value is
  converted to an equivalent @rhombus(Point, ~class) object if it is not one
  already.
@@ -56,7 +56,7 @@
 @doc(
   class Size(width :: NonnegReal, height :: NonnegReal)
   annot.macro 'SizeLike'
-  annot.macro 'SizeLikeAsSize'
+  annot.macro 'SizeLike.asSize'
   def Size.zero :: Size = Size(0, 0)
 ){
 
@@ -79,7 +79,7 @@
 
 )
 
- The @rhombus(SizeLikeAsSize, ~annot) annotation is satified by any
+ The @rhombus(SizeLike.asSize, ~annot) annotation is satified by any
  value that satisfis @rhombus(SizeLike, ~annot), and the value is
  converted to an equivalent @rhombus(Size, ~class) object if it is not one
  already.
@@ -96,7 +96,7 @@
     | (x :: Real, y :: Real, width :: NonnegReal, height :: NonnegReal)
     | (point :: PointLike, size :: SizeLike)
   annot.macro 'RectLike'
-  annot.macro 'RectLikeAsRect'
+  annot.macro 'RectLike.asRect'
   property (r :: Rect).point :: Point
   property (r :: Rect).size :: Size
   def Rect.zero :: Rect = Rect(0, 0, 0, 0)
@@ -137,7 +137,7 @@
 
 )
 
- The @rhombus(RectLikeAsRect, ~annot) annotation is satified by any
+ The @rhombus(RectLike.asRect, ~annot) annotation is satified by any
  value that satisfis @rhombus(RectLike, ~annot), and the value is
  converted to an equivalent @rhombus(Rect, ~class) object if it is not one
  already.

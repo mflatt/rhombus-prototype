@@ -39,12 +39,13 @@ immutable strings.
 @doc(
   annot.macro 'String'
   annot.macro 'StringView'
-  annot.macro 'StringViewAsString'
+  annot.macro 'StringView.asString'
 ){
 
  Matches strings. The @rhombus(StringView, ~annot) annotation allows mutable
  Racket strings as well as immutable Rhombus strings.
- The @rhombus(StringViewAsString, ~annot) converter annotation converts
+ The @rhombus(StringView.asString, ~annot) @tech{converter annotation}
+ allows the same strings as @rhombus(StringView, ~annot), but converts
  a mutable Racket string to an immutable Rhombus string.
 
 }

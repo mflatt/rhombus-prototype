@@ -3,7 +3,6 @@
 export:
   Point
   PointLike
-  PointLikeAsPoint
 
 class Point(x :: Real, y :: Real):
   export:
@@ -16,7 +15,10 @@ annot.macro 'PointLike':
      || matching([_ :: Real, _ :: Real])
      || matching({#'x: _ :: Real, #'y: _ :: Real})'
 
-annot.macro 'PointLikeAsPoint':
-  'Point
-     || converting(fun ([x :: Real, y :: Real]) :: Point: Point(x, y))
-     || converting(fun ({#'x: x :: Real, #'y: y :: Real}) :: Point: Point(x, y))'
+namespace PointLike:
+  export:
+    asPoint
+  annot.macro 'asPoint':
+    'Point
+       || converting(fun ([x :: Real, y :: Real]) :: Point: Point(x, y))
+       || converting(fun ({#'x: x :: Real, #'y: y :: Real}) :: Point: Point(x, y))'

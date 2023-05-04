@@ -3,7 +3,6 @@
 export:
   Size
   SizeLike
-  SizeLikeAsSize
 
 class Size(width :: NonnegReal, height :: NonnegReal):
   export:
@@ -16,7 +15,10 @@ annot.macro 'SizeLike':
      || matching([_ :: NonnegReal, _ :: NonnegReal])
      || matching({#'width: _ :: NonnegReal, #'height: _ :: NonnegReal})'
 
-annot.macro 'SizeLikeAsSize':
-  'Size
-     || converting(fun ([width :: NonnegReal, height :: NonnegReal]) :: Size: Size(width, height))
-     || converting(fun ({#'width: width :: NonnegReal, #'height: height :: NonnegReal}) :: Size: Size(width, height))'
+namespace SizeLike:
+  export:
+    asSize
+  annot.macro 'asSize':
+    'Size
+       || converting(fun ([width :: NonnegReal, height :: NonnegReal]) :: Size: Size(width, height))
+       || converting(fun ({#'width: width :: NonnegReal, #'height: height :: NonnegReal}) :: Size: Size(width, height))'

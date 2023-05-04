@@ -1,16 +1,15 @@
 #lang rhombus/static/and_meta
 import:
   "point.rhm" open:
-    except: PointLike
-    rename: PointLikeAsPoint as PointLike
+    rename: PointLike as _PointLike
+  ._PointLike.asPoint as PointLike
   "size.rhm" open:
-    except: SizeLike
-    rename: SizeLikeAsSize as SizeLike
+    rename: SizeLike as _SizeLike
+  ._SizeLike.asSize as SizeLike
 
 export:
   Rect
   RectLike
-  RectLikeAsRect
 
 class Rect(x :: Real, y :: Real, width :: NonnegReal, height :: NonnegReal):
   constructor
@@ -34,11 +33,14 @@ annot.macro 'RectLike':
      || matching({#'x: _ :: Real, #'y: _ :: Real, #'width: _ :: NonnegReal, #'height: _ :: NonnegReal})
      || matching({#'point: _ :: topleft, #'size: _ :: Size})'
 
-annot.macro 'RectLikeAsRect':
-  'Rect
-     || converting(fun ([x :: Real, y :: Real, w :: NonnegReal, h :: NonnegReal]) :: Rect: Rect(x, y, w, h))
-     || converting(fun ([topleft :: PointLike, size :: SizeLike]) :: Rect: Rect(topleft.x, topleft.y, size.width, size.height))
-     || converting(fun ({#'x: x :: Real, #'y: y :: Real, #'width: w :: NonnegReal, #'height: h :: NonnegReal}) :: Rect:
-                     Rect(x, y, w, h))
-     || converting(fun ({#'point: topleft :: PointLike, #'size: size :: SizeLike}) :: Rect:
-                     Rect(topleft.x, topleft.y, size.width, size.height))'
+namespace RectLike:
+  export:
+    asRect
+  annot.macro 'asRect':
+    'Rect
+       || converting(fun ([x :: Real, y :: Real, w :: NonnegReal, h :: NonnegReal]) :: Rect: Rect(x, y, w, h))
+       || converting(fun ([topleft :: PointLike, size :: SizeLike]) :: Rect: Rect(topleft.x, topleft.y, size.width, size.height))
+       || converting(fun ({#'x: x :: Real, #'y: y :: Real, #'width: w :: NonnegReal, #'height: h :: NonnegReal}) :: Rect:
+                       Rect(x, y, w, h))
+       || converting(fun ({#'point: topleft :: PointLike, #'size: size :: SizeLike}) :: Rect:
+                       Rect(topleft.x, topleft.y, size.width, size.height))'

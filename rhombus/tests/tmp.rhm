@@ -1,0 +1,18 @@
+#lang rhombus
+
+import:
+  lib("rhombus/tests/example-a.rhm") as ex_a
+  .ex_a as _ex_a:
+    expose: beta
+beta
+
+#//
+import:
+  rhombus/tests/#{example-a} as ex_a
+  .ex_a as _ex_a:
+    expose: beta
+
+import:
+  rhombus/draw/private/point:
+    rename: PointLike as _PointLike
+  .point._PointLike.asPoint as PointLike

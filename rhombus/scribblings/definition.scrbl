@@ -11,6 +11,13 @@ In the same way that @rhombus(fun) and @rhombus(fun) defines a variable
 or function, @rhombus(class) defines a new class. By convention, class
 names start with a capital letter.
 
+@margin_note{A name starting with a capital letter is also used for an
+ @tech{interface}, a @tech{syntax class}, or an @tech{annotation}. A
+ capital letter is @emph{not} used for an annotation constructor, such as
+ the @rhombus(of, ~datum) in @rhombus(Posn.of), or for a @tech{namespace}
+ that do not also refer to a class, like the @rhombus(math) of
+ @rhombus(math.pi).}
+
 @demo(
   ~eval: posn_eval
   ~defn:
