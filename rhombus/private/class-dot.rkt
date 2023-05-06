@@ -268,6 +268,7 @@
      (syntax-parse stx
        #:datum-literals (op)
        [(rator-id (~and args (tag::parens self arg ...)) . tail)
+        #:when (not (syntax-parse #'self [(_ kw:keyword . _) #t] [_ #f]))
         (define obj-id #'this)
         (define rator #`(method-ref #,name-ref-id #,obj-id #,idx))
         (define r (and ret-info-id
@@ -297,6 +298,7 @@
      (syntax-parse stx
        #:datum-literals (op)
        [(rator-id (~and args (tag::parens self arg ...)) . tail)
+        #:when (not (syntax-parse #'self [(_ kw:keyword . _) #t] [_ #f]))
         (define obj-id #'this)
         (define-values (call new-tail)
           (parse-function-call proc-id (list obj-id) #'(#,obj-id (tag arg ...))
@@ -314,11 +316,27 @@
                             (string-append "wrong number of arguments in function call" statically-str)
                             (datum->syntax #f name #'head))]
        [(_ . tail)
-        (values #`(let ([#,name (lambda (self . args)
-                                  (unless (#,name?-id self) (raise-not-an-instance '#,name self))
-                                  (apply #,proc-id self args))])
-                    #,name)
+        (values #`(wrap-object-check #,proc-id '#,name #,name?-id)
                 #'tail)]))))
+
+(define (wrap-object-check proc name name?)
+  (define-values (req-kws allowed-kws) (procedure-keywords proc))
+  (cond
+    [(null? allowed-kws)
+     (procedure-reduce-arity-mask (lambda (obj . args)
+                                    (unless (name? obj) (raise-not-an-instance name obj))
+                                    (apply proc obj args))
+                                  (procedure-arity-mask proc)
+                                  name)]
+    [else
+     (procedure-reduce-keyword-arity-mask (make-keyword-procedure
+                                           (lambda (kws kw-args obj . args)
+                                             (unless (name? obj) (raise-not-an-instance name obj))
+                                             (keyword-apply proc kws kw-args obj args)))
+                                          (procedure-arity-mask proc)
+                                          req-kws
+                                          allowed-kws
+                                          name)]))
 
 (define-for-syntax (class-expression-transformers id make-id)
   (values
