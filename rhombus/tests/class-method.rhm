@@ -423,3 +423,80 @@ check:
     extends A
     abstract override m()
   ~raises "final class cannot have abstract methods"
+
+// check on inherited method when called via subclass that
+// the passed instance is a subclass instance
+block:
+  class A():
+    nonfinal
+    method m(): "m"
+    final method f(): "f"
+  class B():
+    extends A
+  check:
+    A().m() ~is "m"
+    A().f() ~is "f"
+    B().m() ~is "m"
+    B().f() ~is "f"
+    A.m(A()) ~is "m"
+    A.f(A()) ~is "f"
+    A.m(B()) ~is "m"
+    A.f(B()) ~is "f"
+    B.m(A()) ~raises "not an instance for method call"
+    B.f(A()) ~raises "not an instance for method call"
+    B.m(B()) ~is "m"
+    B.f(B()) ~is "f"
+    ("oops" :~ A).m() ~raises "not an instance for method call"
+    ("oops" :~ A).f() ~raises "not an instance for method call"
+    ("oops" :~ B).m() ~raises "not an instance for method call"
+    ("oops" :~ B).f() ~raises "not an instance for method call"
+    dynamic(B.m)(A()) ~raises "not an instance for method call"
+    dynamic(B.f)(A()) ~raises "not an instance for method call"
+    dynamic(B.m)(B()) ~is "m"
+    dynamic(B.f)(B()) ~is "f"
+    
+// similar, but for interface
+block:
+  interface I:
+    method m(): "m"
+    final method f(): "f"
+  interface J:
+    extends I
+  class B():
+    implements I
+  class C():
+    internal _C
+    private implements I
+  class D():
+    implements J
+  check:
+    B().m() ~is "m"
+    B().f() ~is "f"
+    D().m() ~is "m"
+    D().f() ~is "f"
+    I.m(B()) ~is "m"
+    I.f(B()) ~is "f"
+    B.m(B()) ~is "m"
+    B.f(B()) ~is "f"
+    I.m(C()) ~raises "not an instance for method call"
+    I.f(C()) ~raises "not an instance for method call"
+    I.m(D()) ~is "m"
+    I.f(D()) ~is "f"
+    J.m(D()) ~is "m"
+    J.f(D()) ~is "f"
+    J.m(B()) ~raises "not an instance for method call"
+    J.f(B()) ~raises "not an instance for method call"
+    (C() :: _C).m() ~is "m"
+    (C() :: _C).f() ~is "f"
+    ("oops" :~ I).m() ~raises "not an instance for method call"
+    ("oops" :~ I).f() ~raises "not an instance for method call"
+    ("oops" :~ B).m() ~raises "not an instance for method call"
+    ("oops" :~ B).f() ~raises "not an instance for method call"
+    ("oops" :~ _C).m() ~raises "not an instance for method call"
+    ("oops" :~ _C).f() ~raises "not an instance for method call"
+    ("oops" :~ J).m() ~raises "not an instance for method call"
+    ("oops" :~ J).f() ~raises "not an instance for method call"
+    (C() :~ I).m() ~raises "not an instance for method call"
+    (C() :~ I).f() ~raises "not an instance for method call"
+    (C() :~ J).m() ~raises "not an instance for method call"
+    (C() :~ J).f() ~raises "not an instance for method call"

@@ -29,6 +29,7 @@
                   #'Printable
                   #'()
                   #'prop:Printable
+                  #'prop:Printable
                   #'Printable-ref
                   '#(#&print #&display)
                   #'#(#:abstract display_as_print)

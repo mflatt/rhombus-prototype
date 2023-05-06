@@ -114,7 +114,7 @@
                           (mindex-index (car old-val))
                           (hash-count ht)))
             (values shape
-                    (cons (mindex i final? property? arity) shape)
+                    (cons (mindex i final? property? arity #t) shape)
                     i
                     old-val)))
         (when (hash-ref dot-ht key #f)
@@ -220,7 +220,7 @@
                                  (not (equal? (added-method-arity added) (mindex-arity mix))))
                              (let ([property? (eq? (added-method-kind added) 'property)]
                                    [arity (added-method-arity added)])
-                               (hash-set ht (syntax-e id) (cons (mindex idx final? property? arity) id)))
+                               (hash-set ht (syntax-e id) (cons (mindex idx final? property? arity #f) id)))
                              ht)
                          (hash-set vtable-ht idx (added-method-rhs-id added))
                          priv-ht
@@ -260,7 +260,8 @@
                                             (or final?
                                                 (eq? (added-method-disposition added) 'final))
                                             (eq? (added-method-kind added) 'property)
-                                            (added-method-arity added))
+                                            (added-method-arity added)
+                                            #f)
                                     id))
                     (hash-set vtable-ht pos (added-method-rhs-id added))
                     priv-ht
@@ -470,13 +471,14 @@
         (define id+dp+supers c-or-id+dp+supers)
         (syntax-parse id+dp+supers
           [(id dp)
-           (raise-syntax-error #f "class has no superclass" #'head)]
+           (raise-syntax-error #f "class has no superclass"
+                               (syntax-parse stxs #:datum-literals (op |.|) [(head . _) #'head]))]
           [(id dp . super-ids)
            (syntax-parse stxs
              #:datum-literals (op |.|)
              [(head (op (~and dot-op |.|)) method-id:identifier . tail)
               (define super+pos
-                (for/or ([super-id (in-list (syntax->list #'super-ids))])
+                (for/fold ([found #f]) ([super-id (in-list (syntax->list #'super-ids))])
                   (define super (syntax-local-value* (in-class-desc-space super-id)
                                                      (lambda (v)
                                                        (or (class-desc-ref v)
@@ -484,6 +486,9 @@
                   (unless super
                     (raise-syntax-error #f "class or interface not found" super-id))
                   (define pos (hash-ref (super-method-map super) (syntax-e #'method-id) #f))
+                  (when found
+                    (unless (in-common-superinterface? (car found) super (syntax-e #'method-id))
+                      (raise-syntax-error #f "inherited method is ambiguous" #'method-id)))
                   (and pos (cons super pos))))
               (unless super+pos
                 (raise-syntax-error #f "no such method in superclass" #'head #'method-id))
@@ -572,7 +577,7 @@
                                       static-infos)
                    #'tail)])]))))
 
-(define-for-syntax (make-method-syntax id index/id result-id kind)
+(define-for-syntax (make-method-syntax id index/id result-id kind methods-ref-id)
   (define (add-method-result call r)
     (if r
         (wrap-static-info* call (method-result-static-infos r))
@@ -585,7 +590,7 @@
           [(obj-id . _)
            (define rator (if (identifier? index/id)
                              index/id
-                             #`(vector-ref (prop-methods-ref obj-id) #,index/id)))
+                             #`(vector-ref (#,methods-ref-id obj-id) #,index/id)))
            (syntax-parse stx
              [(head . tail)
               #:with assign::assign-op-seq #'tail
@@ -616,7 +621,7 @@
              [(id . _)
               (define rator (if (identifier? index/id)
                                 index/id
-                                #`(vector-ref (prop-methods-ref id) #,index/id)))
+                                #`(vector-ref (#,methods-ref-id id) #,index/id)))
               (define r (and (syntax-e result-id)
                              (syntax-local-method-result result-id)))
               (define-values (call new-tail)
@@ -637,6 +642,7 @@
                                   added-methods method-mindex method-names method-private
                                   names)
   (with-syntax ([(name name-instance name?
+                       methods-ref
                        [field-name ...]
                        [field-static-infos ...]
                        [name-field ...]
@@ -689,12 +695,14 @@
              (define-syntax method-name (make-method-syntax (quote-syntax method-name)
                                                             (quote-syntax method-index/id)
                                                             (quote-syntax method-result-id)
-                                                            (quote method-kind)))
+                                                            (quote method-kind)
+                                                            (quote-syntax methods-ref)))
              ...
              (define-syntax private-method-name (make-method-syntax (quote-syntax private-method-name)
                                                                     (quote-syntax private-method-id)
                                                                     (quote-syntax private-method-result-id)
-                                                                    (quote private-method-kind)))
+                                                                    (quote private-method-kind)
+                                                                    (quote-syntax methods-ref)))
              ...
              (define-syntax new-private-tables (cons (cons (quote-syntax name)
                                                            (hasheq (~@ 'private-method-name
@@ -739,8 +747,8 @@
                                    (lambda (arity stx)
                                      #`(syntax-parameterize ([this-id (quote-syntax (this-obj name-instance . super-names))]
                                                              [private-tables (quote-syntax private-tables-id)])
-                                         ;; This check might be redundant, depending on how the method was called:
-                                         (unless (name? this-obj) (raise-not-an-instance 'name this-obj))
+                                         ;; This check might be redundant, depending on how the method was called
+                                         (unless (name? this-obj) (raise-not-an-instance 'method-name this-obj))
                                          #,(let ([body #`(let ()
                                                            #,stx)])
                                              (cond

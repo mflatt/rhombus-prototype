@@ -36,7 +36,8 @@
          "parse.rkt"
          "error.rkt"
          (submod "namespace.rkt" for-exports)
-         (submod "print.rkt" for-class))
+         (submod "print.rkt" for-class)
+         (submod "callable.rkt" for-class))
 
 ;; the `class` form is provided by "class-together.rkt"
 (provide this
@@ -181,6 +182,7 @@
               #,@(build-class-annotation-form super annotation-rhs
                                               super-constructor-fields
                                               exposed-internal-id internal-of-id intro
+                                              '() ;; callable-static-infos
                                               #'(name name-instance name? name-of
                                                       internal-name-instance
                                                       make-converted-name make-converted-internal
@@ -430,6 +432,7 @@
                                                                                       #:result (lambda (pub priv) pub))]
                        [(constructor-public-field-keyword ...) constructor-public-keywords]
                        [(super-name* ...) (if super #'(super-name) '())]
+                       [(interface-name ...) interface-names]
                        [make-internal-name (and exposed-internal-id
                                                 #'make-converted-internal
                                                 #;
@@ -446,6 +449,7 @@
                (build-methods method-results
                               added-methods method-mindex method-names method-private
                               #'(name name-instance name?
+                                      prop-methods-ref
                                       [(field-name) ... super-field-name ...]
                                       [field-static-infos ... super-field-static-infos ...]
                                       [name-field ... super-name-field ...]
@@ -457,7 +461,7 @@
                                              (quote-syntax private-field-static-infos)
                                              (quote-syntax private-field-argument))
                                        ...]
-                                      [super-name* ...]))
+                                      [super-name* ... interface-name ...]))
                (build-class-struct super
                                    fields mutables constructor-keywords private?s final? authentic? prefab? opaque?
                                    method-mindex method-names method-vtable method-private
@@ -617,6 +621,9 @@
                          (values ms (cons (list name v) ps))
                          (values (cons (list name v) ms) ps)))]
                   [(all-dot-name ...) (extract-all-dot-names #'(dot-id ...) (cons super interfaces))])
+      (define all-interfaces-transitively
+        (close-interfaces-over-superinterfaces interfaces
+                                               private-interfaces))
       (list
        #`(define-values (class:name make-all-name name? name-field ... set-name-field! ...)
            (let-values ([(class:name name name? name-ref name-set!)
@@ -637,6 +644,9 @@
                                                                                         ...)
                                                                                 (hasheq (~@ 'method-name method-proc)
                                                                                         ...)))))
+                                                         #,@(callable-method-as-property
+                                                             all-interfaces-transitively
+                                                             method-mindex method-names method-vtable method-private)
                                                          #,@(if (or abstract-name
                                                                     (and (for/and ([maybe-name (in-list (syntax->list #'(maybe-public-mutable-field-name ...)))])
                                                                            (not (syntax-e maybe-name)))
@@ -670,8 +680,7 @@
                                                                               (vector #,@(vector->list method-vtable)))))
                                                          #,@(if abstract-name
                                                                 null
-                                                                (for/list ([intf (in-list (close-interfaces-over-superinterfaces interfaces
-                                                                                                                                 private-interfaces))])
+                                                                (for/list ([intf (in-list all-interfaces-transitively)])
                                                                   #`(cons #,(interface-desc-prop:id intf)
                                                                           (vector #,@(build-interface-vtable intf
                                                                                                              method-mindex method-vtable method-names
@@ -694,8 +703,8 @@
                       mutable-field-annotation-str)
                      ...)))
        #`(define (name-ref v)
-           (if (name? v)
-               (prop-methods-ref v)
+           (define vtable (prop-methods-ref v #f))
+           (or vtable
                (raise-not-an-instance 'name v)))))))
 
 (define-for-syntax (build-class-desc exposed-internal-id super options

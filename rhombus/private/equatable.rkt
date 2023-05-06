@@ -35,6 +35,7 @@
                   #'Equatable
                   #'()
                   #'prop:Equatable
+                  #'prop:Equatable
                   #'Equatable-ref
                   (vector-immutable (box-immutable 'equals)
                                     (box-immutable 'hash_code))

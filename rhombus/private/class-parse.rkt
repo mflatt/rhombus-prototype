@@ -122,7 +122,7 @@
                          arity))     ; #f, integer, or (list integer required-list allowed-list)
 
 ;; used for a table produced by `extract-method-tables`
-(struct mindex (index final? property? arity))
+(struct mindex (index final? property? arity inherited?))
 
 (define (any-stx? l) (for/or ([x (in-list l)]) (syntax-e x)))
 

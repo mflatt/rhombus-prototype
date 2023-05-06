@@ -17,6 +17,7 @@
                         internal-id
                         super-ids
                         prop:id
+                        prop:internal-internal-id
                         ref-id
                         method-shapes   ; same as `class-desc`
                         method-vtable   ; same as `class-desc`
@@ -64,12 +65,19 @@
        (append (for/list ([intf (in-hash-keys seen)])
                  intf)
                ;; for privately implemented interfaces, return the internal
-               ;; interface, if it exists
+               ;; interface, if it exists; otherwise, if there's an internal-internal
+               ;; property, synthesize by shifting that internal property id into place:
                (for/list ([intf (in-hash-keys priv-seen)]
                           #:do [(define int-id (interface-desc-internal-id intf))]
-                          #:when int-id)
-                 (or (syntax-local-value* (in-class-desc-space int-id) interface-desc-ref)
-                     (raise-syntax-error #f "could not find internal interface" int-id))))]
+                          #:when (or int-id
+                                     (interface-desc-prop:internal-internal-id intf)))
+                 (cond
+                   [int-id
+                    (or (syntax-local-value* (in-class-desc-space int-id) interface-desc-ref)
+                        (raise-syntax-error #f "could not find internal interface" int-id))]
+                   [else
+                    (struct-copy interface-desc intf
+                                 [prop:id (interface-desc-prop:internal-internal-id intf)])])))]
       [(hash-ref seen (caar int+priv?s) #f)
        (loop seen priv-seen (cdr int+priv?s))]
       [(and (hash-ref priv-seen (caar int+priv?s) #f)
