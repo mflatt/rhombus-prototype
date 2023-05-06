@@ -25,7 +25,8 @@
                         method-result   ; same as `class-desc`
                         custom-annotation?
                         dots ; list of symbols for dot syntax
-                        dot-provider))  ; #f or compile-time identifier
+                        dot-provider    ; #f or compile-time identifier
+                        flags))         ; list of 'call (public `call` is Callable)
 (struct interface-internal-desc interface-desc (private-methods      ; (list symbol ...)
                                                 private-properties)) ; (list symbol ...)
 

@@ -1,7 +1,9 @@
 #lang racket/base
 (require (for-syntax racket/base
                      "interface-parse.rkt"
-                     (only-in "class-parse.rkt" mindex-index))
+                     (only-in "class-parse.rkt"
+                              class-desc-flags
+                              mindex-index))
          "provide.rkt"
          (only-in "class-desc.rkt" define-class-desc-syntax))
 
@@ -9,7 +11,8 @@
                      Callable))
 
 (module+ for-class
-  (provide (for-syntax callable-method-as-property)))
+  (provide (for-syntax callable-method-status
+                       callable-method-as-property)))
 
 (define-values (prop:Callable Callable? Callable-ref)
   (make-struct-type-property 'Callable
@@ -32,19 +35,33 @@
                   #'Callable-ref
                   '#(#&call)
                   #'#(#:abstract)
-                  (hasheq 'call 1) ; 1 must be replaced by overriding
+                  (hasheq 'call 0)
                   #hasheq()
                   #t
                   '()
-                  #f))
+                  #f
+                  '(call)))
 
 (define-class-desc-syntax Callable
   callable-interface-desc)
 
-(define-for-syntax (callable-method-as-property all-interfaces-transitively
-                                                method-mindex method-names method-vtable method-private)
+(define-for-syntax (callable-method-status super interfaces method-mindex method-vtable method-private)
+  (define call-is-callable?
+    (or (and super (memq 'call (class-desc-flags super)))
+        (for/or ([intf (in-list interfaces)])
+          (memq 'call (interface-desc-flags intf)))))
+  (values (and call-is-callable?
+               (or (hash-ref method-private 'call #f)
+                   (let ([m (hash-ref method-mindex 'call #f)])
+                     (and m
+                          (not (eq? '#:abstract (vector-ref method-vtable (mindex-index m))))))))
+          (and call-is-callable?
+               (not (hash-ref method-private 'call #f)))))
+
+(define-for-syntax (callable-method-as-property callable?
+                                                method-mindex method-vtable method-private)
   (cond
-    [(memq callable-interface-desc all-interfaces-transitively)
+    [callable?
      (cond
        [(hash-ref method-private 'call #f)
         => (lambda (call-id)

@@ -241,7 +241,7 @@
                                                      internal-name-instance internal-name-ref
                                                      dot-provider-name [dot-id ...]
                                                      [export ...]))
-               (build-interface-desc parent-names options
+               (build-interface-desc supers parent-names options
                                      method-mindex method-names method-vtable method-results method-private dots
                                      internal-name
                                      #'(name prop:name name-ref name-ref-or-error
@@ -297,7 +297,7 @@
           #`(define-annotation-syntax name (identifier-annotation (quote-syntax name?)
                                                                   (quote-syntax ((#%dot-provider name-instance))))))))))
   
-(define-for-syntax (build-interface-desc parent-names options
+(define-for-syntax (build-interface-desc supers parent-names options
                                          method-mindex method-names method-vtable method-results method-private dots
                                          internal-name
                                          names)
@@ -327,6 +327,7 @@
                                          #,custom-annotation?
                                          '()
                                          #f
+                                         '()
                                          (quote #,(build-quoted-private-method-list 'method method-private))
                                          (quote #,(build-quoted-private-method-list 'property method-private)))))
            null)
@@ -347,4 +348,9 @@
                             #,custom-annotation?
                             '#,(map car dots)
                             #,(and (syntax-e #'dot-provider-name)
-                                   #'(quote-syntax dot-provider-name)))))))))
+                                   #'(quote-syntax dot-provider-name))
+                            '#,(append
+                                (if (for/or ([super (in-list supers)])
+                                      (memq 'call (interface-desc-flags super)))
+                                    '(call)
+                                    '())))))))))

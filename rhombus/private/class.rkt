@@ -365,6 +365,9 @@
          (or has-private-fields?
              ((hash-count method-private) . > . 0)))
 
+       (define-values (callable? public-callable?)
+         (callable-method-status super interfaces method-mindex method-vtable method-private))
+
        (define (temporary template)
          ((make-syntax-introducer) (datum->syntax #f (string->symbol (format template (syntax-e #'name))))))
 
@@ -467,7 +470,7 @@
                                    method-mindex method-names method-vtable method-private
                                    abstract-name
                                    interfaces private-interfaces
-                                   has-extra-fields?
+                                   has-extra-fields? callable?
                                    #'(name class:name make-all-name name? name-ref
                                            [public-field-name ...]
                                            [public-maybe-set-name-field! ...]
@@ -545,7 +548,7 @@
                                  final? has-private-fields? private?s
                                  parent-name interface-names all-interfaces private-interfaces
                                  method-mindex method-names method-vtable method-results method-private dots
-                                 authentic? prefab?
+                                 authentic? prefab? public-callable?
                                  #'(name class:name constructor-maker-name name-defaults name-ref
                                          dot-provider-name
                                          (list (list 'super-field-name
@@ -572,7 +575,7 @@
                                        method-mindex method-names method-vtable method-private
                                        abstract-name
                                        interfaces private-interfaces
-                                       has-extra-fields?
+                                       has-extra-fields? callable?
                                        names)
   (with-syntax ([(name class:name make-all-name name? name-ref
                        [public-field-name ...]
@@ -621,9 +624,6 @@
                          (values ms (cons (list name v) ps))
                          (values (cons (list name v) ms) ps)))]
                   [(all-dot-name ...) (extract-all-dot-names #'(dot-id ...) (cons super interfaces))])
-      (define all-interfaces-transitively
-        (close-interfaces-over-superinterfaces interfaces
-                                               private-interfaces))
       (list
        #`(define-values (class:name make-all-name name? name-field ... set-name-field! ...)
            (let-values ([(class:name name name? name-ref name-set!)
@@ -644,9 +644,8 @@
                                                                                         ...)
                                                                                 (hasheq (~@ 'method-name method-proc)
                                                                                         ...)))))
-                                                         #,@(callable-method-as-property
-                                                             all-interfaces-transitively
-                                                             method-mindex method-names method-vtable method-private)
+                                                         #,@(callable-method-as-property callable?
+                                                                                         method-mindex method-vtable method-private)
                                                          #,@(if (or abstract-name
                                                                     (and (for/and ([maybe-name (in-list (syntax->list #'(maybe-public-mutable-field-name ...)))])
                                                                            (not (syntax-e maybe-name)))
@@ -680,7 +679,8 @@
                                                                               (vector #,@(vector->list method-vtable)))))
                                                          #,@(if abstract-name
                                                                 null
-                                                                (for/list ([intf (in-list all-interfaces-transitively)])
+                                                                (for/list ([intf (in-list (close-interfaces-over-superinterfaces interfaces
+                                                                                                                                 private-interfaces))])
                                                                   #`(cons #,(interface-desc-prop:id intf)
                                                                           (vector #,@(build-interface-vtable intf
                                                                                                              method-mindex method-vtable method-names
@@ -715,7 +715,7 @@
                                      final? has-private-fields? private?s
                                      parent-name interface-names all-interfaces private-interfaces
                                      method-mindex method-names method-vtable method-results method-private dots
-                                     authentic? prefab?
+                                     authentic? prefab? public-callable?
                                      names)
   (with-syntax ([(name class:name constructor-maker-name name-defaults name-ref
                        dot-provider-name
@@ -789,7 +789,8 @@
                       #,(and (syntax-e #'name-defaults)
                              #'(quote-syntax name-defaults))
                       '(#,@(if authentic? '(authentic) null)
-                        #,@(if prefab? '(prefab) null)))))
+                        #,@(if prefab? '(prefab) null)
+                        #,@(if public-callable? '(call) null)))))
      (if exposed-internal-id
          (list
           #`(define-class-desc-syntax #,exposed-internal-id

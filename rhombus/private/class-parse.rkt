@@ -70,7 +70,7 @@
                     dots ; list of symbols for dot syntax
                     dot-provider  ; #f or compile-time identifier
                     defaults-id   ; #f if no arguments with defaults
-                    flags))       ; list with 'authentic, and/or 'prefab
+                    flags))       ; list with 'authentic, 'prefab, and/or 'call (=> public `call` is for Callable)
 (define (class-desc-ref v) (and (class-desc? v) v))
 
 (struct class-internal-desc (id                   ; identifier of non-internal class

@@ -424,6 +424,43 @@ check:
     abstract override m()
   ~raises "final class cannot have abstract methods"
 
+block:
+  interface C:
+    final direct():
+      "direct"
+    method call() :: String:
+      next("intf")
+    method next(s) :: String
+  interface D:
+    extends C
+    override method call():
+      "INTF"
+  class A(a):
+    nonfinal
+    internal _A
+    private implements C
+    method indirect():
+      call()
+    private override method next(s :: String):
+      s ++ ".a"
+  class B():
+    extends A
+    implements: C D
+    override method call():
+      super.call() ++ "B"
+    override method next(s :: String):
+      s ++ ".b"  
+  check:
+    A(1).indirect() ~is "intf.a"
+    A.indirect(A(1)) ~is "intf.a"
+    (A(1) :: _A).call() ~is "intf.a"
+    (A(1) :: _A).next("x") ~is "x.a"    
+    (A(1) :: _A).direct() ~is "direct"
+    B(1).direct() ~is "direct"
+    D.direct(B(1)) ~is "direct"
+    B(1).call() ~is "INTFB"
+    B(1).next("x") ~is "x.b"
+
 // check on inherited method when called via subclass that
 // the passed instance is a subclass instance; also check
 // that static information is propagated as it should be
@@ -572,3 +609,15 @@ block:
     (C() :~ J).f() ~raises "not an instance for method call"
     (C() :~ J).k(~arg: 0) ~raises "not an instance for method call"
     (C() :~ J).kw(~arg: 0) ~raises "not an instance for method call"
+
+check:
+  ~eval
+  interface A:
+    method m
+  interface B:
+    method m
+  class C():
+    implements: A B
+    override method m():
+      super.m()
+  ~raises "inherited method is ambiguous"

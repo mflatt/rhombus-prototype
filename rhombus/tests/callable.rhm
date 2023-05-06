@@ -1,0 +1,100 @@
+#lang rhombus
+
+class A0():
+  implements Callable
+  override method call():
+    "A0"
+
+class A1():
+  nonfinal
+  implements Callable
+  override method call():
+    "A1"
+
+class B1():
+  extends A1
+  implements Callable
+  override method call():
+    "B1"
+
+class C1():
+  extends A1
+  override method call():
+    "C1"
+
+class A2():
+  nonfinal
+  implements Callable
+
+class B2():
+  extends A2
+  override method call():
+    "B2"
+
+interface I3:
+  extends Callable
+
+class A3():
+  implements I3
+  override method call():
+    "A3"  
+
+class A4():
+  nonfinal
+  implements I3
+
+class B4():
+  extends A4
+  override method call():
+    "B4"
+
+class A5():
+  nonfinal
+  private implements Callable
+  private override method call():
+    "A5"
+
+class B5():
+  nonfinal
+  extends A5
+
+class C5():
+  extends B5
+  implements Callable
+  override method call():
+    "C5"
+
+class C6():
+  extends B5
+  private implements Callable
+  private override method call():
+    "C6"
+
+interface I7:
+  extends I3
+  override method call():
+    "I7"
+
+class A7():
+  nonfinal
+  implements I7
+
+class B7():
+  extends A7
+  override method call():
+    "B7"
+
+check:
+  A0()() ~is "A0"
+  A1()() ~is "A1"
+  B1()() ~is "B1"
+  C1()() ~is "C1"
+  B2()() ~is "B2"
+  A3()() ~is "A3"
+  B4()() ~is "B4"
+  A5()() ~is "A5"
+  B5()() ~is "A5"
+  C5()() ~is "C5"
+  C6()() ~is "C6"
+  A7()() ~is "I7"
+  B7()() ~is "B7"

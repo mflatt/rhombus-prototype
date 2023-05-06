@@ -44,7 +44,8 @@
                   #hasheq()
                   #t
                   '()
-                  #f))
+                  #f
+                  '()))
 
 (define (equal-recur-internal-method this other recur)
   ((vector-ref (Equatable-ref this) 0) this other recur))
