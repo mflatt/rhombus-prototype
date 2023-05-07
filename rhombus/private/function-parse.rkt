@@ -25,6 +25,7 @@
          "call-result-key.rkt"
          "ref-result-key.rkt"
          "function-arity-key.rkt"
+         "function-indirect-key.rkt"
          "values-key.rkt"
          "static-info.rkt"
          "annotation.rkt"
@@ -866,18 +867,25 @@
       kwrsts
       (lambda (rator args rest-args kwrest-args rator-static-info)
         (define kws (syntax->list #'(rand.kw ...)))
+        (define (rator-static-info/indirect key
+                                            #:result [result (lambda (si indirect?) si)])
+          (define si (rator-static-info key))
+          (if si
+              (result si #f)
+              (result (let loop ([c-id (rator-static-info #'#%function-indirect)])
+                        (and c-id
+                             (or (syntax-local-static-info c-id key)
+                                 (loop (syntax-local-static-info c-id #'#%function-indirect)))))
+                      #t)))
         (when static?
           (when (or (not kwrsts) (not rsts))
-            (let* ([a (or rator-arity
-                          (rator-static-info #'#%function-arity))]
-                   [c (and (not a)
-                           (let ([c-id (rator-static-info #'#%callable-method)])
-                             (and c-id
-                                  (syntax-local-static-info c-id #'#%function-arity))))]
-                   [a (or a c)])
-              (when a
-                (let* ([a (if (syntax? a) (syntax->datum a) a)])
-                  (check-arity rator-stx rator-in a (+ (length extra-rands) (if c 1 0)) kws rsts kwrsts rator-kind))))))
+            (define-values (a indirect?)
+              (if rator-arity
+                  (values rator-arity #f)
+                  (rator-static-info/indirect #'#%function-arity #:result values)))
+            (when a
+              (let* ([a (if (syntax? a) (syntax->datum a) a)])
+                (check-arity rator-stx rator-in a (+ (length extra-rands) (if indirect? 1 0)) kws rsts kwrsts rator-kind)))))
         (define num-rands (length (syntax->list #'(rand.kw ...))))
         (with-syntax-parse ([((arg-form ...) ...) (for/list ([kw kws]
                                                              [arg (in-list args)])
@@ -900,15 +908,17 @@
                           (append extra-rands
                                   (syntax->list #'(arg-form ... ...))))]))
           (define e (datum->syntax #'here es (span-srcloc rator-in args-stx)))
-          (define result-static-infos (or (rator-static-info #'#%call-result)
+          (define result-static-infos (or (rator-static-info/indirect #'#%call-result)
                                           #'()))
-          (define all-result-static-infos (or (let loop ([r (rator-static-info #'#%call-results-at-arities)])
-                                                (syntax-parse r
-                                                  [((n (result ...)) . rest)
-                                                   (if (equal? (syntax-e #'n) (+ num-rands (length extra-rands)))
-                                                       #`(result ... . #,result-static-infos)
-                                                       (loop #'rest))]
-                                                  [_ #f]))
+          (define all-result-static-infos (or (let-values ([(r indirect?)
+                                                            (rator-static-info/indirect #'#%call-results-at-arities #:result values)])
+                                                (let loop ([r r])
+                                                  (syntax-parse r
+                                                    [((n (result ...)) . rest)
+                                                     (if (equal? (syntax-e #'n) (+ num-rands (length extra-rands) (if indirect? 1 0)))
+                                                         #`(result ... . #,result-static-infos)
+                                                         (loop #'rest))]
+                                                    [_ #f])))
                                               result-static-infos))
           (values e all-result-static-infos)))))
    tail))

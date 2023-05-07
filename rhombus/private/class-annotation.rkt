@@ -22,10 +22,9 @@
 (define-for-syntax (build-class-annotation-form super annotation-rhs
                                                 super-constructor-fields
                                                 exposed-internal-id internal-of-id intro
-                                                callable-static-infos
                                                 names)
   (with-syntax ([(name name-instance name? name-of
-                       internal-name-instance
+                       internal-name-instance indirect-static-infos
                        make-converted-name make-converted-internal
                        constructor-name-fields constructor-public-name-fields super-name-fields
                        field-keywords public-field-keywords super-field-keywords)
@@ -53,7 +52,7 @@
                                   (quote-syntax constructor-name-field) ...)])
                 (quote-syntax name?)
                 (quote-syntax ((#%dot-provider name-instance)
-                               #,@callable-static-infos))
+                               . indirect-static-infos))
                 (quote #,(+ len (if no-super? 0 (length super-constructor-fields))))
                 (super-field-keyword ... field-keyword ...)
                 (make-class-instance-predicate accessors)

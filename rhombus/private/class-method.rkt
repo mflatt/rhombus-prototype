@@ -16,6 +16,7 @@
          "class-this.rkt"
          "class-method-result.rkt"
          "dot-provider-key.rkt"
+         "function-indirect-key.rkt"
          "static-info.rkt"
          (submod "dot.rkt" for-dot-provider)
          (submod "assign.rkt" for-assign)
@@ -342,28 +343,44 @@
 (define-for-syntax (build-method-results added-methods
                                          method-mindex method-vtable method-private
                                          method-results
-                                         in-final?)
-  (for/list ([added (in-list added-methods)]
-             #:when (added-method-result-id added))
-    #`(define-method-result-syntax #,(added-method-result-id added)
-        #,(added-method-maybe-ret added)
-        #,(cdr (hash-ref method-results (syntax-e (added-method-id added)) '(none)))
-        ;; When calls do not go through vtable, also add static info
-        ;; as #%call-result to binding; non-vtable calls include final methods
-        ;; and `super` calls to non-final methods:
-        #,(or (let ([id/property (hash-ref method-private (syntax-e (added-method-id added)) #f)])
-                (if (pair? id/property) (car id/property) id/property))
-              (and (not (eq? (added-method-body added) 'abstract))
-                   (let ([mix (hash-ref method-mindex (syntax-e (added-method-id added)) #f)])
-                     (and (or (mindex-final? mix)
-                              (not in-final?))
-                          (vector-ref method-vtable (mindex-index mix))))))
-        ;; result annotation can convert if final
-        #,(or in-final?
-              (eq? (added-method-disposition added) 'final))
-        #,(added-method-kind added)
-        #,(added-method-arity added))))
-          
+                                         in-final?
+                                         function-statinfo-indirect-stx here-callable?)
+  (define defs
+    (for/list ([added (in-list added-methods)]
+               #:when (added-method-result-id added))
+      #`(define-method-result-syntax #,(added-method-result-id added)
+          #,(added-method-maybe-ret added)
+          #,(cdr (hash-ref method-results (syntax-e (added-method-id added)) '(none)))
+          ;; When calls do not go through vtable, also add static info
+          ;; as #%call-result to binding; non-vtable calls include final methods
+          ;; and `super` calls to non-final methods:
+          #,(or (let ([id/property (hash-ref method-private (syntax-e (added-method-id added)) #f)])
+                  (if (pair? id/property) (car id/property) id/property))
+                (and (not (eq? (added-method-body added) 'abstract))
+                     (let ([mix (hash-ref method-mindex (syntax-e (added-method-id added)) #f)])
+                       (and (or (mindex-final? mix)
+                                (not in-final?))
+                            (vector-ref method-vtable (mindex-index mix))))))
+          ;; result annotation can convert if final
+          #,(or in-final?
+                (eq? (added-method-disposition added) 'final))
+          #,(added-method-kind added)
+          #,(added-method-arity added)
+          #,(and here-callable?
+                 (eq? 'call (syntax-e (added-method-id added)))
+                 function-statinfo-indirect-stx))))
+  ;; may need to add info for inherited `call`:
+  (if (and function-statinfo-indirect-stx
+           here-callable?
+           (not (for/or ([added (in-list added-methods)])
+                  (eq? 'call (syntax-e (added-method-id added))))))
+      ;; `call` is inherited, so bounce again to inherited method's info
+      (cons
+       #`(define-static-info-syntax #,function-statinfo-indirect-stx
+           (#%function-indirect #,(vector-ref method-vtable (mindex-index (hash-ref method-mindex 'call)))))
+       defs)
+      defs))
+
 (define-for-syntax (build-method-result-expression method-result)
   #`(hasheq
      #,@(apply append
@@ -438,12 +455,14 @@
         (cond
           [(let ([v (syntax-parameter-value #'this-id)])
              (and (not (identifier? v)) v))
-           => (lambda (id+dp+supers)
-                (syntax-parse id+dp+supers
-                  [(id dp . _)
-                   (values (wrap-static-info (datum->syntax #'id (syntax-e #'id) #'head #'head)
-                                             #'#%dot-provider
-                                             #'dp)
+           => (lambda (id+dp+isi+supers)
+                (syntax-parse id+dp+isi+supers
+                  [(id dp indirect-static-infos . _)
+                   (values (wrap-static-info*
+                            (wrap-static-info (datum->syntax #'id (syntax-e #'id) #'head #'head)
+                                              #'#%dot-provider
+                                              #'dp)
+                            #'indirect-static-infos)
                            #'tail)]))]
           [else
            (raise-syntax-error #f
@@ -453,27 +472,27 @@
 (define-syntax super
   (expression-transformer
    (lambda (stxs)
-     (define c-or-id+dp+supers (syntax-parameter-value #'this-id))
+     (define c-or-id+dp+isi+supers (syntax-parameter-value #'this-id))
      (cond
-       [(not c-or-id+dp+supers)
+       [(not c-or-id+dp+isi+supers)
         (raise-syntax-error #f
                             "allowed only within methods and constructors"
                             #'head)]
-       [(keyword? (syntax-e (car (syntax-e c-or-id+dp+supers))))
+       [(keyword? (syntax-e (car (syntax-e c-or-id+dp+isi+supers))))
         ;; in a constructor
-        (syntax-parse c-or-id+dp+supers
+        (syntax-parse c-or-id+dp+isi+supers
           [(_ make-name)
            (syntax-parse stxs
              [(head . tail)
               (values #'make-name #'tail)])])]
        [else
         ;; in a method
-        (define id+dp+supers c-or-id+dp+supers)
-        (syntax-parse id+dp+supers
-          [(id dp)
+        (define id+dp+isi+supers c-or-id+dp+isi+supers)
+        (syntax-parse id+dp+isi+supers
+          [(id dp isi)
            (raise-syntax-error #f "class has no superclass"
                                (syntax-parse stxs #:datum-literals (op |.|) [(head . _) #'head]))]
-          [(id dp . super-ids)
+          [(id dp isi . super-ids)
            (syntax-parse stxs
              #:datum-literals (op |.|)
              [(head (op (~and dot-op |.|)) method-id:identifier . tail)
@@ -643,6 +662,7 @@
                                   names)
   (with-syntax ([(name name-instance name?
                        methods-ref
+                       indirect-static-infos
                        [field-name ...]
                        [field-static-infos ...]
                        [name-field ...]
@@ -725,6 +745,7 @@
                                                                     name name-instance name?
                                                                     #,(and r (car r)) #,(added-method-id added)
                                                                     new-private-tables
+                                                                    indirect-static-infos
                                                                     [super-name ...]
                                                                     #,(added-method-kind added))])
                        #,(added-method-id added))))))))))
@@ -736,6 +757,7 @@
         name name-instance name?
         result-id method-name
         private-tables-id
+        indirect-static-infos
         super-names
         kind)
      #:do [(define result-desc
@@ -745,7 +767,8 @@
      #:with (~var e (:entry-point (entry-point-adjustments
                                    (list #'this-obj)
                                    (lambda (arity stx)
-                                     #`(syntax-parameterize ([this-id (quote-syntax (this-obj name-instance . super-names))]
+                                     #`(syntax-parameterize ([this-id (quote-syntax (this-obj name-instance indirect-static-infos
+                                                                                              . super-names))]
                                                              [private-tables (quote-syntax private-tables-id)])
                                          ;; This check might be redundant, depending on how the method was called
                                          (unless (name? this-obj) (raise-not-an-instance 'method-name this-obj))

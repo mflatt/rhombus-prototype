@@ -194,6 +194,10 @@
                     #:when dp)
            dp))
 
+       (define callable?
+         (for/or ([super (in-list supers)])
+           (memq 'call (interface-desc-flags super))))
+
        (define (temporary template #:name [name #'name])
          (and name
               ((make-syntax-introducer) (datum->syntax #f (string->symbol (format template (syntax-e name)))))))
@@ -224,6 +228,7 @@
                               added-methods method-mindex method-names method-private
                               #'(name name-instance internal-name?
                                       internal-name-ref
+                                      ()
                                       []
                                       []
                                       []
@@ -244,13 +249,15 @@
                (build-interface-desc supers parent-names options
                                      method-mindex method-names method-vtable method-results method-private dots
                                      internal-name
+                                     callable?
                                      #'(name prop:name name-ref name-ref-or-error
                                              prop:internal-name internal-name? internal-name-ref
                                              dot-provider-name))
                (build-method-results added-methods
                                      method-mindex method-vtable method-private
                                      method-results
-                                     #f))))
+                                     #f
+                                     #f #f))))
            #`(begin . #,defns)))])))
 
 (define-for-syntax (build-interface-property internal-internal-name names)
@@ -300,6 +307,7 @@
 (define-for-syntax (build-interface-desc supers parent-names options
                                          method-mindex method-names method-vtable method-results method-private dots
                                          internal-name
+                                         callable?
                                          names)
   (with-syntax ([(name prop:name name-ref name-ref-or-error
                        prop:internal-name internal-name? internal-name-ref
@@ -350,7 +358,6 @@
                             #,(and (syntax-e #'dot-provider-name)
                                    #'(quote-syntax dot-provider-name))
                             '#,(append
-                                (if (for/or ([super (in-list supers)])
-                                      (memq 'call (interface-desc-flags super)))
+                                (if callable?
                                     '(call)
                                     '())))))))))
