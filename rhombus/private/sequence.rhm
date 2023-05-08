@@ -12,9 +12,9 @@ export:
 annot.macro 'Sequence':
   annot_meta.pack_predicate('base.#{sequence?}', '()')
 
-class_clause.macro '«sequence '$(pat :: Group)':
-                       $body
-                       ...»':
+class_and_interface_clause.macro '«sequence '$(pat :: Group)':
+                                     $body
+                                     ...»':
   '«
      sequence_macro sequence_constructor:
        make_sequence_constructor(fun ('$pat'):
