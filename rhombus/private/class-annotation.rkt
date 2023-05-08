@@ -51,8 +51,8 @@
                 ([accessors (list (quote-syntax super-name-field) ...
                                   (quote-syntax constructor-name-field) ...)])
                 (quote-syntax name?)
-                (quote-syntax ((#%dot-provider name-instance)
-                               . indirect-static-infos))
+                (quasisyntax ((#%dot-provider name-instance)
+                              . indirect-static-infos))
                 (quote #,(+ len (if no-super? 0 (length super-constructor-fields))))
                 (super-field-keyword ... field-keyword ...)
                 (make-class-instance-predicate accessors)

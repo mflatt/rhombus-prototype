@@ -3,7 +3,8 @@
                      syntax/parse/pre
                      enforest/syntax-local
                      enforest/hier-name-parse
-                     "class-parse.rkt")
+                     "class-parse.rkt"
+                     "static-info-pack.rkt")
          (submod "dot.rkt" for-dot-provider)
          "entry-point.rkt"
          "call-result-key.rkt"
@@ -11,7 +12,17 @@
          "function-arity.rkt"
          "static-info.rkt")
 
-(provide (for-syntax build-class-static-infos))
+(provide (for-syntax build-instance-static-infos-defs
+                     build-class-static-infos))
+
+(define-for-syntax (build-instance-static-infos-defs static-infos-id static-infos-exprs)
+  (if static-infos-id
+      (list
+       #`(define-syntax #,static-infos-id
+           (#,(quote-syntax quasisyntax)
+            (#,@(for/list ([expr (in-list (reverse static-infos-exprs))])
+                  #`(#,(quote-syntax unsyntax-splicing) (pack-static-infos #,expr 'static_info)))))))
+      null))
 
 (define-for-syntax (build-class-static-infos exposed-internal-id
                                              super

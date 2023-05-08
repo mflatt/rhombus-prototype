@@ -165,6 +165,11 @@
        (define set-statinfo-indirect-id
          (able-statinfo-indirect-id 'set super interfaces #'name intro))
 
+       (define static-infos-exprs (hash-ref options 'static-infoss '()))
+       (define static-infos-id (and (pair? static-infos-exprs)
+                                    (intro (datum->syntax #f (string->symbol
+                                                              (format "~a-statinfo" (syntax-e #'name)))))))
+
        (define indirect-static-infos
          #`(#,@(if call-statinfo-indirect-id
                    #`((#%function-indirect #,call-statinfo-indirect-id))
@@ -174,6 +179,9 @@
                    #'())
             #,@(if set-statinfo-indirect-id
                    #`((#%set-indirect #,set-statinfo-indirect-id))
+                   #'())
+            #,@(if static-infos-id
+                   #`((#,(quote-syntax unsyntax-splicing) (syntax-local-value (quote-syntax #,static-infos-id))))
                    #'())))
 
        (with-syntax ([constructor-name-fields constructor-name-fields]
@@ -207,6 +215,7 @@
           #'for-together?
           #`(begin
               #,@(top-level-declare #'(name? . constructor-name-fields))
+              #,@(build-instance-static-infos-defs static-infos-id static-infos-exprs)
               #,@(build-class-annotation-form super annotation-rhs
                                               super-constructor-fields
                                               exposed-internal-id internal-of-id intro
