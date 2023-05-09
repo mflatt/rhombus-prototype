@@ -12,11 +12,11 @@ class Posn(x, y):
                                           | y
                                           | x)
   sequence '$lhs: $rhs':
-    '((p: $rhs),
+    '((p = $rhs),
       #true,
-      (pos: 0),
+      (pos = 0),
       pos < 2,
-      ($lhs: if pos == 0 | Posn.y(p) | Posn.x(p)),
+      ($lhs = if pos == 0 | Posn.y(p) | Posn.x(p)),
       #true,
       #true,
       (pos + 1))'
@@ -42,11 +42,11 @@ interface Sql:
   property ex
   property why
   sequence '$lhs: $rhs':
-    '((p: $rhs),
+    '((p = $rhs),
       #true,
-      (pos: 0),
+      (pos = 0),
       pos < 2,
-      ($lhs: if pos == 0 | (p :~ _Sql).why | (p :~ _Sql).ex),
+      ($lhs = if pos == 0 | (p :~ _Sql).why | (p :~ _Sql).ex),
       #true,
       #true,
       (pos + 1))'
