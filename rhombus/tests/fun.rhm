@@ -36,8 +36,8 @@ check:
 
 fun add1(x) :: Int:
   match x
-   | n :: Int : x + 1
-   | ~else: x
+  | n :: Int : x + 1
+  | ~else: x
 
 check:
   add1(100)
