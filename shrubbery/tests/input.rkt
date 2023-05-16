@@ -1349,6 +1349,27 @@ a:«»
 a:«» | b
 
 a:
+  b; c
+| d
+
+a:
+  b;« c »
+| d
+
+a:
+  b; (c)
+| d
+
+a: b; cc
+| d
+
+a: b;« cc »
+| d
+
+a: b; (cc)
+| d
+
+a:
   b
 #//
 | c
@@ -1411,6 +1432,12 @@ INPUT
     (group a (block (group b (alts (block (group c (block (group d)))) (block (group e))))))
     (group a (block) (alts (block (group b))))
     (group a (block) (alts (block (group b))))
+    (group a (block (group b) (group c)) (alts (block (group d))))
+    (group a (block (group b) (group c)) (alts (block (group d))))
+    (group a (block (group b) (group (parens (group c)))) (alts (block (group d))))
+    (group a (block (group b) (group cc)) (alts (block (group d))))
+    (group a (block (group b) (group cc)) (alts (block (group d))))
+    (group a (block (group b) (group (parens (group cc)))) (alts (block (group d))))
     (group a (block (group b)))
     (group a (block (group b)) (alts (block (group d))))
     (group a (block))

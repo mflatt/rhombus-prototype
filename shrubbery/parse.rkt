@@ -344,7 +344,7 @@
                                                       [delta close-delta]
                                                       [commenting #f]
                                                       [tail-commenting #f]
-                                                      [block-mode (next-block-mode (group-state-block-mode sg))]
+                                                      [block-mode (next-group-block-mode (group-state-block-mode sg))]
                                                       [can-empty? #f]
                                                       [raw group-tail-raw])))
                  (values (append gs more-gs)
@@ -360,7 +360,7 @@
                                                    [delta delta]
                                                    [commenting (group-state-tail-commenting sg)]
                                                    [tail-commenting #f]
-                                                   [block-mode (next-block-mode (group-state-block-mode sg))]
+                                                   [block-mode (next-group-block-mode (group-state-block-mode sg))]
                                                    [raw raw]))])])]
           [else
            (when (and (group-state-comma-time? sg)
@@ -1400,6 +1400,13 @@
 
 (define (next-block-mode mode)
   #f)
+
+(define (next-group-block-mode mode)
+  (cond
+    [(in-block-mode? mode)
+     ;; keep block mode to allow a `|` continuation afterward
+     mode]
+    [else #f]))
 
 ;; ----------------------------------------
 
