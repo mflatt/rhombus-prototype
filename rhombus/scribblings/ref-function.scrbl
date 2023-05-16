@@ -115,8 +115,9 @@ normally bound to implement function calls.
                 $body
                 ...'
   defn.macro 'fun $id_path $case_maybe_kw_opt'
-  defn.macro 'fun | $id_path $case_maybe_kw
-                  | ...'
+  defn.macro 'fun
+              | $id_path $case_maybe_kw
+              | ...'
   defn.macro 'fun $id_path $maybe_res_annot
               | $id_path $case_maybe_kw
               | ...'
@@ -125,9 +126,6 @@ normally bound to implement function calls.
                 $body
                 ...'
   expr.macro 'fun $case_maybe_kw_opt'
-
-  expr.macro 'fun | $case_maybe_kw
-                  | ...'
 
   expr.macro 'fun $maybe_res_annot
               | $case_maybe_kw
@@ -351,9 +349,6 @@ Only one @rhombus(~& map_bind) can appear in a @rhombus(rest) sequence.
                        $body
                        ...'
   entry_point.macro 'fun $case_maybe_kw_opt'
-
-  entry_point.macro 'fun | $case_maybe_kw
-                         | ...'
 
   entry_point.macro 'fun $maybe_res_annot
                      | $case_maybe_kw
