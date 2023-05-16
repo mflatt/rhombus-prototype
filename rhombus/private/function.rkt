@@ -239,34 +239,12 @@
 (define-for-syntax (parse-anonymous-function stx [adjustments no-adjustments] [for-entry? #f])
   (syntax-parse stx
     #:datum-literals (group block alts)
-    ;; immediate alts case
-    [(form-id (alts-tag::alts
-               ~!
-               (block (group (_::parens arg::kw-binding ... rest::maybe-arg-rest) ret::ret-annotation
-                             (~and rhs (_::block body ...))))
-               ...+))
-     (define-values (proc arity)
-       (build-case-function adjustments
-                            (get-local-name #'form-id) #'#f
-                            #'((arg.kw ...) ...)
-                            #'((arg ...) ...) #'((arg.parsed ...) ...)
-                            #'(rest.arg ...) #'(rest.parsed ...)
-                            #'(rest.kwarg ...) #'(rest.kwparsed ...)
-                            #'(ret.converter ...)
-                            #'(rhs ...)
-                            #'form-id #'alts-tag))
-     (values (if arity
-                 (wrap-static-info proc #'#%function-arity arity)
-                 proc)
-             #'())]
-    ;; both header and alts --- almost the same, but with maybe a declared return annotation
+    ;; alts case, with maybe a declared return annotation
     [(form-id main-ret::ret-annotation
-              (~optional (b-tag::block . b-gs))
               (alts-tag::alts
                (block (group (_::parens arg::kw-binding ... rest::maybe-arg-rest) ret::ret-annotation
                              (~and rhs (_::block body ...))))
                ...+))
-     (check-empty-block stx (and (attribute b-tag) #'(b-tag . b-gs)))
      (define-values (proc arity)
        (build-case-function adjustments
                             (get-local-name #'form-id) #'main-ret.converter
@@ -303,17 +281,8 @@
                (wrap-function-static-info fun))
              #'())]))
 
-
 (define pass
   (make-keyword-procedure
    (let ([pass (lambda (kws kw-args . args)
                  (void))])
      pass)))
-
-(define-for-syntax (check-empty-block stx blk)
-  (when blk
-    (unless (null? (cdr (syntax->list blk)))
-      (raise-syntax-error #f
-                          "block before alternatives must be empty"
-                          stx
-                          (respan (no-srcloc blk))))))
