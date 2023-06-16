@@ -7,7 +7,8 @@
                      "tag.rkt"
                      "class-parse.rkt"
                      "interface-parse.rkt"
-                     "statically-str.rkt")
+                     "statically-str.rkt"
+                     "pack.rkt")
          "class-method.rkt"
          "class-method-result.rkt"
          (submod "dot.rkt" for-dot-provider)
@@ -21,15 +22,17 @@
                   repetition-transformer
                   identifier-repetition-use)
          (submod "assign.rkt" for-assign) (only-in "assign.rkt" :=)
+         (submod "equal.rkt" for-parse)
          "op-literal.rkt"
          "name-root.rkt"
          "parse.rkt"
          (submod "function-parse.rkt" for-call)
-         "function-arity-key.rkt"
          (for-syntax "class-transformer.rkt")
          "class-dot-transformer.rkt"
          "is-static.rkt"
-         "realm.rkt")
+         "realm.rkt"
+         "dot-provider-key.rkt"
+         "wrap-expression.rkt")
 
 (provide (for-syntax build-class-dot-handling
                      build-interface-dot-handling
@@ -43,9 +46,11 @@
                                              has-private? method-private exposed-internal-id internal-of-id
                                              expression-macro-rhs intro constructor-given-name
                                              export-of? dot-provider-rhss parent-dot-providers
+                                             default-with?
                                              names)
   (with-syntax ([(name name? constructor-name name-instance name-ref name-of
                        make-internal-name internal-name-instance dot-provider-name
+                       indirect-static-infos
                        [public-field-name ...] [private-field-name ...] [field-name ...]
                        [public-name-field ...] [name-field ...]
                        [dot-id ...]
@@ -58,7 +63,8 @@
                   [(method-id ...) method-impl-ids]
                   [(dot-rhs ...) dot-provider-rhss]
                   [(dot-rhs-id ...) (map (make-syntax-introducer) (syntax->list #'(dot-id ...)))]
-                  [(dot-class-id ...) (map (make-syntax-introducer) (syntax->list #'(dot-id ...)))])
+                  [(dot-class-id ...) (map (make-syntax-introducer) (syntax->list #'(dot-id ...)))]
+                  [with-class-id (and default-with? ((make-syntax-introducer) #'with))])
       (append
        method-defns
        (append
@@ -87,6 +93,9 @@
                        ex ...
                        #,@(if export-of?
                               #`([of name-of])
+                              null)
+                       #,@(if default-with?
+                              #`([with with-class-id])
                               null))))
         (syntax->list
          #`((define-syntaxes (dot-class-id dot-rhs-id)
@@ -96,11 +105,24 @@
                         dot-id)))
             ...))
         (maybe-dot-provider-definition #'(dot-rhs-id ...) #'dot-provider-name parent-dot-providers)
+        (if default-with?
+            (list #'(define-syntax with-class-id
+                      (wrap-class-dot-via-class (make-class-with (quote-syntax (name
+                                                                                constructor-name
+                                                                                name-instance
+                                                                                indirect-static-infos)))
+                                                (quote with)
+                                                (quote-syntax name?) (quote-syntax name-instance))))
+            null)
         (list
          #`(define-dot-provider-syntax name-instance
-             (dot-provider #,(let ([default #'(make-handle-class-instance-dot (quote-syntax name)
+             (dot-provider #,(let ([default #`(make-handle-class-instance-dot (quote-syntax name)
                                                                               #hasheq()
-                                                                              #hasheq())])
+                                                                              #hasheq()
+                                                                              #,(and default-with?
+                                                                                     #'(quote-syntax (constructor-name
+                                                                                                      name-instance
+                                                                                                      indirect-static-infos))))])
                                (if (syntax-e #'dot-provider-name)
                                    #`(compose-dot-providers
                                       (quote-syntax dot-provider-name)
@@ -131,7 +153,10 @@
                                                                  (hasheq
                                                                   (~@ 'private-method-name
                                                                       (quote-syntax private-method-id/prop))
-                                                                  ...))))))
+                                                                  ...)
+                                                                 (quote-syntax (make-internal-name
+                                                                                internal-name-instance
+                                                                                indirect-static-infos)))))))
             null))))))
 
 (define-for-syntax (build-interface-dot-handling method-mindex method-vtable method-results 
@@ -168,19 +193,20 @@
                       [dot-id dot-intf-id]
                       ...
                       ex ...)))
-        (syntax->list
-         #`((define-syntaxes (dot-intf-id dot-rhs-id)
-              (let ([dot-id dot-rhs])
-                (values (wrap-class-dot-via-class dot-id (quote-syntax dot-id)
-                                                  (quote-syntax name?) (quote-syntax name-instance))
-                        dot-id)))
-            ...))
+       (syntax->list
+        #`((define-syntaxes (dot-intf-id dot-rhs-id)
+             (let ([dot-id dot-rhs])
+               (values (wrap-class-dot-via-class dot-id (quote-syntax dot-id)
+                                                 (quote-syntax name?) (quote-syntax name-instance))
+                       dot-id)))
+           ...))
        (maybe-dot-provider-definition #'(dot-rhs-id ...) #'dot-provider-name parent-dot-providers)
        (list
         #`(define-dot-provider-syntax name-instance
              (dot-provider #,(let ([default #'(make-handle-class-instance-dot (quote-syntax name)
                                                                               #hasheq()
-                                                                              #hasheq())])
+                                                                              #hasheq()
+                                                                              #f)])
                                
                                (if (syntax-e #'dot-provider-name)
                                    #`(compose-dot-providers
@@ -190,7 +216,7 @@
        (if internal-name
            (list
             #`(define-dot-provider-syntax internal-name-instance
-                (dot-provider (make-handle-class-instance-dot (quote-syntax #,internal-name) #hasheq() #hasheq()))))
+                (dot-provider (make-handle-class-instance-dot (quote-syntax #,internal-name) #hasheq() #hasheq() #f))))
            null)))))
 
 (define-for-syntax (maybe-dot-provider-definition dot-rhs-ids dot-provider-name parent-dot-providers)
@@ -376,7 +402,7 @@
       (interface-desc-ref-id desc)))
 
 ;; dot provider for a class instance used before a `.`
-(define-for-syntax ((make-handle-class-instance-dot name internal-fields internal-methods)
+(define-for-syntax ((make-handle-class-instance-dot name internal-fields internal-methods constructor-info)
                     form1 dot field-id
                     tail more-static?
                     success failure)
@@ -535,6 +561,23 @@
           (if (identifier? id/fld)
               (do-method id/fld #f #f #f #f #f)
               (do-field id/fld)))]
+    [(eq? 'with (syntax-e field-id))
+     (syntax-parse tail
+       #:datum-literals (group)
+       [((_::parens (group field-name:id _::equal rhs ...) ...) . tail)
+        (unless constructor-info
+          (raise-syntax-error #f "no default `with` for class with a custom constructor" field-id))
+        (success (expand-functional-update desc constructor-info form1 field-id
+                                           (syntax->list #'(field-name ...))
+                                           (syntax->list #'((rhombus-expression (group rhs ...)) ...)))
+                 #'tail)]
+       [((_::parens g ...) . tail)
+        (for ([g (in-list (syntax->list #'(g ...)))])
+          (syntax-parse g
+            #:datum-literals (group)
+            [(group field-name:id _::equal rhs ...) (void)]))]
+       [_
+        (raise-syntax-error #f "expected parentheses afterward" field-id)])]
     [more-static?
      (raise-syntax-error #f
                          (string-append "no such field or method" statically-str)
@@ -561,3 +604,54 @@
      (if (class-desc? super)
          (class-desc-dots super)
          (interface-desc-dots super)))))
+
+(define-for-syntax (expand-functional-update desc constructor-info form1 field-id names rhss)
+  (define ctr-fields
+    (for/fold ([updates #hasheq()]) ([field (in-list (class-desc-fields desc))])
+      (hash-set updates (car field) field)))
+  (define arg-ids (generate-temporaries rhss))
+  (define updates
+    (for/fold ([updates #hasheq()]) ([name (in-list names)]
+                                     [arg-id (in-list arg-ids)])
+      (when (hash-ref updates (syntax-e name) #f)
+        (raise-syntax-error #f "duplicate field for update" field-id name))
+      (define f (hash-ref ctr-fields (syntax-e name) #f))
+      (unless f
+        (raise-syntax-error #f "no such public field in class" field-id name))
+      (when (identifier? (field-desc-constructor-arg f))
+        (raise-syntax-error #f "field is not a constructor argument" field-id name))
+      (hash-set updates (syntax-e name) arg-id)))
+  (define-values (constructor-id static-infos)
+    (syntax-parse constructor-info
+      [(constructor-id name-instance indirect-static-infos)
+       (values #'constructor-id #'((#%dot-provider name-instance) . indirect-static-infos))]))
+  (define expr
+    (with-syntax ([(arg-id ...) arg-ids]
+                  [(rhs-expr ...) rhss])
+      #`(let ([obj #,form1]
+              [arg-id rhs-expr]
+              ...)
+          (#,constructor-id #,@(apply
+                                append
+                                (for/list ([field (in-list (class-desc-fields desc))]
+                                           #:do [(define b-arg (field-desc-constructor-arg field))]
+                                           #:unless (identifier? b-arg))
+                                  (define arg (if (box? (syntax-e b-arg)) (unbox (syntax-e b-arg)) b-arg))
+                                  (define rhs (or (hash-ref updates (field-desc-name field) #f)
+                                                  #`(#,(field-desc-accessor-id field) obj)))
+                                  (cond
+                                    [(keyword? (syntax-e arg)) (list arg rhs)]
+                                    [else (list rhs)])))))))
+  (wrap-static-info* expr static-infos))
+
+(define-for-syntax (make-class-with name+constructor-info)
+  (lambda (packed-g form-name g static? packed-tail)
+    (syntax-parse name+constructor-info
+      [(name . constructor-info)
+       (syntax-parse g
+         [(form1 dot field-id)
+          ((make-handle-class-instance-dot #'name #hasheq() #hasheq() #'constructor-info)
+           (wrap-expression #'form1) #'dot #'field-id
+           (unpack-tail packed-tail #f #f) static?
+           (lambda (e t) (values #`(parsed #,e) (pack-tail t)))
+           (lambda () (raise-syntax-error #f "class `with` failed" packed-g)))])])))

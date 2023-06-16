@@ -125,7 +125,9 @@
  must be called like a function; in dynamic mode, a
  method accessed from an object
  closes over the object. Private fields, methods, and properties can be
- accessed with @rhombus(.) only statically.
+ accessed with @rhombus(.) only statically. Syntactic forms bound via
+ @rhombus(dot, ~class_clause) or an automatic @rhombus(with, ~datum) form
+ for functional update can be accessed with @rhombus(.) only statically.
 
  A @rhombus(field_spec) has an identifier, keyword, or both. A keyword
  implies that the default constructor expects the corresponding argument
@@ -254,6 +256,20 @@
  @rhombus(dot, ~class_clause), and
  @rhombus(static_info, ~class_clause) for more information on those forms.
 
+ When the declared class is not abstract, does not have a custom
+ constructor, and does not have a field, method, property, or dot-syntax
+ form named @rhombus(with, ~datum), then a
+ @as_index(@rhombus(with, ~datum)) dot-syntax form is automatically
+ defined for the class to implement functional update. Use the form as
+ @rhombus(#,(@rhombus(obj, ~var)).with(#,(@rhombus(field_id, ~var)) = #,(@rhombus(expr, ~var)), ...))
+ for an expression @rhombus(obj, ~var) that has the class's static
+ information. The result is an instance of the class created by calling
+ the constructor, where each
+ @rhombus(#,(@rhombus(field_id, ~var)) = #,(@rhombus(expr, ~var)))
+ supplies a field-specific argument, and arguments for fields not
+ mentioned are extracted as the current field values of
+ @rhombus(obj, ~var).
+
  When a method procedure is accessed from a class (as a namespace) via
  @rhombus(.), the procedure expects an extra by-position argument that
  must be an instance of the class, and the extra argument is supplied before
@@ -288,6 +304,7 @@
   Posn.x
   Posn.x(Posn(1, 2))
   Posn(1, 2).x
+  Posn(1, 2).with(x = 10)
   ~error: class Posn3(z):
             extends Posn
   class Posn2D(x, y):

@@ -247,12 +247,13 @@
                            "constructor name conflicts with expression macro"
                            stxes)])))
 
-(define (check-consistent-unimmplemented stxes final? abstract-name)
+(define (check-consistent-unimmplemented stxes final? abstract-name name)
   (when (and final? abstract-name)
     (raise-syntax-error #f
                         "final class cannot have abstract methods"
                         stxes
-                        abstract-name)))
+                        abstract-name
+                        (list name))))
 
 (define (check-field-defaults stxes super-has-defaults? constructor-fields defaults keywords)
   (for/fold ([need-default? #f]) ([f (in-list constructor-fields)]
