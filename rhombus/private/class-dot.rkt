@@ -7,7 +7,9 @@
                      "tag.rkt"
                      "class-parse.rkt"
                      "interface-parse.rkt"
-                     "statically-str.rkt")
+                     "statically-str.rkt"
+                     "pack.rkt"
+                     "tail-returner.rkt")
          "class-method.rkt"
          "class-method-result.rkt"
          (submod "dot.rkt" for-dot-provider)
@@ -21,20 +23,21 @@
                   repetition-transformer
                   identifier-repetition-use)
          (submod "assign.rkt" for-assign) (only-in "assign.rkt" :=)
+         (submod "equal.rkt" for-parse)
          "op-literal.rkt"
          "name-root.rkt"
          "parse.rkt"
          (submod "function-parse.rkt" for-call)
-         "function-arity-key.rkt"
          (for-syntax "class-transformer.rkt")
          "class-dot-transformer.rkt"
          "is-static.rkt"
-         "realm.rkt")
+         "realm.rkt"
+         "dot-provider-key.rkt"
+         "wrap-expression.rkt"
+         (submod "with.rkt" for-update))
 
 (provide (for-syntax build-class-dot-handling
                      build-interface-dot-handling
-
-                     make-handle-class-instance-dot
 
                      extract-all-dot-names)
          no-dynamic-dot-syntax)
@@ -43,9 +46,11 @@
                                              has-private? method-private exposed-internal-id internal-of-id
                                              expression-macro-rhs intro constructor-given-name
                                              export-of? dot-provider-rhss parent-dot-providers
+                                             update-expression
                                              names)
   (with-syntax ([(name name? constructor-name name-instance name-ref name-of
                        make-internal-name internal-name-instance dot-provider-name
+                       indirect-static-infos
                        [public-field-name ...] [private-field-name ...] [field-name ...]
                        [public-name-field ...] [name-field ...]
                        [dot-id ...]
@@ -98,7 +103,7 @@
         (maybe-dot-provider-definition #'(dot-rhs-id ...) #'dot-provider-name parent-dot-providers)
         (list
          #`(define-dot-provider-syntax name-instance
-             (dot-provider #,(let ([default #'(make-handle-class-instance-dot (quote-syntax name)
+             (dot-provider #,(let ([default #`(make-handle-class-instance-dot (quote-syntax name)
                                                                               #hasheq()
                                                                               #hasheq())])
                                (if (syntax-e #'dot-provider-name)
@@ -106,6 +111,16 @@
                                       (quote-syntax dot-provider-name)
                                       #,default)
                                    default)))))
+        (cond
+          [(not update-expression) null]
+          [(eq? update-expression 'default)
+           (list
+            #`(define-update-syntax name-instance
+                (make-default-update-syntax (quote-syntax (name constructor-name name-instance indirect-static-infos)))))]
+          [else
+           (list
+            #`(define-update-syntax name-instance
+                (make-update-syntax #,update-expression)))])
         (if exposed-internal-id
             (with-syntax ([([private-method-name private-method-id private-method-id/prop] ...)
                            (for/list ([(sym id/prop) (in-hash method-private)])
@@ -168,13 +183,13 @@
                       [dot-id dot-intf-id]
                       ...
                       ex ...)))
-        (syntax->list
-         #`((define-syntaxes (dot-intf-id dot-rhs-id)
-              (let ([dot-id dot-rhs])
-                (values (wrap-class-dot-via-class dot-id (quote-syntax dot-id)
-                                                  (quote-syntax name?) (quote-syntax name-instance))
-                        dot-id)))
-            ...))
+       (syntax->list
+        #`((define-syntaxes (dot-intf-id dot-rhs-id)
+             (let ([dot-id dot-rhs])
+               (values (wrap-class-dot-via-class dot-id (quote-syntax dot-id)
+                                                 (quote-syntax name?) (quote-syntax name-instance))
+                       dot-id)))
+           ...))
        (maybe-dot-provider-definition #'(dot-rhs-id ...) #'dot-provider-name parent-dot-providers)
        (list
         #`(define-dot-provider-syntax name-instance
@@ -561,3 +576,77 @@
      (if (class-desc? super)
          (class-desc-dots super)
          (interface-desc-dots super)))))
+
+(define-for-syntax (make-default-update-syntax constructor-info)
+  (update-transformer
+   (lambda (form1 with-id tail)
+     (syntax-parse tail
+       #:datum-literals (group)
+       [((_::parens (group field-name:id _::equal rhs ...) ...) . tail)
+        (unless constructor-info
+          (raise-syntax-error #f "no default `with` for class with a custom constructor" with-id))
+        (values (expand-functional-update constructor-info form1 with-id
+                                          (syntax->list #'(field-name ...))
+                                          (syntax->list #'((rhombus-expression (group rhs ...)) ...)))
+                #'tail)]
+       [((_::parens g ...) . tail)
+        (for ([g (in-list (syntax->list #'(g ...)))])
+          (syntax-parse g
+            #:datum-literals (group)
+            [(group field-name:id _::equal rhs ...) (void)]))]
+       [_
+        (raise-syntax-error #f "expected parentheses afterward" with-id)]))))
+
+(define-for-syntax (expand-functional-update constructor-info form1 with-id names rhss)
+  (define-values (desc constructor-id static-infos)
+    (syntax-parse constructor-info
+      [(name constructor-id name-instance indirect-static-infos)
+       (define desc (syntax-local-value* (in-class-desc-space #'name) class-desc-ref))
+       (unless desc (error "cannot find annotation binding for update provider"))
+       (values desc
+               #'constructor-id
+               #'((#%dot-provider name-instance) . indirect-static-infos))]))
+  (define ctr-fields
+    (for/fold ([updates #hasheq()]) ([field (in-list (class-desc-fields desc))])
+      (hash-set updates (car field) field)))
+  (define arg-ids (generate-temporaries rhss))
+  (define updates
+    (for/fold ([updates #hasheq()]) ([name (in-list names)]
+                                     [arg-id (in-list arg-ids)])
+      (when (hash-ref updates (syntax-e name) #f)
+        (raise-syntax-error #f "duplicate field for update" with-id name))
+      (define f (hash-ref ctr-fields (syntax-e name) #f))
+      (unless f
+        (raise-syntax-error #f "no such public field in class" with-id name))
+      (when (identifier? (field-desc-constructor-arg f))
+        (raise-syntax-error #f "field is not a constructor argument" with-id name))
+      (hash-set updates (syntax-e name) arg-id)))
+  (define expr
+    (with-syntax ([(arg-id ...) arg-ids]
+                  [(rhs-expr ...) rhss])
+      #`(let ([obj #,form1]
+              [arg-id rhs-expr]
+              ...)
+          (#,constructor-id #,@(apply
+                                append
+                                (for/list ([field (in-list (class-desc-fields desc))]
+                                           #:do [(define b-arg (field-desc-constructor-arg field))]
+                                           #:unless (identifier? b-arg))
+                                  (define arg (if (box? (syntax-e b-arg)) (unbox (syntax-e b-arg)) b-arg))
+                                  (define rhs (or (hash-ref updates (field-desc-name field) #f)
+                                                  #`(#,(field-desc-accessor-id field) obj)))
+                                  (cond
+                                    [(keyword? (syntax-e arg)) (list arg rhs)]
+                                    [else (list rhs)])))))))
+  (wrap-static-info* expr static-infos))
+
+(define-for-syntax (make-update-syntax proc)
+  (update-transformer
+   (lambda (form1 with-id tail)
+     (define-values (result new-tail)
+       (tail-returner
+        proc
+        (proc (pack-tail (list* #`(parsed #,form1) with-id tail))
+              with-id)))
+     (values (wrap-expression result)
+             (unpack-tail new-tail proc #f)))))

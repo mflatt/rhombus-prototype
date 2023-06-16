@@ -387,10 +387,17 @@
          (extract-method-tables stxes added-methods super interfaces private-interfaces final? prefab?))
 
        (check-fields-methods-dots-distinct stxes field-ht method-mindex method-names method-decls dots)
-       (check-consistent-unimmplemented stxes final? abstract-name)
+       (check-consistent-unimmplemented stxes final? abstract-name #'name)
 
        (define exs (parse-exports #'(combine-out . exports) expose))
        (check-exports-distinct stxes exs fields method-mindex dots)
+
+       (define update-rhs
+         (or (hash-ref options 'update-rhs #f)
+             (and (not (or (hash-ref options 'expression-rhs #f)
+                           (hash-ref options 'constructor-rhs #f)
+                           abstract-name))
+                  'default)))
 
        (define need-constructor-wrapper?
          (need-class-constructor-wrapper? extra-fields constructor-keywords constructor-defaults constructor-rhs
@@ -452,7 +459,9 @@
                      [(export ...) exs])
          (with-syntax ([constructor-name (if (or constructor-rhs
                                                  expression-macro-rhs)
-                                             (or given-constructor-name
+                                             (or (and given-constructor-name
+                                                      (not (bound-identifier=? #'name (expose given-constructor-name)))
+                                                      given-constructor-name)
                                                  (temporary "~a-ctr"))
                                              #'make-name)]
                        [constructor-visible-name (or given-constructor-name
@@ -568,8 +577,10 @@
                                          has-private? method-private exposed-internal-id #'internal-of
                                          expression-macro-rhs intro (hash-ref options 'constructor-name #f)
                                          (not annotation-rhs) dot-provider-rhss parent-dot-providers
+                                         update-rhs
                                          #'(name name? constructor-name name-instance name-ref name-of
                                                  make-internal-name internal-name-instance dot-provider-name
+                                                 indirect-static-infos
                                                  [public-field-name ...] [private-field-name ...] [field-name ...]
                                                  [public-name-field ...] [name-field ...]
                                                  [dot-id ...]

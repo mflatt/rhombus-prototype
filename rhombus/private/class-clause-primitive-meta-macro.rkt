@@ -21,7 +21,9 @@
 (provide (for-spaces (rhombus/class_clause
                       rhombus/interface_clause)
                      dot
-                     static_info))
+                     static_info)
+         (for-spaces (rhombus/class_clause)
+                     update))
 
 ;; see also "class-clause-primitive-macro.rkt"; this one has only
 ;; forms that need meta-time bindings, so we don't want a meta-time
@@ -97,3 +99,51 @@
 
 (define-interface-clause-syntax static_info
   (interface-clause-transformer parse-static_info))
+
+(define-class-clause-syntax update
+  (class-clause-transformer
+   (lambda (stx data)
+     (syntax-parse stx
+       #:datum-literals (group with)
+       [(form-name (q-tag::quotes ((~and g-tag group)
+                                   d1::$-bind
+                                   left:identifier
+                                   with
+                                   rest-pat ...))
+                   (~and (_::block . _)
+                         template-block))
+        (wrap-class-clause #`(#:update
+                              name
+                              (block
+                               #,(no-srcloc
+                                  #`(class-update-transformer
+                                     (form-name (q-tag (g-tag dot
+                                                              d1 left
+                                                              d1 with-op
+                                                              rest-pat ...))
+                                                template-block))))))]))))
+
+(begin-for-syntax
+  (define-syntax (class-update-transformer stx)
+    (syntax-parse stx
+      #:literals ()
+      #:datum-literals (group named-macro)
+      [(_ pat)
+       (parse-identifier-syntax-transformer #'pat
+                                            #'update-transformer-compiletime
+                                            '()
+                                            '()
+                                            (lambda (p ct)
+                                              ct)
+                                            (lambda (ps ct)
+                                              ct))]))
+
+  (define-syntax (update-transformer-compiletime stx)
+    (syntax-parse stx
+      [(_ pre-parseds self-ids extra-argument-binds)
+       (parse-transformer-definition-rhs (syntax->list #'pre-parseds)
+                                         (syntax->list #'self-ids)
+                                         (syntax->list #'extra-argument-binds)
+                                         #'values
+                                         #`(syntax-static-infos #'() syntax-static-infos)
+                                         '())])))

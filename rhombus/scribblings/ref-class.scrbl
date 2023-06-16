@@ -67,6 +67,7 @@
     #,(@rhombus(expression, ~class_clause)) $expression_decl
     #,(@rhombus(binding, ~class_clause)) $binding_decl
     #,(@rhombus(annotation, ~class_clause)) $annotation_decl
+    #,(@rhombus(update, ~class_clause)) $dot_decl
     #,(@rhombus(dot, ~class_clause)) $dot_decl
     #,(@rhombus(static_info, ~class_clause)) $static_info_decl
     #,(@rhombus(opaque, ~class_clause))
@@ -125,7 +126,9 @@
  must be called like a function; in dynamic mode, a
  method accessed from an object
  closes over the object. Private fields, methods, and properties can be
- accessed with @rhombus(.) only statically.
+ accessed with @rhombus(.) only statically. Syntactic forms bound via
+ @rhombus(dot, ~class_clause) can be accessed with @rhombus(.) only statically,
+ and functional update via @rhombus(with) also relies on static access.
 
  A @rhombus(field_spec) has an identifier, keyword, or both. A keyword
  implies that the default constructor expects the corresponding argument
@@ -240,6 +243,10 @@
  @rhombus(annotation, ~class_clause) replace default meanings of the
  defined @rhombus(id_name) for an expression context, binding
  context, and annotation context, respectively. The
+ @rhombus(update, ~class_clause) form (which must be imported
+ through @rhombusmodname(rhombus/meta)) replaces the way that
+ @rhombus(with) functional update is implemented for expressions that have the class's
+ annotation. The
  @rhombus(dot, ~class_clause) form (which must be imported
  through @rhombusmodname(rhombus/meta)) replaces the way that
  @rhombus(.) accesses are resolved for expressions that have the class's
@@ -251,6 +258,7 @@
  @rhombus(expression, ~class_clause),
  @rhombus(binding, ~class_clause),
  @rhombus(annotation, ~class_clause),
+ @rhombus(update, ~class_clause),
  @rhombus(dot, ~class_clause), and
  @rhombus(static_info, ~class_clause) for more information on those forms.
 
@@ -980,5 +988,93 @@
  the new class cannot be chaperoned or impersonated. At most one class
  clause in a @rhombus(class) form can be
  @rhombus(authentic, ~class_clause).
+
+}
+
+
+
+@doc(
+  expr.macro '$obj with $fields'
+
+  grammar fields:
+    ($id = $expr, ...)
+    $other_fields_form
+){
+
+ Intended to perform a functional update of the object produced by
+ @rhombus(obj) by creating a new instance of the same class, using the
+ values of @rhombus(obj)'s fields for the new object except as replaced
+ by @rhombus(fields). The class that is instantiated by @rhombus(with) is
+ the one whose static information is associated with @rhombus(obj).
+
+ By default, a non-abstract class without a custom constructor supports
+ @rhombus(with) where @rhombus(fields) has the shape
+ @rhombus((id = expr, ...)). In that case, an instance of the new class
+ is created using the class's constructor, providing the result of each
+ @rhombus(expr) as the value for the correspond field named @rhombus(id),
+ and using field values from @rhombus(obj) for all other constructor
+ arguments. (Arguments are prefixed with keywords automatically as
+ needed.)
+
+ A @rhombus(class) declaration can contain an
+ @rhombus(update, ~class_clause) clause to replace the default
+ implementation or supply an implementation when a default is not
+ available. In that case, the syntax of @rhombus(fields) is up to the
+ @rhombus(update, ~class_clause) declaration's pattern, and the expansion
+ is not required to implement functional update (but it should, to match
+ the intent of @rhombus(with)).
+
+@examples(
+  ~defn:
+    class Posn(x, y)
+  ~repl:
+    def p = Posn(1, 2)
+    p with (x = 10)
+    p
+  ~hidden:
+    import rhombus/meta open
+  ~defn:
+    class PosnX(x, y):
+      internal _PosnX
+      expression 'PosnX< $x... || $y ... >':
+        '_PosnX($x ..., $y ...) :~ PosnX'
+      update '$obj with $tail ...':
+        match '$tail ...'
+        | '< $x ... || _ >':
+            '_PosnX($x ..., $(obj).y)'
+        | '< _ || $y ... >':
+            '_PosnX($(obj).x, $y ...)'
+  ~repl:
+    def px = PosnX < 1 || 2 >
+    px with < _ || 20 >
+    px 
+)
+
+}
+
+
+@doc(
+  ~nonterminal:
+    obj_id: block id
+
+  class_clause.macro '«update '$ $obj_id with $pattern':
+                         $option; ...
+                         $body
+                         ...»'
+  grammar option:
+    ~op_stx: $id
+    ~op_stx $id
+){
+
+ A forms for @rhombus(class) to provide an implementation of functional
+ update via @rhombus(with). The @rhombus(update, ~class_clause) macro
+ will be triggered by a use of @rhombus(with) after an expression that
+ has the containing class's static information. The @rhombus(pattern) of
+ the update macro is matched against the rest of the enclosing group
+ after @rhombus(with). The macro can return two values to supply an
+ expansion and remaining tail, like an infix macro defined with
+ @rhombus(expr.macro).
+
+ See @rhombus(with) for an example.
 
 }
