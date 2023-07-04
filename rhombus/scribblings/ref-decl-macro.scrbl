@@ -3,7 +3,7 @@
     "common.rhm" open
     "nonterminal.rhm":
       open
-      except: defn
+      except: defn expr
     "macro.rhm")
 
 @(def macro_eval: macro.make_macro_eval())
@@ -28,6 +28,8 @@
  only in a module or interactive position --- the same places where
  @rhombus(meta) and @rhombus(module) are allowed, for example.
 
+ See also @rhombus(expr.merge).
+
 }
 
 @doc(
@@ -39,6 +41,8 @@
  Like @rhombus(defn.macro, ~expr), but for forms that can also be used in
  namespaces that are witin a module or interactive position --- the same
  places where @rhombus(export) is allowed, for example.
+
+ See also @rhombus(expr.merge).
 
 }
 

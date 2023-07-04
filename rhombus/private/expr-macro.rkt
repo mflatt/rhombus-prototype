@@ -2,6 +2,7 @@
 (require (for-syntax racket/base
                      syntax/parse/pre
                      enforest/transformer-result
+                     enforest/syntax-local
                      "srcloc.rkt"
                      "pack.rkt"
                      "pack-s-exp.rkt"
@@ -16,7 +17,12 @@
          "expression.rkt"
          "parse.rkt"
          "wrap-expression.rkt"
-         (for-syntax "name-root.rkt"))
+         (for-syntax "name-root.rkt")
+         "definition.rkt"
+         "declaration.rkt"
+         "nestable-declaration.rkt"
+         "parens.rkt"
+         "dotted-sequence-parse.rkt")
 
 (provide (for-syntax (for-space rhombus/namespace
                                 expr_meta)))
@@ -27,7 +33,8 @@
 
 (define+provide-space expr #f
   #:fields
-  (macro))
+  (macro
+   merge))
 
 (begin-for-syntax
   (define-name-root expr_meta
@@ -117,3 +124,59 @@
 (define-for-syntax (parse_more s)
   (syntax-parse (unpack-group s 'expr_meta.parse_more #f)
     [e::expression #`(parsed #:rhombus/expr #,(rhombus-local-expand #'e.parsed))]))
+
+;; ----------------------------------------
+
+(define-syntax merge
+  (definition-transformer
+    (lambda (stx)
+      (syntax-parse stx
+        #:datum-literals (group)
+        [(form-id seq::dotted-identifier-sequence
+                  (_::block (group id:identifier ...)
+                            ...))
+         #:with name::dotted-identifier #'seq
+         (build-syntax-definitions/maybe-extension
+          (list #f) #'name.name #'name.extends
+          #`(merge-expr-space-values 'form-id (list (quote-syntax id) ... ...)))]))))
+
+(define-for-syntax (merge-expr-space-values who ids)
+  (define ht
+    (for/fold ([ht #hasheq()]) ([id (in-list ids)])
+      (define-values (new-ht did?)
+        (for/fold ([ht ht] [did? #f]) ([ref (list expression-prefix-operator-ref
+                                                  expression-infix-operator-ref
+                                                  definition-transformer-ref
+                                                  definition-sequence-transformer-ref
+                                                  declaration-transformer-ref
+                                                  nestable-declaration-transformer-ref)]
+                                       [prop (list prop:expression-prefix-operator
+                                                   prop:expression-infix-operator
+                                                   prop:definition-transformer
+                                                   prop:definition-sequence-transformer
+                                                   prop:declaration-transformer
+                                                   prop:nestable-declaration-transformer)]
+                                       [key (list "prefix expression operator"
+                                                  "infix expression operator"
+                                                  "definition form"
+                                                  "definition-sequence form"
+                                                  "declaration form"
+                                                  "nestedable declaration form")])
+          (define v (syntax-local-value* id ref))
+          (cond
+            [(not v) (values ht did?)]
+            [(hash-ref ht key #f)
+             (raise-syntax-error who
+                                 (format "duplicate ~a" key)
+                                 id)]
+            [else
+             (values (hash-set ht key (cons prop v))
+                     #t)])))
+      (unless did?
+        (raise-syntax-error who "not defined as a form that can be merged" id))
+      new-ht))
+  (define-values (struct: mk ? ref set)
+    (make-struct-type 'merged #f 0 0 #f
+                      (for/list ([p (in-hash-values ht)])
+                        (cons (car p) (lambda (self) (cdr p))))))
+  (mk))

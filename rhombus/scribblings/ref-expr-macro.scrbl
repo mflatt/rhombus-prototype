@@ -81,6 +81,8 @@
  that works with mutable targets. To define an assignment operator, use
  @rhombus(assign.macro), instead.
 
+ See also @rhombus(expr.merge).
+
 }
 
 
@@ -190,6 +192,21 @@
   expr_meta.pack_s_exp(['lambda', ['x'], 'x'])
   expr_meta.pack_s_exp(['lambda', ['x'], expr_meta.pack_expr('x + 1')])
 )
+
+}
+
+
+@doc(
+  defn.macro 'expr.merge $id_name:
+                $id ...
+                ...'
+){
+
+ Defines @rhombus(name) to be a macro that acts like any of the
+ @rhombus(id)s in expression, definition, or declaration context. Each
+ given @rhombus(id) must have a behavior distinct from the others,
+ meaning that there can be at moe one prefix expression operator, one
+ infix expression operator, one definition form, and so on.
 
 }
 

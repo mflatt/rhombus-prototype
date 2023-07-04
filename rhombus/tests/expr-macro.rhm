@@ -235,3 +235,26 @@ check:
     | '$(bound_as expr_meta.space: 'List.cons')': '"also ok"'
   go
   ~is "also ok"
+
+block:
+  expr.macro 'pre $x': '"pre"'                     
+  expr.macro '$y in $x': '"in"'
+
+  check pre 1 ~is "pre"
+  check 2 in 3 ~is "in"
+
+  expr.merge either: pre in
+
+  check either 1 ~is "pre"
+  check 2 either 3 ~is "in"
+
+  defn.macro 'seven $id': 'def $id = 7'
+
+  check (block: seven s; s) ~is 7
+
+  expr.merge seven_or_either: seven either
+
+  check (seven_or_either 1) ~is "pre"
+  check (2 seven_or_either 3) ~is "in"
+
+  check (block: seven_or_either s; s) ~is 7

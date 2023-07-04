@@ -2,7 +2,7 @@
 @(import:
     "common.rhm" open
     "nonterminal.rhm":
-      except: defn
+      except: defn expr
       open
     "macro.rhm")
 
@@ -65,6 +65,8 @@
  Using @vbar alternatives, a single definition can have any number of
  @rhombus(pattern)s, which are tried in order. The @rhombus(defined_name)
  must be the same across all cases.
+
+ See also @rhombus(expr.merge).
 
 @examples(
   ~eval: macro_eval
