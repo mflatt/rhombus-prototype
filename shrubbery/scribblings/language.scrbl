@@ -241,6 +241,38 @@ preorder traversal of the tree.
 
 }
 
+@defproc[(pretty-shrubbery [v any/c])
+         any/c]{
+
+ Produces a description of how to print @racket[v] with newlines and
+ indentation. The description is an S-expression DAG that represents
+ pretty-printing instructions and alternatives:
+
+ @itemlist[
+
+ @item{@racket[_string] or @racket[_bytes]: print literally.}
+
+ @item{@racket['nl]: print a newline followed by spaces corresponding to
+   the current indentation.}
+
+ @item{@racket[`(seq ,_doc ...)]: print each @racket[_doc] in sequence,
+   each with the same indentation.}
+
+ @item{@racket[`(nest ,_n ,_doc)]: print @racket[_doc] with the current
+   indentation increased by @racket[_n].}
+
+ @item{@racket[`(align ,_doc)]: print @racket[_doc] with the current
+   indentation set to the current output column.}
+
+ @item{@racket[`(or ,_doc ,_doc)]: print either @racket[_doc]; always
+   taking the first @racket[_doc] in an @racket['or] will produce
+   single-line output, while always taking the second @racket[_doc] will
+   print a maximal number of lines.}
+
+]
+
+}
+
 @section{Reconstructing Shrubbery Notation}
 
 @defmodule[shrubbery/print]

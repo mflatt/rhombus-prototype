@@ -345,7 +345,6 @@ INPUT
 ))
 
 (define input1 (apply string-append input1s))
-
 (define expected1
   '(top
     (group

@@ -40,8 +40,52 @@
           (newline out))
         (display "»" out)
         (get-output-bytes out))
+      (define (render-doc doc o)
+        ;; a dumb "pretty" printer that always uses either the 1-line mode
+        ;; or maximal-line mode, on the assumption that the first branch
+        ;; of each `or` leads to the former and the latter branch leads
+        ;; to the latter
+        (let loop ([doc doc] [col 0] [indent 0])
+          (cond
+            [(string? doc) (display doc o) (+ col (string-length doc))]
+            [(bytes? doc) (display doc o) (+ col (bytes-utf-8-length doc))]
+            [(eq? doc 'nl)
+             (newline o)
+             (display (make-string indent #\space) o)
+             indent]
+            [(not (and (pair? doc) (list? doc)))
+             (error 'render-doc "bad format ~v" doc)]
+            [(eq? (car doc) 'seq)
+             (for/fold ([col col]) ([doc (in-list (cdr doc))])
+               (loop doc col indent))]
+            [(and (eq? (car doc) 'nest)
+                  (= (length doc) 3))
+             (loop (caddr doc) col (+ indent (cadr doc)))]
+            [(and (eq? (car doc) 'align)
+                  (= (length doc) 2))
+             (loop (cadr doc) col col)]
+            [(and (eq? (car doc) 'or)
+                  (= (length doc) 3))
+             (if (eq? mode 'pretty-multi)
+                 (loop (caddr doc) col indent)
+                 (loop (cadr doc) col indent))]
+            [else
+             (error 'render-doc "bad format ~v" doc)])))
       (define reparsed (let ([o (open-output-bytes)])
-                         (write-shrubbery parsed o)
+                         (cond
+                           [(or (eq? mode 'pretty)
+                                (eq? mode 'pretty-multi))
+                            (define doc (pretty-shrubbery parsed))
+                            (render-doc doc o)
+                            (unless (eq? mode 'pretty-multi)
+                              (define o2 (open-output-bytes))
+                              (write-shrubbery parsed o2)
+                              (unless (equal? (get-output-bytes o) (get-output-bytes o2))
+                                (out "direct" (get-output-bytes o2) display)
+                                (out "doc" (get-output-bytes o) display)
+                                (error "doc does not match direct")))]
+                           [else
+                            (write-shrubbery parsed o)])
                          (define new-in (let ([bstr (get-output-bytes o)])
                                           (cond
                                             [(eq? mode 'add-newlines) (add-newlines bstr)]
@@ -61,7 +105,9 @@
         (error "print failed")))
     (check-reparse 'count)
     (check-reparse 'no-count)
-    (check-reparse 'add-newlines)))
+    (check-reparse 'add-newlines)
+    (check-reparse 'pretty)
+    (check-reparse 'pretty-multi)))
 
 (define (check-fail input rx)
   (let ([in (open-input-string input)])
