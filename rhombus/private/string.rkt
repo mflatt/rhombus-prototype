@@ -8,7 +8,8 @@
                   ==
                   ===)
          (only-in (submod "print.rkt" for-string)
-                  [display rhombus:display])
+                  [display rhombus:display]
+                  [print rhombus:print])
          "realm.rkt"
          "call-result-key.rkt"
          "index-key.rkt"
@@ -27,7 +28,8 @@
                      +&)
          (for-spaces (#f
                       rhombus/statinfo)
-                     to_string)
+                     to_string
+                     to_expr_string)
          (for-spaces (rhombus/annot
                       rhombus/namespace)
                      String)
@@ -74,6 +76,12 @@
      (define o (open-output-string))
      (rhombus:display a o)
      (string->immutable-string (get-output-string o))]))
+
+(define/arity (to_expr_string a)
+  #:static-infos ((#%call-result #,string-static-infos))
+  (define o (open-output-string))
+  (rhombus:print a o)
+  (string->immutable-string (get-output-string o)))
 
 (define/arity (String.to_string s)
   #:static-infos ((#%call-result #,string-static-infos))
