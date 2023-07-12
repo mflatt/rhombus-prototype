@@ -1,5 +1,7 @@
 #lang racket/base
 
+(require (prefix-in pe: pretty-expressive))
+
 (provide (struct-out PrintDesc)
          (struct-out pretty-ref)
 
@@ -18,7 +20,8 @@
          pretty-listlike
          pretty-blocklike
 
-         resolve-references)
+         resolve-references
+         render-pretty)
 
 (struct PrintDesc (doc))
 
@@ -89,10 +92,10 @@
 
 (define (pretty-blocklike head body)
   (pretty-or
-   (pretty-concat (pretty-flat head) (pretty-text ": ") body)
+   (pretty-concat (pretty-flat head) (pretty-text ": ") (pretty-flat body))
    (pretty-concat head (pretty-text ":")
-                   (pretty-nest 2 (pretty-concat (pretty-newline)
-                                                 body)))))
+                  (pretty-nest 2 (pretty-concat (pretty-newline)
+                                                body)))))
 
 (define (resolve-references doc)
   (define ht (make-hasheq))
@@ -108,7 +111,7 @@
             (hash-set! ht doc n)
             (values saw-ht
                     (and build?
-                         (pretty-text (string-append "#" (number->string n) "#"))))]
+                         (pe:text (string-append "#" (number->string n) "#"))))]
            [else
             (define-values (new-saw-ht new-doc)
               (loop (pretty-ref-doc doc) (hash-set saw-ht doc #t)))
@@ -117,9 +120,10 @@
                          (cond
                            [(hash-ref ht doc #f)
                             => (lambda (n)
-                                 (pretty-concat
-                                  (pretty-text (string-append "#" (number->string n) "="))
-                                  new-doc))]
+                                 (pe:u-concat
+                                  (list
+                                   (pe:text (string-append "#" (number->string n) "="))
+                                   new-doc)))]
                            [else new-doc])))])]
         [(list? doc)
          (cond
@@ -136,22 +140,47 @@
                    (loop (caddr doc) saw-ht))
                  (values left-saw-ht
                          (and build?
-                              `(or ,left-doc ,right-doc)))]
-                [else
+                              (pe:alt left-doc right-doc)))]
+                [(align)
+                 (define-values (new-saw-ht new-doc) (loop (cadr doc) saw-ht))
+                 (values new-saw-ht
+                         (and build?
+                              (pe:align new-doc)))]
+                [(nest)
+                 (define-values (new-saw-ht new-doc) (loop (caddr doc) saw-ht))
+                 (values new-saw-ht
+                         (and build?
+                              (pe:nest (cadr doc) new-doc)))]
+                [(flat)
+                 (define-values (new-saw-ht new-doc) (loop (cadr doc) saw-ht))
+                 (values new-saw-ht
+                         (and build?
+                              (pe:flat new-doc)))]
+                [(seq)
                  (define-values (new-saw-ht rev-new-doc)
                    (for/fold ([saw-ht saw-ht] [rev-doc null]) ([doc (in-list (cdr doc))])
                      (define-values (new-saw new-doc) (loop doc saw-ht))
                      (values new-saw (cons new-doc rev-doc))))
                  (values new-saw-ht
                          (and build?
-                              (cons (car doc) (reverse rev-new-doc))))]))
+                              (pe:u-concat (reverse rev-new-doc))))]
+                [else
+                 (error 'resolve-references "oops ~s" doc)]))
             (hash-set! memo-ht
                        doc
                        (hash-set (hash-ref memo-ht doc #hash()) saw-ht (cons new-saw-ht new-doc)))
             (values new-saw-ht new-doc)])]
-        [else (values saw-ht doc)])))
+        [(eq? doc 'nl) (values saw-ht pe:nl)]
+        [else (values saw-ht (and build? (pe:text doc)))])))
   ;; discover graph references:
   (pass #f)
   ;; add graph tags:
   (define-values (final-saw-ht new-doc) (pass #t))
   new-doc)
+
+(define (render-pretty pe-doc o
+                       #:column [col 0]
+                       #:indent [indent 0])
+  (pe:pretty-print pe-doc
+                   #:out o
+                   #:offset col))

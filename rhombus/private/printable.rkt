@@ -163,4 +163,3 @@
   (render-pretty (resolve-references doc) op
                  #:indent indent
                  #:column column))
-  

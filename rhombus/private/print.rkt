@@ -2,7 +2,6 @@
 (require racket/symbol
          racket/keyword
          shrubbery/write
-         shrubbery/private/simple-pretty
          "provide.rkt"
          (submod "set.rkt" for-ref)
          "adjust-name.rkt"
@@ -36,7 +35,6 @@
 
 (module+ for-printable
   (provide pretty
-           render-pretty
            check-output-port
            check-mode))
 
