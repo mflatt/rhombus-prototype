@@ -200,7 +200,15 @@
      #:with (lhs-impl::binding-impl ...) #'((lhs-e.infoer-id static-infos lhs-e.data)...)
      #:with (lhs-i::binding-info ...) #'(lhs-impl.info ...)
      #:with (form-id . _) orig-stx
-     #:with (tmp-id ...) (generate-temporaries #'(lhs-i.name-id ...))
+     #:do [(define all-immediate? (for/and ([matcher-id (syntax->list #'(lhs-i.matcher-id ...))])
+                                    (free-identifier=? matcher-id #'always-succeed)))]
+     #:with (tmp-id ...) (if all-immediate?
+                             (for/list ([name-id (syntax->list #'(lhs-i.name-id ...))]
+                                        [bind-ids (in-list (syntax->list #'((lhs-i.bind-id ...) ...)))])
+                               (syntax-parse bind-ids
+                                 [(id) #'id]
+                                 [() (car (generate-temporaries (list name-id)))]))
+                             (generate-temporaries #'(lhs-i.name-id ...)))
      (define seq-ctr (syntax-local-static-info #'rhs #'#%sequence-constructor))
      (when (and static? (not seq-ctr))
        (raise-syntax-error #f
@@ -220,22 +228,26 @@
                               [else (unwrap-static-infos #'rhs)])]
             . rev-clauses)
            ()
-           (begin
-             matcher
-             (lhs-i.matcher-id tmp-id
-                               lhs-i.data
-                               flattened-if
-                               (void)
-                               (rhs-binding-failure 'form-id tmp-id 'lhs-i.annotation-str))
-             ...)
-           (begin
-             binder
-             (begin
-               (lhs-i.committer-id tmp-id lhs-i.data)
-               (lhs-i.binder-id tmp-id lhs-i.data)
-               (define-static-info-syntax/maybe lhs-i.bind-id lhs-i.bind-static-info ...)
-               ...)
-             ...)]])]))
+           #,(if all-immediate?
+                 #'matcher
+                 #'(begin
+                     matcher
+                     (lhs-i.matcher-id tmp-id
+                                       lhs-i.data
+                                       flattened-if
+                                       (void)
+                                       (rhs-binding-failure 'form-id tmp-id 'lhs-i.annotation-str))
+                     ...))
+           #,(if all-immediate?
+                 #'binder
+                 #`(begin
+                     binder
+                     (begin
+                       (lhs-i.committer-id tmp-id lhs-i.data)
+                       (lhs-i.binder-id tmp-id lhs-i.data)
+                       (define-static-info-syntax/maybe lhs-i.bind-id lhs-i.bind-static-info ...)
+                       ...)
+                   ...))]])]))
 
 (define-for-syntax (build-binding-clause*/values orig-stx
                                                  state-stx
