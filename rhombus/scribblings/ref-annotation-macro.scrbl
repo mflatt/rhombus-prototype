@@ -161,7 +161,7 @@
  it is completed via @rhombus(annot.delayed_complete) at run time, then
  an exception is reported. At compile time, the static information
  associated @rhombus(id) is empty until after it is completed via
- @rhombus(annot.delayed_complete, ~expr).
+ @rhombus(annot.delayed_complete).
 
  These forms should be used as last resort because they inherently
  involve a side effect, and potentially across module boundaries. When a

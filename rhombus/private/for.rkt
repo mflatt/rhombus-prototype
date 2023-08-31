@@ -7,7 +7,8 @@
                      enforest/syntax-local
                      "tag.rkt"
                      "srcloc.rkt"
-                     "statically-str.rkt")
+                     "statically-str.rkt"
+                     "with-syntax.rkt")
          "expression.rkt"
          "binding.rkt"
          "parse.rkt"
@@ -31,44 +32,60 @@
                     break_when
                     final_when))
 
+(begin-for-syntax
+  (define-splicing-syntax-class :maybe_ends_each
+    #:attributes ([red 1]
+                  [each 1])
+    #:datum-literals (group)
+    (pattern (~seq red ... (_::parens (~and g (group bind ...+ (_::block . _))) ...))
+             #:attr [each 1] (list #'(group each (block g ...))))
+    (pattern (~seq red ...)
+             #:attr [each 1] '())))
+
 (define-syntax rhombus-for
   (expression-transformer
    (lambda (stx)
      (syntax-parse (respan stx)
-       #:datum-literals (block group)
-       [(form-id ((~and block-tag block) body ...+ (group #:into red ...)))
+       #:datum-literals (group)
+       [(form-id pre::maybe_ends_each (block-tag::block body ...+ (group #:into red ...)))
+        (unless (null? (syntax-e #'(pre.red ...)))
+          (raise-syntax-error #f
+                              "cannot have both ~into and reducer terms before block"
+                              stx))
         (values (relocate+reraw
                  (respan stx)
                  #'(rhombus-expression
-                    (group form-id red ... (block-tag body ...))))
+                    (group form-id red ... (block-tag pre.each ... body ...))))
                 #'())]
-       [(form-id (block body ...+))
-        (define static? (is-static-context? #'form-id))
-        (values (relocate+reraw
-                 (respan stx)
-                 #`(for (#:splice (for-clause-step #,stx #,static? [(begin (void))] body ...))
-                     (void)))
-                #'())]
-       [(form-id red ... (block body ...+))
-        #:with g-tag group-tag
-        #:with redr::reducer #'(g-tag red ...)
-        #:with f::reducer-form #'redr.parsed
-        (define static? (is-static-context? #'form-id))
-        (values (wrap-static-info*
-                 (relocate+reraw
-                  (respan stx)
-                  #`(f.wrapper
-                     f.data
-                     (for/fold f.binds (#:splice (for-clause-step #,stx #,static? [(f.body-wrapper f.data)] body ...))
-                       #,@(if (syntax-e #'f.break-whener)
-                              #`(#:break (f.break-whener f.data))
-                              null)
-                       #,@(if (syntax-e #'f.final-whener)
-                              #`(#:final (f.final-whener f.data))
-                              null)
-                       (f.finisher f.data))))
-                 #'f.static-infos)
-                #'())]))))
+       [(form-id pre::maybe_ends_each (_::block body ...+))
+        (cond
+          [(null? (syntax-e #'(pre.red ...)))
+           (define static? (is-static-context? #'form-id))
+           (values (relocate+reraw
+                    (respan stx)
+                    #`(for (#:splice (for-clause-step #,stx #,static? [(begin (void))] pre.each ... body ...))
+                        (void)))
+                   #'())]
+          [else
+           (with-syntax-parse ([g-tag group-tag]
+                               [redr::reducer #'(g-tag pre.red ...)]
+                               [f::reducer-form #'redr.parsed])
+             (define static? (is-static-context? #'form-id))
+             (values (wrap-static-info*
+                      (relocate+reraw
+                       (respan stx)
+                       #`(f.wrapper
+                          f.data
+                          (for/fold f.binds (#:splice (for-clause-step #,stx #,static? [(f.body-wrapper f.data)] pre.each ... body ...))
+                            #,@(if (syntax-e #'f.break-whener)
+                                   #`(#:break (f.break-whener f.data))
+                                   null)
+                            #,@(if (syntax-e #'f.final-whener)
+                                   #`(#:final (f.final-whener f.data))
+                                   null)
+                            (f.finisher f.data))))
+                      #'f.static-infos)
+                     #'()))])]))))
 
 (define-splicing-for-clause-syntax for-clause-step
   (lambda (stx)
