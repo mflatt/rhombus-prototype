@@ -153,11 +153,27 @@
   #:whole-body-readers? #t
   (require shrubbery/parse
            (only-in (submod shrubbery reader)
-                    [get-info-proc shrubbery:get-info-proc]))
+                    [get-info-proc shrubbery:get-info-proc])
+	   compiler/module-suffix
+	   racket/string)
   (provide get-info-proc)
   (define (get-info-proc key default make-default)
     (case key
       [(drracket:default-extension) "rhm"]
+      [(drracket:default-filters)
+       ;; Same as Racket sources, but move ".rhm" to the front so that
+       ;; the default for saving a file is ".rhm" on Windows
+       `(["Rhombus Sources" ,(string-join
+			      (map (lambda (sfx)
+				     (format "*.~a"
+					     (bytes->string/utf-8 sfx)))
+				   (sort (get-module-suffixes)
+					 (lambda (a b)
+					   (cond
+					    [(bytes=? a #"rhm") #t]
+					    [(bytes=? b #"rhm") #f]
+					    [else (bytes<? a b)]))))
+			      ";")])]
       [(drracket:define-popup)
        (dynamic-require 'rhombus/private/define-popup
                         'define-popup)]
