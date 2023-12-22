@@ -231,18 +231,15 @@ class VecList(root :~ Node,
   method add(el) :~ VecList:
     if size == 0
     | _VecList(leaf(el), 1, 0)
-    | def count = copyable_count(root, height)
-      if count == 0
+    | let new_root = build(root, height, el)
+      if new_root
+      | /* enough space in original tree */
+        _VecList(new_root, size + 1, height)
       | /* not enough space in original tree */
         _VecList(Node(Array(root, new_branch(el, height)),
                       root.sizes && Array(size, size + 1)),
                  size + 1,
                  height + 1)
-      | /* enough space in original tree */
-        _VecList(build(root, count, height, el),
-                 size + 1,
-                 height)
-    
 
   // TODO chunk adding here by 32 and add whole nodes at a time?
   method add_all(els :~ Sequence) :~ VecList:
@@ -366,7 +363,7 @@ class VecList(root :~ Node,
   method insert(at :~ NonnegInt, el) :~ VecList:
     cond
     | at <= 0:
-        VecList[].add(el).concat(this)
+        VecList[el].concat(this)
     | at >= size - 1:
         this.add(el)
     | ~else:
@@ -615,42 +612,26 @@ fun step(node :~ Node, index, depth) :~ (NonnegInt, NonnegInt):
          | index
          | index - sizes[branch - 1])
 
-// count number of nodes that either have room themselves for another element and/or branch,
-// or one of their right-most descendents has room
-  
-// TODO very large trees (larger than 32^3) tend to go OOM in this function.
-// is there a more efficient way tod o this? Perhaps just assume there's room in the tree
-// and check properties of the generated new_root to see if that's correct or not?
-fun copyable_count(node :~ Node, height):
-  def (_, count):
-    for values(n = node, count = 0):
-      each i: 0 .. height + 1
-      def l = n.size
-      values(if l == 0
-             | n
-             | n.get(l - 1),
-             if l < MAX_WIDTH
-             | i + 1
-             | count)
-  count
-
-
-//  using `count` returned from `copyable_count`, copy `count` nodes along right-most path of `n`,
-// then insert new element in leaf node or new branch if `count` << `height`
-fun build(n :~ Node, count, height, el):
-  if count < 2
-  | if height == 0
-    | Node(array_add(n.children, el))
-    | Node(array_add(n.children,
-                     new_branch(el, height - 1)))
-  | Node(n.children.update(n.size - 1,
-                           build(n.get(n.size - 1),
-                                 count - 1,
-                                 height - 1,
-                                 el)),
-         n.sizes && Array.update(n.sizes,
-                                 Array.length(n.sizes) - 1,
-                                 (n.sizes :~ Array)[Array.length(n.sizes) - 1] + 1))
+// add if there's room, return #false otherwise
+fun build(n :~ Node, height, el):
+  cond
+  | height == 0:
+      if n.size < MAX_WIDTH
+      | Node(array_add(n.children, el))
+      | #false
+  | ~else:
+      let child = (n.size > 0) && build(n.get(n.size - 1), height - 1, el)
+      cond
+      | child:
+          Node(n.children.update(n.size - 1, child),
+               n.sizes && Array.update(n.sizes,
+                                       Array.length(n.sizes) - 1,
+                                       (n.sizes :~ Array)[Array.length(n.sizes) - 1] + 1))
+      | n.size < MAX_WIDTH:
+          Node(array_add(n.children,
+                         new_branch(el, height - 1)))
+      | ~else:
+          #false
 
 // create a branch of height `height` terminating in a unary leaf node containing `el`
 fun new_branch(el, height):
