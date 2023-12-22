@@ -177,12 +177,11 @@ class VecList(root :~ Node,
   property balanced:
     root.balanced
 
-  // TODO i want it to be equal if the represented sequence is equal which requires walkikng the tree
+  // TODO i want it to be equal if the represented sequence is equal which requires walking the tree
   // how to do efficiently?
   private override equals(rhs :~ VecList, recur):
-    size == rhs.size && for values(eq = #true):
-      each i: 0..size
-      eq && recur(rhs[i], this[i])
+    (size == rhs.size) && (for all (i: 0..size):
+                             recur(rhs[i], this[i]))
 
   private override hash_code(recur):
     recur(root)
@@ -257,7 +256,7 @@ class VecList(root :~ Node,
 
   method length() :~ Int:
     size
-      
+
   // trees that are a result of this method may not meet invariants, but rebalancing is costly
   // and future concatenations would restore the invariants due to rebalancing being done on concats.
   // TODO write some tests showing this
@@ -279,7 +278,9 @@ class VecList(root :~ Node,
               def new_children :~ Array.of(Node) = node.children.take_left(branch_index + 1)
               if depth == 0
               |  Node(new_children)
-              |  new_children[branch_index] := take(node.children[branch_index], index, depth - 1)
+              |  new_children[branch_index] := take(node.children[branch_index],
+                                                    index - (branch_index bits.(<<) (depth * BITS)),
+                                                    depth - 1)
                  Node(new_children)
           | ~else:
               def (branch_index, subindex) = step(node, index, depth)
@@ -289,11 +290,7 @@ class VecList(root :~ Node,
               new_sizes[branch_index] := index + 1
               Node(new_children, new_sizes)
 
-        recur squash(node :~ Node = new_root, new_height = height):
-          if node.size == 1 && new_height > 0
-          | squash(node.first, new_height - 1)
-          | _VecList(node, pos, new_height)
-        
+        squash(new_root, pos, height)
 
   method drop(pos :~ NonnegInt) :~ VecList:
     cond
@@ -344,14 +341,7 @@ class VecList(root :~ Node,
               new_children[0] := new_child  
               Node(new_children, new_sizes)
 
-        def t :~ VecList:
-          recur squash(node :~ Node = new_root, new_height = height):
-            if node.size == 1 && new_height > 0
-            | squash(node.first, new_height - 1)
-            | _VecList(node, size - pos, new_height)
-
-        t
-
+        squash(new_root, size - pos, height)
 
   method split(at :~ NonnegInt) :~ (VecList, VecList):
     cond
@@ -406,6 +396,12 @@ class VecList(root :~ Node,
 def empty = _VecList(Node(), 0, 0)
 
 /* helper functions */
+
+// after take or drop, squash tree if it can be shorter:
+fun squash(node :~ Node, new_size, new_height):
+  if node.size == 1 && new_height > 0
+  | squash(node.first, new_size, new_height - 1)
+  | _VecList(node, new_size, new_height)
 
 fun concat_subtree(left :~ Node,
                    height_l :~ Int,
