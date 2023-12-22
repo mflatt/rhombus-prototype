@@ -32,7 +32,7 @@ def MAX_ERROR = 2
 
       
 macro 'radix($index, $height)':
-  '((($index) bits.(>>) (BITS * $height)) bits.and MASK)'
+  '((($index) bits.(>>) (BITS * ($height))) bits.and MASK)'
 
 module test:
   for (i: 0 .. 32):
@@ -304,30 +304,34 @@ class VecList(root :~ Node,
     | pos == size:
         VecList[]
     | ~else:
-        def new_root = recur drop(node :~ Node = root, index :~ Int = pos, depth :~ Int = height) :~ Node:
+        def new_root = recur drop(node :~ Node = root,
+                                  index :~ Int = pos,
+                                  depth :~ Int = height) :~ Node:
           cond
           | depth == 0:
               Node(node.children.drop_left(radix(index, 0)))
           | node.balanced:
               def branch_index = radix(index, depth)
               def new_children :~ Array.of(Node) = node.children.drop_left(branch_index)
-              def new_child :~ Node = drop(node.get(branch_index), index, depth - 1)
+              def new_child :~ Node = drop(node.get(branch_index),
+                                           index - (branch_index bits.(<<) (depth * BITS)),
+                                           depth - 1)
               new_children[0] := new_child
-              
-              def size0 :~ Int:
-                if depth == 1 || new_child.balanced
-                | (1 bits.(<<) (depth * BITS)) - radix(index, block: //println(depth)
-                                                                     //println(radix(index, depth - 1))
-                                                                     depth - 1)
-                | (new_child.sizes :~ Array.of(Int))[new_child.size - 1]
-              //println(size0)
+
+              def size0 = size_subtree(new_child, depth-1)
               def new_len = node.size - branch_index    
-              def step = 1 bits.(<<) (depth * BITS)
               def new_sizes = Array.make(new_len)
-              
-              for (i: 0 .. new_sizes.length()):
-                new_sizes[i] := (size0 + i * step)
-                
+
+              cond
+              | new_len == 1:
+                  new_sizes[0] := size0
+              | ~else:
+                  def step = 1 bits.(<<) (depth * BITS)
+                  for (i: 0 .. new_len - 1):
+                    new_sizes[i] := (size0 + i * step)
+                  let sizeN = size_subtree(new_children[new_len-1], depth-1)
+                  new_sizes[new_len - 1] := size0 + (new_len - 2) * step + sizeN
+
               Node(new_children, new_sizes)
           | ~else:
               def (branch_index, subindex) = step(node, index, depth)
@@ -346,11 +350,7 @@ class VecList(root :~ Node,
             | squash(node.first, new_height - 1)
             | _VecList(node, size - pos, new_height)
 
-        // TODO explain
-        if t.height > 1 && t.root.sizes
-        | def sizes = Array.update(t.root.sizes, t.root.size - 1, t.size)
-          _VecList(Node(t.root.children, sizes), t.size, t.height) 
-        | t
+        t
 
 
   method split(at :~ NonnegInt) :~ (VecList, VecList):
@@ -579,13 +579,6 @@ fun calc_height_and_wrap(root :~ Node, size :~ Int):
   _VecList(root, size, height)
 
 
-
-/* TODO: is this a bug waiting to happen?
-  We're calling this to set sizes and then assuming we can
-  rely on the presence of sizes array already.
-  seems to work except for in case of right-most child of root node,
-  which we are currently correcting for in concat
-*/
 fun size_subtree(node :~ Node, height :~ Int):
   cond
   | height == 0:
@@ -629,7 +622,8 @@ fun build(n :~ Node, height, el):
                                        (n.sizes :~ Array)[Array.length(n.sizes) - 1] + 1))
       | n.size < MAX_WIDTH:
           Node(array_add(n.children,
-                         new_branch(el, height - 1)))
+                         new_branch(el, height - 1)),
+               n.sizes && Array.append(n.sizes, Array((n.sizes :~ Array)[n.size - 1] + 1)))
       | ~else:
           #false
 
@@ -655,6 +649,10 @@ module test:
   | array_from(s :: Sequence) :~ Array:
       for Array (si: s): si
 
+  fun
+  | list_from(s :: Sequence) :~ List:
+      for List (i: s): i
+
   /* Node tests */ 
   let leaf_n :~ Node = Node(Array(1, 2, 3, 4))
   let internal_balanced_n :~ Node = Node(Array(Node(array_from(0..32)),
@@ -671,7 +669,6 @@ module test:
     internal_balanced_n  ~is Node(internal_balanced_n.children, Array(1, 2, 3))
     internal_unbalanced_n ~is Node(internal_unbalanced_n.children)
     internal_unbalanced_n ~is Node(internal_unbalanced_n.children)
-
 
   check: //balanced
     leaf_n.balanced ~is #true
@@ -998,3 +995,8 @@ module test:
     small_ub.add(1).pop() ~is small_ub
     medium_ub.add(1).pop() ~is medium_ub
     (VecList[1, 2, 3] ++ VecList[4, 5]).pop() ~is VecList[1, 2, 3, 4]
+
+  block: // regression test
+    check:
+      VecList[].add_all(0..100).drop(20).add_all(0..30).to_list()
+      ~is list_from(20..100) ++ list_from(0..30)
