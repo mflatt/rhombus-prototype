@@ -43,7 +43,7 @@ module test:
   for (i: 32 .. 64):
     check: radix(i, 1)
            ~is 1
-           
+
 class Node(children :~ Array.of(Node || Any) = Array(), sizes :~ maybe(Array.of(Int)) = #false):
  /* a node in the RRB Tree
 
@@ -112,7 +112,7 @@ class Node(children :~ Array.of(Node || Any) = Array(), sizes :~ maybe(Array.of(
   method length() :~ Int:
     children.length()
 
-
+def empty_node = Node(Array())
 
 macro 'leaf($args)':
   'Node(Array($args))'
@@ -153,23 +153,21 @@ class VecList(root :~ Node,
 
   sequence '$lhs: $rhs':
     '(~outer_binds:
-        values(p :~ VecList, init_node):
-          let p = $rhs
-          let (init_node, _) = _VecList.node_for(p, 0)
-          values (p, init_node),
+        p :~ VecList = $rhs,
       ~recur_binds:
         pos = 0
-        node = init_node,
+        node = empty_node
+        node_pos = 0,
       ~head_guard:
         pos < p.size,
       ~inner_binds:
-        values($lhs, next_node):
-          if radix(pos, 0) < node.size
-          | values((node :~ Node)[radix(pos, 0)], node)
-          | let (node :~ Node, subidx) = _VecList.node_for(p, pos)
-            values(node[radix(subidx, 0)], node),
+        values($lhs, next_node, next_node_pos):
+          if node_pos < node.size
+          | values((node :~ Node)[node_pos], node, node_pos + 1)
+          | let (node :~ Node, node_pos) = _VecList.node_for(p, pos)
+            values(node[node_pos], node, node_pos + 1),
       ~recur_args:
-        (pos + 1, next_node))'
+        (pos + 1, next_node, next_node_pos))'
     
   private override describe(mode, recur):
     PrintDesc.list("VecList[", List.map(to_list(), recur), "]")
@@ -187,23 +185,25 @@ class VecList(root :~ Node,
     recur(root)
     
   override get(index :~ Int):
-    let (node :~ Node, subidx :~ Int) = node_for(index)
-    node[subidx bits.and MASK]
+    let (node :~ Node, pos :~ Int) = node_for(index)
+    node[pos]
 
   private method node_for(index :~ NonnegInt) :~ (Node, Int):
     cond
     | size == 0 || index < 0 || index >= size:
-        error(#'VecList_internal, "index out of range")
+        error(#'#{VecList.get}, "index out of range")
     | height == 0:
         values(root, index)
     | ~else:
         recur walk(node :~ Node = root, index = index, depth = height):
           cond
           | node.balanced:
-              values(for values(n = node):
-                       each i: List.iota(depth + 1).rest.reverse()
-                       n.get(radix(index, i)),
-                     index)
+              values(recur sub (n :~ Node = node, depth = depth):
+                       if depth == 0
+                       | n
+                       | sub(n.get(radix(index, depth)),
+                             depth-1),
+                     index bits.and MASK)
           | depth == 1:
               let (bi, si) = step(node, index, depth)
               values(node[bi], si)
@@ -278,9 +278,7 @@ class VecList(root :~ Node,
               def new_children :~ Array.of(Node) = node.children.take_left(branch_index + 1)
               if depth == 0
               |  Node(new_children)
-              |  new_children[branch_index] := take(node.children[branch_index],
-                                                    index - (branch_index bits.(<<) (depth * BITS)),
-                                                    depth - 1)
+              |  new_children[branch_index] := take(node.children[branch_index], index, depth - 1)
                  Node(new_children)
           | ~else:
               def (branch_index, subindex) = step(node, index, depth)
@@ -310,9 +308,7 @@ class VecList(root :~ Node,
           | node.balanced:
               def branch_index = radix(index, depth)
               def new_children :~ Array.of(Node) = node.children.drop_left(branch_index)
-              def new_child :~ Node = drop(node.get(branch_index),
-                                           index - (branch_index bits.(<<) (depth * BITS)),
-                                           depth - 1)
+              def new_child :~ Node = drop(node.get(branch_index), index, depth - 1)
               new_children[0] := new_child
 
               def size0 = size_subtree(new_child, depth-1)
