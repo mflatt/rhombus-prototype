@@ -65,7 +65,7 @@
    drop_right
    take_left
    take_right
-   update))
+   set_in_copy))
 
 (define-syntax Array
   (expression-transformer
@@ -255,10 +255,13 @@
   #:static-infos ((#%call-result #,array-static-infos))
   (vector-drop-right v n))
 
-(define/method (Array.update v i val)
-  #:primitive (vector-update)
+(define/method (Array.set_in_copy v i val)
+  #:primitive (vector-set/copy)
   #:static-infos ((#%call-result #,array-static-infos))
-  (vector-update v i val))
+  #;(vector-set/copy v i val)
+  (define v2 (vector-copy v))
+  (vector-set! v2 i val)
+  v2)
 
 (define-binding-syntax Array
   (binding-prefix-operator

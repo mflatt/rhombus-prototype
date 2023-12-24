@@ -107,7 +107,7 @@ class Node(children :~ Array.of(Node || Any) = Array(), sizes :~ maybe(Array.of(
     children[index]
 
   method set(index, el) :~ Node:
-    Node(children.update(index, el), sizes)
+    Node(children.set_in_copy(index, el), sizes)
 
   method length() :~ Int:
     children.length()
@@ -608,10 +608,10 @@ fun build(n :~ Node, height, el):
       let child = (n.size > 0) && build(n.get(n.size - 1), height - 1, el)
       cond
       | child:
-          Node(n.children.update(n.size - 1, child),
-               n.sizes && Array.update(n.sizes,
-                                       Array.length(n.sizes) - 1,
-                                       (n.sizes :~ Array)[Array.length(n.sizes) - 1] + 1))
+          Node(n.children.set_in_copy(n.size - 1, child),
+               n.sizes && Array.set_in_copy(n.sizes,
+                                            Array.length(n.sizes) - 1,
+                                            (n.sizes :~ Array)[Array.length(n.sizes) - 1] + 1))
       | n.size < MAX_WIDTH:
           Node(array_add(n.children,
                          new_branch(el, height - 1)),
