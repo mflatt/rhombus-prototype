@@ -39,8 +39,7 @@
   #:properties
   ()
   #:methods
-  ([lookup class_meta.Info.lookup]
-   ))
+  ([lookup class_meta.Info.lookup]))
 
 (define/arity (class_meta.describe id)
   #:static-infos ((#%call-result #,class-data-static-infos))
@@ -65,7 +64,7 @@
         constructor-field-defaults
         constructor-field-mutables
         constructor-field-privates
-        _)
+        . _)
      (values #'constructor-field-names
              #'constructor-field-keywords
              #'constructor-field-defaults

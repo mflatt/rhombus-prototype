@@ -335,29 +335,33 @@
                                   sub-n kws predicate-maker info-maker
                                   binding-maker-id binding-maker-data
                                   parse-annotation-of)
-    (values
-     ;; root
-     (annotation-prefix-operator
-      name
-      '((default . stronger))
-      'macro
-      (lambda (stx)
-        (syntax-parse stx
-          [(_ . tail)
-           (values (annotation-predicate-form predicate-stx
-                                              static-infos)
-                   #'tail)])))
-     ;; `of`:
-     (annotation-prefix-operator
-      name
-      '((default . stronger))
-      'macro
-      (lambda (stx)
-        (parse-annotation-of (replace-head-dotted-name stx)
-                             predicate-stx static-infos
-                             sub-n kws
-                             predicate-maker info-maker
-                             binding-maker-id binding-maker-data)))))
+    (define root
+      (annotation-prefix-operator
+       name
+       '((default . stronger))
+       'macro
+       (lambda (stx)
+         (syntax-parse stx
+           [(_ . tail)
+            (values (annotation-predicate-form predicate-stx
+                                               static-infos)
+                    #'tail)]))))
+    (if (= sub-n 0)
+        root
+        (values
+         ;; root
+         root
+         ;; `of`:
+         (annotation-prefix-operator
+          name
+          '((default . stronger))
+          'macro
+          (lambda (stx)
+            (parse-annotation-of (replace-head-dotted-name stx)
+                                 predicate-stx static-infos
+                                 sub-n kws
+                                 predicate-maker info-maker
+                                 binding-maker-id binding-maker-data))))))
 
   (define (remove-tail t tail)
     (define l (syntax->list t))
@@ -385,10 +389,15 @@
         (~optional (~seq #:extends name-extends)
                    #:defaults ([name-extends #'#f])))
      #:with annot-name (in-annotation-space #'name)
+     (define sub-n-val
+       (syntax-parse #'sub-n
+         [(quote sub-n) (syntax-e #'sub-n)]
+         [_ (syntax-e #'sub-n)]))
+     (define extra-names (if (zero? sub-n-val) null (list #'of-name)))
      (define defs
        ;; usually `(define-syntaxes (annot-name of-name) ....)`:
        (build-syntax-definitions/maybe-extension
-        (list 'rhombus/annot) #'name #:extra-names (list #'of-name) #'name-extends
+        (list 'rhombus/annot) #'name #:extra-names extra-names #'name-extends
         #'(let binds
             (annotation-constructor #'annot-name predicate-stx static-infos
                                     sub-n 'kws

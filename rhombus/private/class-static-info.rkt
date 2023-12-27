@@ -2,6 +2,7 @@
 (require (for-syntax racket/base
                      syntax/parse/pre
                      "class-parse.rkt"
+                     "veneer-parse.rkt"
                      (only-in "interface-parse.rkt" interface-desc-static-infos)
                      "static-info-pack.rkt")
          (submod "dot.rkt" for-dot-provider)
@@ -42,7 +43,9 @@
               #`((#,(quote-syntax unsyntax-splicing) (syntax-local-value (quote-syntax #,static-infos-id))))
               #'())
        #,@(if super
-              (class-desc-static-infos super)
+              (if (class-desc? super)
+                  (class-desc-static-infos super)
+                  (veneer-desc-static-infos super))
               #'())
        #,@(apply
            append
@@ -104,7 +107,8 @@
                                              given-constructor-rhs
                                              constructor-keywords constructor-defaults
                                              constructor-private-keywords constructor-private-defaults
-                                             names)
+                                             names
+                                             #:veneer? [veneer? #f])
   (with-syntax ([(name constructor-name name-instance
                        internal-name-instance make-internal-name
                        indirect-static-infos
@@ -114,19 +118,25 @@
                        [public-field-static-infos ...])
                  names])
     (append
-     (list
-      #`(define-static-info-syntax constructor-name
-          (#%call-result ((#%dot-provider name-instance)
-                          . indirect-static-infos))
-          (#%function-arity #,(if given-constructor-rhs
-                                  (syntax-parse given-constructor-rhs
-                                    [(_ e-arity::entry-point-arity)
-                                     (syntax->datum #'e-arity.parsed)])
-                                  (summarize-arity constructor-keywords
-                                                   constructor-defaults
-                                                   #f #f)))
-          (#%indirect-static-info indirect-function-static-info)))
-     (if exposed-internal-id
+     (if (syntax-e #'constructor-name)
+         (list
+          #`(define-static-info-syntax constructor-name
+              (#%call-result ((#%dot-provider name-instance)
+                              . indirect-static-infos))
+              (#%function-arity #,(cond
+                                    [given-constructor-rhs
+                                     (syntax-parse given-constructor-rhs
+                                       [(_ e-arity::entry-point-arity)
+                                        (syntax->datum #'e-arity.parsed)])]
+                                    [veneer? #'2]
+                                    [else
+                                     (summarize-arity constructor-keywords
+                                                      constructor-defaults
+                                                      #f #f)]))
+              (#%indirect-static-info indirect-function-static-info)))
+         null)
+     (if (and exposed-internal-id
+              (syntax-e #'make-internal-name))
          (list
           #`(define-static-info-syntax make-internal-name
               #,(let ([info #'(#%call-result ((#%dot-provider internal-name-instance)))])

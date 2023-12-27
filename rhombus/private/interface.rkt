@@ -19,6 +19,7 @@
          "interface-clause-parse.rkt"
          "class-top-level.rkt"
          "class-clause-tag.rkt"
+         "class-step.rkt"
          "class-static-info.rkt"
          "dotted-sequence-parse.rkt"
          (for-syntax "class-transformer.rkt")
@@ -67,27 +68,10 @@
                 (interface-annotation+finish #,finish-data) rhombus-class
                 (interface-body-step (#,interface-data-stx ()) . #,(intro body)))]))]))
 
-(define-syntax interface-body-step
-  (lambda (stx)
-    ;; parse the first form as a interface clause, if possible, otherwise assume
-    ;; an expression or definition
-    (syntax-parse stx
-      [(_ (data accum) form . rest)
-       #:with (~var clause (:interface-clause (interface-expand-data #'data #'accum))) (syntax-local-introduce #'form)
-       (syntax-parse (syntax-local-introduce #'clause.parsed)
-         #:datum-literals (group parsed)
-         [((group (parsed #:rhombus/class_clause p)) ...)
-          #:with (new-accum ...) (class-clause-accum #'(p ...))
-          #`(begin p ... (interface-body-step (data (new-accum ... . accum)) . rest))]
-         [(g ...)
-          #`(interface-body-step (data accum) g ... . rest)])]
-      [(_ data+accum form . rest)
-       #`(rhombus-top-step
-          interface-body-step
-          #f
-          (data+accum)
-          form . rest)]
-      [(_ data+accum) #'(begin)])))
+(define-class-body-step interface-body-step
+  :interface-clause
+  interface-expand-data
+  class-clause-accum)
 
 (define-syntax interface-annotation+finish
   (lambda (stx)
@@ -260,7 +244,7 @@
                (build-methods method-results
                               added-methods method-mindex method-names method-private
                               #f #f
-                              #'(name name-instance internal-name? #f
+                              #'(name name-instance internal-name? #f #f
                                       internal-name-ref
                                       ()
                                       []
@@ -381,9 +365,9 @@
                                          '#,method-map
                                          #,method-result-expr
                                          #,custom-annotation?
-                                         (#,(quote-syntax quasisyntax) instance-static-infos)
                                          #f
-                                         '()
+                                         #f
+                                         (#,(quote-syntax quasisyntax) instance-static-infos)
                                          #f
                                          '()
                                          (quote #,(build-quoted-private-method-list 'method method-private))
