@@ -32,8 +32,8 @@
     #,(epsilon)
 
   grammar maybe_annot:
-    :: $annot
-    :~ $annot
+    #,(@rhombus(::, ~bind)) $annot
+    #,(@rhombus(:~, ~bind)) $annot
     #,(epsilon)
 
   grammar maybe_default:
@@ -109,10 +109,10 @@
   @rhombus(id_name#,(rhombus(.))#,(@rhombus(property,~var))),
   a syntactic form
   @rhombus(id_name#,(rhombus(.))#,(@rhombus(dot,~var))),
-  a field accessor
+  and a field accessor
   @rhombus(id_name#,(rhombus(.))#,(@rhombus(field,~var))) for each
   non-@rhombus(private, ~class_clause) method, property, dot syntax, and field in the class
-  (including inherited methods, properties, fields, and dot syntax), respectively; and}
+  (including inherited methods, properties, dot syntax, and fields), respectively; and}
 
  @item{in the @rhombus(class, ~space) space, a representation of the
   class for reference as a superclass.}

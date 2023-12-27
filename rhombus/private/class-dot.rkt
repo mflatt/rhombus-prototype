@@ -7,6 +7,7 @@
                      "tag.rkt"
                      "class-parse.rkt"
                      "interface-parse.rkt"
+                     "veneer-parse.rkt"
                      "statically-str.rkt")
          "class-method.rkt"
          "class-method-result.rkt"
@@ -43,9 +44,10 @@
                                              expression-macro-rhs intro constructor-given-name
                                              exported-of internal-exported-of
                                              dot-provider-rhss parent-dot-providers
-                                             names)
+                                             names
+                                             #:veneer? [veneer? #f])
   (with-syntax ([(name name-extends tail-name
-                       name? constructor-name name-instance name-ref name-of
+                       name? name-convert constructor-name name-instance name-ref name-of
                        make-internal-name internal-name-instance dot-provider-name
                        indirect-static-infos
                        [public-field-name ...] [private-field-name ...] [field-name ...]
@@ -75,6 +77,15 @@
                                        #,(intro expression-macro-rhs)
                                        make-expression-prefix-operator
                                        "class")))]
+          [veneer?
+           (build-definitions/maybe-extension
+            #f #'name #'name-extends
+            #`(lambda (v)
+                #,(if (syntax-e #'name-convert)
+                      #`(name-convert v 'name)
+                      #`(begin
+                          (name? v 'name)
+                          v))))]
           [(and constructor-given-name
                 (not (free-identifier=? #'name constructor-given-name)))
            (list
@@ -131,7 +142,9 @@
                              ...
                              [private-method-name private-method-id]
                              ...
-                             [#,internal-exported-of #,internal-of-id]))
+                             #,@(if internal-exported-of
+                                    #`([#,internal-exported-of #,internal-of-id])
+                                    null)))
                #`(define-dot-provider-syntax internal-name-instance
                    (dot-provider (make-handle-class-instance-dot (quote-syntax name)
                                                                  (hasheq
@@ -364,24 +377,40 @@
                                #'tail)])))))
 
 (define-for-syntax (desc-method-shapes desc)
-  (if (class-desc? desc)
-      (class-desc-method-shapes desc)
-      (interface-desc-method-shapes desc)))
+  (cond
+    [(class-desc? desc)
+     (class-desc-method-shapes desc)]
+    [(interface-desc? desc)
+     (interface-desc-method-shapes desc)]
+    [else
+     (veneer-desc-method-shapes desc)]))
 
 (define-for-syntax (desc-method-vtable desc)
-  (if (class-desc? desc)
-      (class-desc-method-vtable desc)
-      (interface-desc-method-vtable desc)))
+  (cond
+    [(class-desc? desc)
+     (class-desc-method-vtable desc)]
+    [(interface-desc? desc)
+     (interface-desc-method-vtable desc)]
+    [else
+     (veneer-desc-method-vtable desc)]))
 
 (define-for-syntax (desc-method-map desc)
-  (if (class-desc? desc)
-      (class-desc-method-map desc)
-      (interface-desc-method-map desc)))
+  (cond
+    [(class-desc? desc)
+     (class-desc-method-map desc)]
+    [(interface-desc? desc)
+     (interface-desc-method-map desc)]
+    [else
+     (veneer-desc-method-map desc)]))
 
 (define-for-syntax (desc-method-result desc)
-  (if (class-desc? desc)
-      (class-desc-method-result desc)
-      (interface-desc-method-result desc)))
+  (cond
+    [(class-desc? desc)
+     (class-desc-method-result desc)]
+    [(interface-desc? desc)
+     (interface-desc-method-result desc)]
+    [else
+     (veneer-desc-method-result desc)]))
 
 (define-for-syntax (desc-ref-id desc)
   (if (class-desc? desc)
@@ -395,7 +424,8 @@
                     success failure)
   (define desc (syntax-local-value* (in-class-desc-space name) (lambda (v)
                                                                  (or (class-desc-ref v)
-                                                                     (interface-desc-ref v)))))
+                                                                     (interface-desc-ref v)
+                                                                     (veneer-desc-ref v)))))
   (unless desc (error "cannot find annotation binding for instance dot provider"))
   (define (do-field fld)
     (define accessor-id (field-desc-accessor-id fld))
@@ -525,7 +555,11 @@
           (define shape-symbol (and shape (if (vector? shape) (vector-ref shape 0) shape)))
           (define shape-arity (and shape (vector? shape) (vector-ref shape 1)))
           (define non-final? (or (box? shape-symbol) (and (pair? shape-symbol) (box? (car shape-symbol)))))
-          (do-method pos
+          (do-method (if (veneer-desc? desc)
+                         ;; always static:
+                         (vector-ref (syntax-e (veneer-desc-method-vtable desc)) pos)
+                         ;; dynamic:
+                         pos)
                      (hash-ref (desc-method-result desc) (syntax-e field-id) #f)
                      non-final?
                      ;; property?
