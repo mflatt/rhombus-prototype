@@ -33,7 +33,7 @@
 (define-syntax (define-method-result-syntax stx)
   (syntax-parse stx
     [(_ id (ret::ret-annotation) (super-result-id ...)
-        maybe-final-id convert-ok? kind arity
+        maybe-final-id convert-ok? checked-append? kind arity
         maybe-call-statinfo-id
         maybe-ref-statinfo-id+id
         maybe-set-statinfo-id+id
@@ -191,7 +191,7 @@
          #,@(gen-bounce #'maybe-set-statinfo-id+id #'#%index-set #f)
          #,@(gen-bounce #'maybe-append-statinfo-id+id #'#%append #f
                         ;; boxed identifier means "checked" for `#%append`
-                        #:box-id? #t))]))
+                        #:box-id? (syntax-e #'checked-append?)))]))
 
 (define-for-syntax (de-method-arity arity)
   (syntax-parse arity

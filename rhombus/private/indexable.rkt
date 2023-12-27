@@ -74,7 +74,7 @@
                   #f
                   #'()
                   #f
-                  '(get)))
+                  '(get veneer)))
 
 (define-annotation-syntax MutableIndexable
   (identifier-annotation #'mutable-indexable? #'((#%index-get indexable-index)
@@ -104,7 +104,7 @@
                   #f
                   #'()
                   #f
-                  '(get set)))
+                  '(get set veneer)))
 
 (define-syntax void-result
   (method-result #'void? #t 1 "Void" #'() 8))

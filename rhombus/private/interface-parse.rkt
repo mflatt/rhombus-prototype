@@ -38,11 +38,17 @@
                                                 v))
 
 (define (interface-names->interfaces stxes names
-                                     #:results [results (lambda (all pruned) pruned)])
+                                     #:results [results (lambda (all pruned) pruned)]
+                                     #:for-veneer? [for-veneer? #f])
   (define intfs
     (for/list ([name (in-list names)])
-      (or (syntax-local-value* (in-class-desc-space name) interface-noninternal-desc-ref)
-          (raise-syntax-error #f "not an interface name" stxes name))))
+      (define intf
+        (or (syntax-local-value* (in-class-desc-space name) interface-noninternal-desc-ref)
+            (raise-syntax-error #f "not an interface name" stxes name)))
+      (when (and for-veneer?
+                 (not (memq 'veneer (interface-desc-flags intf))))
+        (raise-syntax-error #f "interface cannot be implemented by a veneer" stxes name))
+      intf))
   (results
    intfs
    ;; remove duplicates, just to make the generated class or interface description more compact

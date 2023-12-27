@@ -4,6 +4,7 @@
                      enforest/syntax-local
                      "class-parse.rkt"
                      "interface-parse.rkt"
+                     "veneer-parse.rkt"
                      "srcloc.rkt"
                      "statically-str.rkt"
                      (submod "entry-point-adjustment.rkt" for-struct))
@@ -176,7 +177,10 @@
   ;; assuming that the names all turn out to be sufficiently distinct
   (define super-method-results
     (for/fold ([method-results (if super
-                                   (for/hasheq ([(sym id) (in-hash (class-desc-method-result super))])
+                                   (for/hasheq ([(sym id) (in-hash
+                                                           (if (class-desc? super)
+                                                               (class-desc-method-result super)
+                                                               (veneer-desc-method-result super)))])
                                      (values sym (list id)))
                                    #hasheq())])
               ([intf (in-list interfaces)])
@@ -353,7 +357,8 @@
                                          index-statinfo-indirect-stx indexable?
                                          index-set-statinfo-indirect-stx setable?
                                          append-statinfo-indirect-stx appendable?
-                                         super-call-statinfo-indirect-id)
+                                         super-call-statinfo-indirect-id
+                                         #:checked-append? [checked-append? #t])
   (define defs
     (for/list ([added (in-list added-methods)])
       #`(define-method-result-syntax #,(added-method-result-id added)
@@ -371,6 +376,7 @@
           ;; result annotation can convert if final
           #,(or in-final?
                 (eq? (added-method-disposition added) 'final))
+          #,checked-append?
           #,(added-method-kind added)
           #,(added-method-arity added)
           #,(and callable?
@@ -415,7 +421,7 @@
          [defs (add-able 'set index-set-statinfo-indirect-stx setable? #'#%index-set defs #'(index val))]
          [defs (add-able 'append append-statinfo-indirect-stx appendable? #'#%append defs #'(val)
                          ;; boxed means "checked" for `#%append`:
-                         #:box-id? #t)])
+                         #:box-id? checked-append?)])
     defs))
 
 (define-for-syntax (build-method-result-expression method-result)
@@ -427,24 +433,40 @@
 
 (define-for-syntax (super-method-vtable p)
   (syntax-e
-   (if (class-desc? p)
-       (class-desc-method-vtable p)
-       (interface-desc-method-vtable p))))
+   (cond
+     [(class-desc? p)
+      (class-desc-method-vtable p)]
+     [(interface-desc? p)
+      (interface-desc-method-vtable p)]
+     [else
+      (veneer-desc-method-vtable p)])))
 
 (define-for-syntax (super-method-shapes p)
-  (if (class-desc? p)
-      (class-desc-method-shapes p)
-      (interface-desc-method-shapes p)))
+  (cond
+    [(class-desc? p)
+     (class-desc-method-shapes p)]
+    [(interface-desc? p)
+     (interface-desc-method-shapes p)]
+    [else
+     (veneer-desc-method-shapes p)]))
 
 (define-for-syntax (super-method-map p)
-  (if (class-desc? p)
-      (class-desc-method-map p)
-      (interface-desc-method-map p)))
+  (cond
+    [(class-desc? p)
+     (class-desc-method-map p)]
+    [(interface-desc? p)
+     (interface-desc-method-map p)]
+    [else
+     (veneer-desc-method-map p)]))
 
 (define-for-syntax (super-dots p)
-  (if (class-desc? p)
-      (class-desc-dots p)
-      (interface-desc-dots p)))
+  (cond
+    [(class-desc? p)
+     (class-desc-dots p)]
+    [(interface-desc? p)
+     (interface-desc-dots p)]
+    [(veneer-desc? p)
+     (veneer-desc-dots p)]))
 
 (define-for-syntax (in-common-superinterface? i j key)
   (define (lookup id)
@@ -468,9 +490,13 @@
           ht]
          [else
           (define new-saw-abstract? (or saw-abstract? (eq? (syntax-e impl) '#:abstract)))
-          (gather-from-interfaces (if (class-desc? i)
-                                      (class-desc-interface-ids i)
-                                      (interface-desc-super-ids i))
+          (gather-from-interfaces (cond
+                                    [(class-desc? i)
+                                     (class-desc-interface-ids i)]
+                                    [(interface-desc? i)
+                                     (interface-desc-super-ids i)]
+                                    [else
+                                     (veneer-desc-interface-ids i)])
                                   (let ([ht (hash-set ht i #t)])
                                     (if (class-desc? i)
                                         (gather (lookup (class-desc-super-id i))
@@ -496,9 +522,12 @@
                 (syntax-parse id+dp+isi+supers
                   [(id dp indirect-static-infos . _)
                    (values (wrap-static-info*
-                            (wrap-static-info (datum->syntax #'id (syntax-e #'id) #'head #'head)
-                                              #'#%dot-provider
-                                              #'dp)
+                            (let ([id (datum->syntax #'id (syntax-e #'id) #'head #'head)])
+                              (if (syntax-e #'dp)
+                                  (wrap-static-info id
+                                                    #'#%dot-provider
+                                                    #'dp)
+                                  id))
                             #'indirect-static-infos)
                            #'tail)]))]
           [else
@@ -596,9 +625,13 @@
 (define-for-syntax (get-private-table desc)
   (define tables (get-private-tables))
   (or (for/or ([t (in-list tables)])
-        (and (free-identifier=? (car t) (if (class-desc? desc)
-                                            (class-desc-id desc)
-                                            (interface-desc-id desc)))
+        (and (free-identifier=? (car t) (cond
+                                          [(class-desc? desc)
+                                           (class-desc-id desc)]
+                                          [(interface-desc? desc)
+                                           (interface-desc-id desc)]
+                                          [else
+                                           (veneer-desc-id desc)]))
              (cdr t)))
       #hasheq()))
 
@@ -691,8 +724,9 @@
 (define-for-syntax (build-methods method-results
                                   added-methods method-mindex method-names method-private
                                   reconstructor-rhs reconstructor-stx-params
-                                  names)
-  (with-syntax ([(name name-instance name? reconstructor-name
+                                  names
+                                  #:veneer-vtable [veneer-vtable #f])
+  (with-syntax ([(name name-instance name? name-convert reconstructor-name
                        methods-ref
                        indirect-static-infos
                        [field-name ...]
@@ -718,7 +752,11 @@
                      ;; We use `raw-m-name` to support local references
                      ;; to macro-introduced methods
                      (list (datum->syntax #'name raw-m-name)
-                           (mindex-index mix)
+                           (let ([idx (mindex-index mix)])
+                             (if veneer-vtable
+                                 ;; always static:
+                                 (vector-ref veneer-vtable idx)
+                                 idx))
                            (let ([r (hash-ref method-results m-name #f)])
                              (and (pair? r) (car r)))
                            (if (mindex-property? mix) 'property 'method)))]
@@ -783,7 +821,7 @@
                             #:when (not (eq? 'abstract (added-method-body added))))
                    (define r (hash-ref method-results (syntax-e (added-method-id added)) #f))
                    #`(let ([#,(added-method-id added) (method-block #,(added-method-rhs added) #,(added-method-stx-params added)
-                                                                    name name-instance name?
+                                                                    name name-instance name? name-convert
                                                                     #,(and r (car r)) #,(added-method-id added)
                                                                     new-private-tables
                                                                     indirect-static-infos
@@ -794,7 +832,7 @@
                           (not (eq? reconstructor-rhs 'default)))
                      (list
                       #`(method-block (block #,reconstructor-rhs) #,reconstructor-stx-params
-                                      name name-instance #f
+                                      name name-instance #f #f
                                       #f reconstructor
                                       new-private-tables
                                       indirect-static-infos
@@ -805,7 +843,7 @@
                             [rhs (in-list (syntax->list #'(recon-field-rhs ...)))]
                             #:when (syntax-e rhs))
                    #`(method-block (block #,rhs) #f ;; FIXME
-                                   name name-instance #f
+                                   name name-instance #f #f
                                    #f acc
                                    new-private-tables
                                    indirect-static-infos
@@ -815,7 +853,7 @@
 (define-syntax (method-block stx)
   (syntax-parse stx
     [(_ (_::block expr) stx-params
-        name name-instance name?
+        name name-instance name? name-convert
         result-id method-name
         private-tables-id
         indirect-static-infos
@@ -833,39 +871,49 @@
                                 (lambda (arity stx)
                                   #`(parsed
                                      #:rhombus/expr
-                                     (syntax-parameterize ([this-id (quasisyntax (this-obj name-instance
-                                                                                           ;; can include `unsyntax`:
-                                                                                           indirect-static-infos
-                                                                                           . super-names))]
-                                                           [private-tables (quote-syntax private-tables-id)])
-                                       ;; This check might be redundant, depending on how the method was called
-                                       #,(if (syntax-e #'name?)
-                                             #`(unless (name? this-obj) (raise-not-an-instance 'method-name this-obj))
-                                             #'(void))
-                                       #,(let ([body #`(with-syntax-parameters
-                                                         stx-params
-                                                         (let ()
-                                                           #,(wrap-expression stx)))])
+                                     #,(let ()
+                                         (define (wrap body)
+                                           ;; The wrapped check might be redundant, depending on how the method was called
                                            (cond
-                                             [(and (eq? (syntax-e #'kind) 'property)
-                                                   (eqv? arity 2)) ; mask 2 => 1 argument
-                                              #`(begin #,body (void))]
-                                             [(and result-desc
-                                                   (method-result-handler-expr result-desc))
-                                              => (lambda (proc)
-                                                   (wrap-annotation-check
-                                                    #'method-name body
-                                                    (method-result-count result-desc)
-                                                    (method-result-annot-str result-desc)
-                                                    (lambda (vs raise)
-                                                      (if (method-result-predicate? result-desc)
-                                                          #`(begin
-                                                              (unless (#,proc #,@vs) #,raise)
-                                                              (values #,@vs))
-                                                          #`(#,proc
-                                                             #,@vs
-                                                             (lambda (#,@vs) (values #,@vs))
-                                                             (lambda () #,raise))))))]
-                                             [else body])))))
+                                             [(syntax-e #'name-convert)
+                                              #`(let ([this-obj (name-convert this-obj 'method-name)])
+                                                  #,body)]
+                                             [(syntax-e #'name?)
+                                              #`(begin
+                                                  (unless (name? this-obj) (raise-not-an-instance 'method-name this-obj))
+                                                  #,body)]
+                                             [else
+                                              body]))
+                                         (wrap
+                                          #`(syntax-parameterize ([this-id (quasisyntax (this-obj name-instance
+                                                                                                  ;; can include `unsyntax`:
+                                                                                                  indirect-static-infos
+                                                                                                  . super-names))]
+                                                                  [private-tables (quote-syntax private-tables-id)])
+                                              #,(let ([body #`(with-syntax-parameters
+                                                                stx-params
+                                                                (let ()
+                                                                  #,(wrap-expression stx)))])
+                                                  (cond
+                                                    [(and (eq? (syntax-e #'kind) 'property)
+                                                          (eqv? arity 2)) ; mask 2 => 1 argument
+                                                     #`(begin #,body (void))]
+                                                    [(and result-desc
+                                                          (method-result-handler-expr result-desc))
+                                                     => (lambda (proc)
+                                                          (wrap-annotation-check
+                                                           #'method-name body
+                                                           (method-result-count result-desc)
+                                                           (method-result-annot-str result-desc)
+                                                           (lambda (vs raise)
+                                                             (if (method-result-predicate? result-desc)
+                                                                 #`(begin
+                                                                     (unless (#,proc #,@vs) #,raise)
+                                                                     (values #,@vs))
+                                                                 #`(#,proc
+                                                                    #,@vs
+                                                                    (lambda (#,@vs) (values #,@vs))
+                                                                    (lambda () #,raise))))))]
+                                                    [else body])))))))
                                 #t)))
          #'e.parsed]))]))

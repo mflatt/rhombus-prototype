@@ -63,7 +63,7 @@
                   #f
                   #'()
                   #f
-                  '(append)))
+                  '(append veneer)))
 
 (define-for-syntax (parse-append form1 form2 self-stx form1-in
                                  static?
