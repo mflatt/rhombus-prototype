@@ -44,7 +44,9 @@ module test:
     check: radix(i, 1)
            ~is 1
 
-class Node(children :~ Array.of(Node || Any) = Array(), sizes :~ maybe(Array.of(Int)) = #false):
+veneer Node(this :~ (Array.of(Node || Any)
+                       || Pair.of(Array.of(Node || Any),
+                                  Array.of(Int)))):
  /* a node in the RRB Tree
 
   - a node is fully dense if it has exactly `m` children where `m` is the branching factor of the overall Tree
@@ -54,63 +56,54 @@ class Node(children :~ Array.of(Node || Any) = Array(), sizes :~ maybe(Array.of(
   - a node is balanced if it is leftwise dense or fully dense (note that leaves are always at least leftwise dense)
   - unbalanced nodes contain a size array `sizes`, balanced nodes do not
 */
-  private implements Equatable
-  private implements Sequenceable
   implements Indexable
 
-  property balanced:
-    !sizes
-    
-  property size:
-    children.length()
+  expression
+  | 'Node()': 'empty_node'
+  | 'Node($children, $sizes)': '((block:
+                                    let cs = $children
+                                    let szs = $sizes
+                                    if szs | Pair(cs, szs) |cs) :~ Node)'
+  | 'Node($children)': '(($children) :~ Node)'
 
+  property balanced:
+    this is_a Array
+
+  private property this_array :~ Array:
+    match this
+    | Pair(a :~ Array, _): a
+    | a :~ Array: a
+
+  property sizes:
+    match this
+    | Pair(_, szs :~ Array): szs
+    | _: #false
+
+  property children :~ Array:
+    this_array
+
+  property size:
+    this_array.length()
+ 
   property first:
-    children[0]
+    this_array[0]
 
   property last:
-    children[children.length() - 1]
+    let a = this_array
+    a[a.length() - 1]
 
-
-  private override equals(rhs :~ Node, recur):
-    children.length() == rhs.children.length()
-      && (for values(eq = #true):
-            each i: 0 .. children.length()
-            break_when !eq
-            recur(children[i], rhs.children[i]))
-
-  private override hash_code(recur):
-    if children.length() == 0
-    | 0
-    | for values(hc = recur(children[0])):
-        each i: 1 .. children.length()
-        Equatable.hash_code_combine(hc, recur(children[i]))
-
-  private override to_sequence():
-    Sequence.make(~initial_position: 0,
-                  ~continue_at_position: fun (i): i < this.size,
-                  ~position_to_element: fun (i): this[i],
-                  ~position_to_next: fun (i): i + 1)
-
-  sequence '$lhs: $rhs':
-    '(~outer_binds:
-        p :~ Node = $rhs,
-      ~recur_binds:
-        pos = 0,
-      ~head_guard:
-        pos < p.size,
-      ~inner_binds:
-        $lhs = p[pos],
-      ~recur_args:
-        (pos + 1))'
-    
   override get(index):
-    children[index]
+    this_array[index]
 
   method set(index, el) :~ Node:
-    Node(children.set_in_copy(index, el), sizes)
+    match this
+    | Pair(a :~ Array, sizes):
+        Node(a.set_in_copy(index, el), sizes)
+    | a :~ Array:
+        Node(a.set_in_copy(index, el))
 
   method length() :~ Int:
-    children.length()
+    this_array.length()
 
 def empty_node = Node(Array())
 
@@ -656,11 +649,8 @@ module test:
                                            Array(32, 60, 90))
 
   check: // equatable
-    leaf_n ~is Node(Array(1, 2, 3, 4))
-    leaf_n ~is Node(Array(1, 2, 3, 4), Array(1, 2, 3)) // sizes arr here is bogus but ignored for equality    
-    internal_balanced_n  ~is Node(internal_balanced_n.children, Array(1, 2, 3))
-    internal_unbalanced_n ~is Node(internal_unbalanced_n.children)
-    internal_unbalanced_n ~is Node(internal_unbalanced_n.children)
+    leaf_n ~is_now Node(Array(1, 2, 3, 4))
+    internal_balanced_n.children  ~is_now Node(internal_balanced_n.children)
 
   check: //balanced
     leaf_n.balanced ~is #true
@@ -673,35 +663,31 @@ module test:
 
   check: //first
     leaf_n.first ~is 1
-    internal_balanced_n.first ~is Node(array_from(0..32))
-    internal_unbalanced_n.first ~is Node(array_from(0..32))
+    internal_balanced_n.first ~is_now Node(array_from(0..32))
+    internal_unbalanced_n.first ~is_now Node(array_from(0..32))
 
   check: //last
     leaf_n.last ~is 4
-    internal_balanced_n.last ~is Node(array_from(64..96))
-    internal_unbalanced_n.last ~is Node(array_from(60..90))
+    internal_balanced_n.last ~is_now Node(array_from(64..96))
+    internal_unbalanced_n.last ~is_now Node(array_from(60..90))
 
   check: // get
     leaf_n.get(0) ~is leaf_n[0]
     leaf_n[3] ~is 4
-    internal_balanced_n.get(0) ~is internal_balanced_n[0]
-    internal_balanced_n.get(1) ~is Node(array_from(32..64))
-    internal_unbalanced_n.get(0) ~is internal_unbalanced_n[0]
-    internal_unbalanced_n.get(1) ~is Node(array_from(32 .. 60))
+    internal_balanced_n.get(0) ~is_now internal_balanced_n[0]
+    internal_balanced_n.get(1) ~is_now Node(array_from(32..64))
+    internal_unbalanced_n.get(0) ~is_now internal_unbalanced_n[0]
+    internal_unbalanced_n.get(1) ~is_now Node(array_from(32 .. 60))
 
   check: // set
-    leaf_n.set(0, -1) ~is Node(Array(-1, 2, 3, 4))
-    internal_balanced_n.set(0, -1).set(1, -1).set(2, -1) ~is Node(Array(-1, -1, -1))
-    internal_unbalanced_n.set(0, -1).set(1, -1).set(2, -1) ~is Node(Array(-1, -1, -1))
-
-  check: // hash_code just for coverage really
-    {leaf_n: 0}[Node(Array(1,2,3,4), Array(9,9,99,99))] ~is 0
-    {Node(): -1}[Node(Array(), Array())] ~is -1
+    leaf_n.set(0, -1) ~is_now Node(Array(-1, 2, 3, 4))
+    internal_balanced_n.set(0, -1).set(1, -1).set(2, -1) ~is_now Node(Array(-1, -1, -1))
+    internal_unbalanced_n.set(0, -1).set(1, -1).set(2, -1).children ~is_now Node(Array(-1, -1, -1))
 
   check: // leaf macro
-    leaf(1, 2, 3, 4) ~is leaf_n
-    leaf(leaf(1, 2, 3, 4), leaf(5, 6)) ~is Node(Array(leaf(1,2,3,4),
-                                                      leaf(5,6)))
+    leaf(1, 2, 3, 4) ~is_now leaf_n
+    leaf(leaf(1, 2, 3, 4), leaf(5, 6)) ~is_now Node(Array(leaf(1,2,3,4),
+                                                          leaf(5,6)))
 
 
   // expressions
@@ -713,7 +699,6 @@ module test:
          _VecList(leaf(1, 2, 3, 4, 5), 5, 0) ~is VecList[1, 2, 3, 4, 5]
   check: _VecList(leaf(1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20), 20, 0)
          ~is VecList[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
-
 
   // start with testing some balanced vecs
 
@@ -727,6 +712,8 @@ module test:
   let medium_ub :~ VecList = VecList.from(0..300) ++ VecList.from(300..600) ++ VecList.from(600..900) ++ VecList.from(900..1024)
   let large :~ VecList = VecList[].add_all(List.iota(MAX_WIDTH ** 4 + 1))
   let large_ub :~ VecList = VecList.from(0..32) ++ VecList.from(32..(32**2)) ++ VecList.from((32**2)..(32**3)) ++ VecList.from((32**3)..(32**4))
+
+  println("here")
 
   check: // get near beginning
     empty.get(0) ~raises ""
@@ -752,7 +739,8 @@ module test:
     medium_ub.get(1023) ~is 1023
     large_ub.get(32**3) ~is 32**3
 
-
+  println("here")
+  
 // add
 
   check: // add
