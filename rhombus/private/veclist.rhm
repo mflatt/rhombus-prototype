@@ -360,7 +360,7 @@ class VecList(root :~ Node,
         if new_root
         | _VecList(new_root, size + 1, height)
         | VecList[el].concat(this)
-    | at >= size - 1:
+    | at >= size:
         this.add(el)
     | ~else:
         let (l :~ VecList, r :~ VecList) = split(at)
@@ -462,7 +462,7 @@ fun concat_subtree(left :~ Node,
 // keeps all but last of `left`, all but first of `right`,
 // and all of `center`; height is the same for `left` and
 // `right`, which `center` height might be one less; height
-// is at least 1
+// is at least 1; the resulting height grows by either 0 or 1
 fun rebalance(left :~ maybe(Node),
               center :~ Node,
               right :~ maybe(Node),
@@ -557,8 +557,12 @@ fun exec_concat_plan(slots :~ Array,
   if !plan
   | slots
   | let plan :~ Array = plan
+    def flattened_size:
+      for values(sum = 0):
+        each node :~ Node: slots
+        sum + node.size
     def flattened:
-      for Array:
+      for Array ~length flattened_size:
         each node :~ Node: slots
         each child: node.children
         child
