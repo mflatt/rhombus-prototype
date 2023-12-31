@@ -343,24 +343,7 @@ class VecList(root :~ Node,
   method insert(at :~ NonnegInt, el) :~ VecList:
     cond
     | at <= 0:
-        // insert in leftmost node, if it has space; this
-        // will always work for small lists
-        fun insert_left(a :~ Node, height) :~ Node:
-          cond
-          | height == 0:
-              (a.size < MAX_WIDTH) && Node(Array(el) ++ a.children)
-          | ~else:
-              let left = insert_left(a.children[0], height - 1)
-              left && Node(a.children.set_in_copy(0, left),
-                           block:
-                             let sizes :~ Array: a.sizes
-                             for Array ~length sizes.length() ():
-                               each n: sizes
-                               n+1)
-        let new_root = insert_left(root, height)
-        if new_root
-        | _VecList(new_root, size + 1, height)
-        | VecList[el].concat(this)
+        this.cons(el)
     | at >= size:
         this.add(el)
     | ~else:
@@ -368,7 +351,26 @@ class VecList(root :~ Node,
         l.add(el).concat(r)
 
   method cons(el) :~ VecList:
-    insert(0, el)
+    if size == 0
+    | _VecList(leaf(el), 1, 0)
+    | // insert in leftmost node, if it has space; this
+      // will always work for small lists
+      fun insert_left(a :~ Node, height) :~ Node:
+        cond
+        | height == 0:
+            (a.size < MAX_WIDTH) && Node(Array(el) ++ a.children)
+        | ~else:
+            let left = insert_left(a.children[0], height - 1)
+            left && Node(a.children.set_in_copy(0, left),
+                         block:
+                           let sizes :~ Array: a.sizes
+                           for Array ~length sizes.length() ():
+                             each n: sizes
+                             n+1)
+      let new_root = insert_left(root, height)
+      if new_root
+      | _VecList(new_root, size + 1, height)
+      | VecList[el].concat(this)
 
   method pop() :~ VecList:
     take(size - 1)
