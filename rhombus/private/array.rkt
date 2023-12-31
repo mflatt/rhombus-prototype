@@ -24,7 +24,8 @@
          "realm.rkt"
          "mutability.rkt"
          "class-primitive.rkt"
-         "rhombus-primitive.rkt")
+         "rhombus-primitive.rkt"
+         "version-case.rkt")
 
 (provide (for-spaces (rhombus/namespace
                       #f
@@ -258,10 +259,13 @@
 (define/method (Array.set_in_copy v i val)
   #:primitive (vector-set/copy)
   #:static-infos ((#%call-result #,array-static-infos))
-  #;(vector-set/copy v i val)
-  (define v2 (vector-copy v))
-  (vector-set! v2 i val)
-  v2)
+  (meta-if-version-at-least
+   "8.11.1.10"
+   (vector-set/copy v i val)
+   (begin
+     (define v2 (vector-copy v))
+     (vector-set! v2 i val)
+     v2)))
 
 (define-binding-syntax Array
   (binding-prefix-operator
