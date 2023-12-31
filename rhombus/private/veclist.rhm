@@ -9,6 +9,7 @@ import:
   "recur.rhm" open
 
 use_static
+use_unsafe
 
 // comment out for fast
 #//

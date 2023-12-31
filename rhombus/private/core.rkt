@@ -86,6 +86,7 @@
         "keyword.rkt"
         "dot.rkt"
         "dynamic-static.rkt"
+        "unsafe.rkt"
         "def+let.rkt"
         "import.rkt"
         "export.rkt"
