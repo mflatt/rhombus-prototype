@@ -323,7 +323,7 @@ class VecList(root :~ Node,
           | ~else:
               def (branch_index, subindex) = step(node, index, depth)
               def new_children :~ Array.of(Node) = node.children.drop_left(branch_index)
-              def new_sizes = for Array:
+              def new_sizes = for Array ~length (node.sizes :~ Array.of(Int)).length() - branch_index:
                 each i: branch_index .. (node.sizes :~ Array.of(Int)).length()
                 (node.sizes :~ Array.of(Int))[i] - index 
               def new_child = drop(node.get(branch_index), subindex, depth - 1)
