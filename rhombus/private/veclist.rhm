@@ -119,6 +119,7 @@ class VecList(root :~ Node,
   private implements Appendable
   private implements Printable
   implements Sequenceable
+  authentic
 
   internal _VecList
 

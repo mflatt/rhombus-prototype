@@ -44,6 +44,8 @@
 (define (vector*-take vec n) (vector*-copy vec 0 n))
 (define (vector*-drop vec n) (vector*-copy vec n (vector*-length vec)))
 (define (vector*-drop-right vec n) (vector*-copy vec 0 (- (vector*-length vec) n)))
+(define (vector*-add-left val a) (vector*-append (vector val) a))
+(define (vector*-add-right a val) (vector*-append a (vector val)))
 
 (define (assert-node n)
   (unless (variable-reference-from-unsafe? (#%variable-reference))
@@ -80,7 +82,7 @@
 (define (leaf v) (Node (vector v)))
 
 (struct rrbtree (root size height)
-  #:transparent
+  #:authentic
   #:property prop:equal+hash (list
                               ;; TODO: make faster
                               (lambda (v other recur)
@@ -362,7 +364,7 @@
          (cond
            [(fx= height 0)
             (and ((node-size a) . < . MAX_WIDTH)
-                 (Node (vector*-append (vector el) (node-children a))))]
+                 (Node (vector*-add-left el (node-children a))))]
            [else
             (define left (insert-left (vector*-ref (node-children a) 0) (fx- height 1)))
             (and left
@@ -490,9 +492,6 @@
                   (node-children center)
                   (if (not right) (vector) (vector*-drop (node-children right) 1))))
 
-(define (vector*-add a val)
-  (vector*-append a (vector val)))
-
 ;; TODO how to avoid setting sizes when the tree is leftwise dense?
 (define (set-sizes children height)
   (cond
@@ -609,7 +608,7 @@
   (cond
     [(fx= height 0)
      (if (fx< (node-size n) MAX_WIDTH)
-         (Node (vector*-add (node-children n) el))
+         (Node (vector*-add-right (node-children n) el))
          #false)]
     [else
      (define size (node-size n))
@@ -624,12 +623,12 @@
                                        (fx- (vector*-length sizes) 1)
                                        (fx+ (vector*-ref sizes (fx- (vector*-length sizes) 1)) 1)))))]
        [(fx< (node-size n) MAX_WIDTH)
-        (Node (vector*-add (node-children n)
+        (Node (vector*-add-right (node-children n)
                            (new-branch el (fx- height 1)))
               (let ([sizes (node-sizes n)])
                 (and sizes
-                     (vector*-add sizes
-                                  (fx+ (vector*-ref sizes (fx- (vector*-length sizes) 1)) 1)))))]
+                     (vector*-add-right sizes
+                                        (fx+ (vector*-ref sizes (fx- (vector*-length sizes) 1)) 1)))))]
        [else
         #false])]))
 
