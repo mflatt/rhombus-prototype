@@ -33,9 +33,10 @@
 ;;  - a node is fully dense if it has exactly `m` children where `m` is the branching factor of the overall Tree
 ;;    and each child is also fully dense
 ;;  - a node is leftwise dense if its first `n - 1` children, where `n` is its total number of children,
-;;    are fully dense, and its `n`th child is leftwise-dense or fully dense. `n` is allowed to be < `m`
-;;  - a node is balanced if it is leftwise dense or fully dense (note that leaves are always at least leftwise dense)
-;;  - unbalanced nodes contain a size array `sizes`, balanced nodes do not
+;;    are fully dense, and its `n`th child is leftwise dense or fully dense. `n` is allowed to be < `m`
+;;  - note dense implies leftwise dense, and leaves are always at least leftwise dense
+;;  - a node that is not leftwise dense contain a size array `sizes`; leftwise dense node usually don't,
+;;    but a transition into leftwise dense is not always detected
 
 (define-syntax Node
   (syntax-rules ()
@@ -70,7 +71,7 @@
     (unless (or (vector? n) (and (pair? n) (vector? (car n)) (vector? (cdr n))))
       (error 'node "expected a node: ~v" n))))
 
-(define (node-balanced? n) (assert-node n) (not (pair? n)))
+(define (node-leftwise-dense? n) (assert-node n) (not (pair? n)))
 (define (node-children n) (assert-node n) (if (pair? n) (car n) n))
 (define (node-sizes n) (assert-node n) (and (pair? n) (cdr n)))
 (define (node-size n) (assert-node n) (vector*-length (node-children n)))
@@ -81,7 +82,7 @@
 (define (node-set n i v) (assert-node n) (vector*-set/copy (node-children n) i v))
 (define (node-length n) (assert-node n) (vector*-length (node-children n)))
 
-;; `node*` refers to a balanced node
+;; `node*` refers to a leftwise dense node
 (define (assert-node* n)
   (unless (variable-reference-from-unsafe? (#%variable-reference))
     (unless (vector? n)
@@ -187,28 +188,17 @@
   (node-ref node pos))
 
 (define (treelist-node-for tl index)
-  (define height (treelist-height tl))
-  (cond
-    [(fx= height 0)
-     (values (treelist-root tl) index)]
-    [else
-     (let walk ([node (treelist-root tl)]
-                [index index]
-                [height height])
-       (cond
-         [(node-balanced? node)
-          (values (let sub ([n node] [height height])
-                    (cond
-                      [(fx= height 0) n]
-                      [else (sub (node*-ref n (radix index height))
-                                 (fx- height 1))]))
-                  (bitwise-and index MASK))]
-         [(fx= height 1)
-          (define-values (bi si) (step node index height))
-          (values (node-ref node bi) (bitwise-and si MASK))]
-         [else
-          (define-values (bi si) (step node index height))
-          (walk (node-ref node bi) si (fx- height 1))]))]))
+  (let walk ([node (treelist-root tl)]
+             [index index]
+             [height (treelist-height tl)])
+    (cond
+      [(fx= height 0)
+       (values node (bitwise-and index MASK))]
+      [(node-leftwise-dense? node)
+       (walk (node*-ref node (radix index height)) index (fx- height 1))]
+      [else
+       (define-values (bi si) (step node index height))
+       (walk (node-ref node bi) si (fx- height 1))])))
 
 (define (treelist-equal? tl other-tl recur)
   (define len (treelist-size tl))
@@ -260,7 +250,7 @@
       [(not (fx= other-height height))
        (cond
          [(fx< other-height height)
-          (define-values (bi si) (if (node-balanced? node)
+          (define-values (bi si) (if (node-leftwise-dense? node)
                                      (values (radix index height) index)
                                      (step node index height)))
           (walk (node-ref node bi)
@@ -276,10 +266,10 @@
                      other-height
                      height)])]
       [else
-       (define-values (bi si) (if (node-balanced? node)
+       (define-values (bi si) (if (node-leftwise-dense? node)
                                   (values (radix index height) index)
                                   (step node index height)))
-       (define-values (other-bi other-si) (if (node-balanced? other-node)
+       (define-values (other-bi other-si) (if (node-leftwise-dense? other-node)
                                               (values (radix other-index height) other-index)
                                               (step other-node other-index height)))
        (walk (node-ref node bi)
@@ -322,7 +312,7 @@
       (cond
         [(fx= height 0)
          (node-set node (radix index height) el)]
-        [(node-balanced? node)
+        [(node-leftwise-dense? node)
          (define branch-index (radix index height))
          (node*-set node branch-index (set (node*-ref node branch-index) index el (fx- height 1)))]
         [else
@@ -344,7 +334,7 @@
          (treelist new-root (fx+ size 1) (treelist-height tl))
          ;; not enough space in original tree
          (treelist (Node (vector (treelist-root tl)
-                                (new-branch el (treelist-height tl))))
+                                 (new-branch el (treelist-height tl))))
                   (fx+ size 1)
                   (fx+ (treelist-height tl) 1)))]))
 
@@ -399,18 +389,28 @@
          (cond
            [(fx= height 0)
             (Node (vector*-take (node-children node) (fx+ (radix index 0) 1)))]
-           [(node-balanced? node)
+           [(node-leftwise-dense? node)
             (define branch-index (radix index height))
-            (define new-children (vector*-take (node*-children node) (fx+ branch-index 1)))
-            (vector*-set! new-children branch-index (take (vector*-ref new-children branch-index) index (fx- height 1)))
+            (define children (node*-children node))
+            (define new-child (take (vector*-ref children branch-index) index (fx- height 1)))
+            (define new-children (vector*-take children (fx+ branch-index 1)))
+            (vector*-set! new-children branch-index new-child)
             (Node new-children)]
            [else
             (define-values (branch-index subindex) (step node index height))
-            (define new-children (vector*-take (node-children node) (fx+ branch-index 1)))
-            (define new-sizes (vector*-take (node-sizes node) (fx+ branch-index 1)))
-            (vector*-set! new-children branch-index (take (node-ref new-children branch-index) subindex (fx- height 1)))
-            (vector*-set! new-sizes branch-index (fx+ index 1))
-            (Node new-children new-sizes)])))
+            (define children (node-children node))
+            (define new-child (take (vector*-ref children branch-index) subindex (fx- height 1)))
+            (define new-children (vector*-take children (fx+ branch-index 1)))
+            (vector*-set! new-children branch-index new-child)
+            (cond
+              [(fx= 1 (vector*-length new-children))
+               ;; one child => leftwise dense
+               (Node new-children)]
+              [else
+               ;; it's possible that we drop off a non-dense part and end up leftwise dense, but we don't try to check
+               (define new-sizes (vector*-take (node-sizes node) (fx+ branch-index 1)))
+               (vector*-set! new-sizes branch-index (fx+ index 1))
+               (Node new-children new-sizes)])])))
      (squash new-root pos (treelist-height tl))]))
 
 (define (treelist-drop tl pos)
@@ -429,33 +429,50 @@
          (cond
            [(fx= height 0)
             (Node (vector*-drop (node-children node) (radix index 0)))]
-           [(node-balanced? node)
+           [(node-leftwise-dense? node)
             (define branch-index (radix index height))
-            (define new-children (vector*-drop (node*-children node) branch-index))
-            (define new-child (drop (node*-ref node branch-index) index (fx- height 1)))
+            (define children (node*-children node))
+            (define new-child (drop (vector*-ref children branch-index) index (fx- height 1)))
+            (define new-children (vector*-drop children branch-index))
             (vector*-set! new-children 0 new-child)
 
-            (define size0 (size-subtree new-child (fx- height 1)))
             (define new-len (fx- (node-size node) branch-index))
-            (define new-sizes (make-vector new-len size0))
-
-            (unless (fx= new-len 1)
-              (define step (fxlshift 1 (fx* height BITS)))
-              (for ([i (in-range 0 (fx- new-len 1))])
-                (vector*-set! new-sizes i (fx+ size0 (fx* i step))))
-              (define sizeN (size-subtree (vector*-ref new-children (fx- new-len 1)) (fx- height 1)))
-              (vector*-set! new-sizes (fx- new-len 1) (fx+ size0 (fx* (fx- new-len 2) step) sizeN)))
-            (Node new-children new-sizes)]
+            (cond
+              [(fx= new-len 1)
+               ;; one child => leftwise dense
+               (Node new-children)]
+              [else
+               (define size0 (size-subtree new-child (fx- height 1)))
+               (define step (fxlshift 1 (fx* height BITS)))
+               (cond
+                 [(fx= size0 step)
+                  ;; we dropped complete subtress to stay leftwise dense
+                  (Node new-children)]
+                 [else
+                  (define new-sizes (make-vector new-len size0))
+                  (for ([i (in-range 0 (fx- new-len 1))])
+                    (vector*-set! new-sizes i (fx+ size0 (fx* i step))))
+                  (define sizeN (size-subtree (vector*-ref new-children (fx- new-len 1)) (fx- height 1)))
+                  (vector*-set! new-sizes (fx- new-len 1) (fx+ size0 (fx* (fx- new-len 2) step) sizeN))
+                  (Node new-children new-sizes)])])]
            [else
             (define-values (branch-index subindex) (step node index height))
-            (define new-children (vector*-drop (node-children node) branch-index))
-            (define old-len (vector*-length (node-sizes node)))
-            (define new-sizes (for/vector #:length (- old-len branch-index)
-                                          ([i (in-range branch-index old-len)])
-                                          (fx- (vector*-ref (node-sizes node) i) index)))
-            (define new-child (drop (node-ref node branch-index) subindex (fx- height 1)))
+            (define children (node-children node))
+            (define new-child (drop (vector*-ref children branch-index) subindex (fx- height 1)))
+            (define new-children (vector*-drop children branch-index))
             (vector*-set! new-children 0 new-child)
-            (Node new-children new-sizes)])))
+            (define old-len (vector*-length (node-sizes node)))
+            (define new-len (fx- old-len branch-index))
+            (cond
+              [(fx= new-len 1)
+               ;; one child => leftwise dense
+               (Node new-children)]
+              [else
+               ;; it's possible that the result is leftwise dense, but we don't try to check
+               (define new-sizes (for/vector #:length new-len
+                                             ([i (in-range branch-index old-len)])
+                                             (fx- (vector*-ref (node-sizes node) i) index)))
+               (Node new-children new-sizes)])])))
      (squash new-root (fx- (treelist-size tl) pos) (treelist-height tl))]))
 
 (define (treelist-split tl at)
@@ -633,11 +650,15 @@
      (Node children)]
     [else
      (define sizes (make-vector (vector*-length children)))
-     (for/fold ([sum 0]) ([i (in-range 0 (vector*-length children))])
-       (define new-sum (fx+ sum (size-subtree (vector*-ref children i) (fx- height 1))))
-       (vector*-set! sizes i new-sum)
-       new-sum)
-     (Node children sizes)]))
+     (define mask (fx- (fxlshift 1 (fx* height BITS)) 1))
+     (define-values (sum leftwise-dense?)
+       (for/fold ([sum 0] [leftwise-dense? #t]) ([i (in-range 0 (vector*-length children))])
+         (define new-sum (fx+ sum (size-subtree (vector*-ref children i) (fx- height 1))))
+         (vector*-set! sizes i new-sum)
+         (values new-sum (and leftwise-dense? (fx= 0 (fxand sum mask))))))
+     (if leftwise-dense?
+         (Node children)
+         (Node children sizes))]))
 
 ;; TODO redesign this to be less imperative?
 ;; receives a node that is temporarily allowed to have > max_width children, redistributes it to conform to invariant
@@ -717,25 +738,26 @@
      => (lambda (sizes)
           (vector*-ref sizes (fx- (vector*-length sizes) 1)))]
     [else
-     ;; if sizes is #false, then we know we have a leftwise-dense subtree
+     ;; if sizes is #false, then we know we have a leftwise dense subtree
      (fx+ (fxlshift (fx- (node*-size node) 1) (fx* height BITS))
           (size-subtree (node*-last node) (fx- height 1)))]))
 
 ;; helper functions
 
-(define (scan-sizes sizes target-index [i 0])
-  (if (fx<= (vector*-ref sizes i) target-index)
-      (scan-sizes sizes target-index (fx+ i 1))
-      i))
-
-;; calculate next branch to take and subindex of `index` along that path
+;; calculate next branch to take and subindex of `index` along that path;
+;; the returned subindex is always in range for the subtree (i.e., no bits
+;; set at `height` radix or above)
 (define (step node index height)
   (define sizes (node-sizes node))
-  (define branch (scan-sizes sizes index (radix index height)))
+  (define target-index (bitwise-and index (fx- (fxlshift 1 (fx* (fx+ height 1) BITS)) 1)))
+  (define branch (let loop ([i 0])
+                   (if (fx<= (vector*-ref sizes i) target-index)
+                       (loop (fx+ i 1))
+                       i)))
   (values branch
           (if (fx= branch 0)
-              index
-              (fx- index (vector*-ref sizes (fx- branch 1))))))
+              target-index
+              (fx- target-index (vector*-ref sizes (fx- branch 1))))))
 
 ;; add if there's room, return #false otherwise
 (define (build n height el)
