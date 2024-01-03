@@ -7,6 +7,7 @@
 
 (provide make-treelist
          treelist-ref
+         treelist-set
          treelist-add
          treelist-cons
          treelist-append
@@ -16,7 +17,9 @@
          treelist-drop
          treelist-length
          treelist->list
-         list->treelist)
+         list->treelist
+         in-treelist
+         chaperone-treelist)
 
 (#%declare #:unsafe)
 
@@ -101,7 +104,6 @@
 (define (leaf v) (Node (vector v)))
 
 (struct treelist (root size height)
-  #:authentic
   #:property prop:equal+hash (list
                               (lambda (tl other-tl recur)
                                 (treelist-equal? tl other-tl recur))
@@ -124,21 +126,19 @@
   (unless (treelist? tl)
     (raise-argument-error who "treelist?" tl)))
 
-(define (check-treelist-index who tl index)
+(define (check-treelist-index who size index)
   (unless (fixnum? index)
     (if (exact-nonnegative-integer? index)
         (raise-argument-error who "exact-nonnegative-integer?" index)
         (error who "index out of range: ~v" index)))
-  (define size (treelist-size tl))
   (when (or (index . fx< . 0) (index . fx>= . size))
     (error who "index out of range: ~v / ~s" index size)))
 
-(define (check-treelist-end-index who tl index)
+(define (check-treelist-end-index who size index)
   (unless (fixnum? index)
     (if (exact-nonnegative-integer? index)
         (raise-argument-error who "exact-nonnegative-integer?" index)
         (error who "count out of range: ~v" index)))
-  (define size (treelist-size tl))
   (when (or (index . fx< . 0) (index . fx> . size))
     (error who "count out of range: ~v / ~v" index size)))
 
@@ -182,55 +182,66 @@
       #f))))
 
 (define (treelist-ref tl index)
-  (check-treelist 'treelist-ref tl)
-  (check-treelist-index 'treelist-ref tl index)
-  (define-values (node pos) (treelist-node-for tl index))
-  (node-ref node pos))
+  (cond
+    [(impersonator? tl) (treelist-ref/slow tl index)]
+    [else
+     (check-treelist 'treelist-ref tl)
+     (check-treelist-index 'treelist-ref (treelist-size tl) index)
+     (define-values (node pos) (treelist-node-for tl index))
+     (node-ref node pos)]))
 
 (define (treelist-node-for tl index)
-  (let walk ([node (treelist-root tl)]
-             [index index]
-             [height (treelist-height tl)])
-    (cond
-      [(fx= height 0)
-       (values node (bitwise-and index MASK))]
-      [(node-leftwise-dense? node)
-       (walk (node*-ref node (radix index height)) index (fx- height 1))]
-      [else
-       (define-values (bi si) (step node index height))
-       (walk (node-ref node bi) si (fx- height 1))])))
+  (cond
+    [(impersonator? tl) (treelist-node-for/slow tl index)]
+    [else
+     (let walk ([node (treelist-root tl)]
+                [index index]
+                [height (treelist-height tl)])
+       (cond
+         [(fx= height 0)
+          (values node (bitwise-and index MASK))]
+         [(node-leftwise-dense? node)
+          (walk (node*-ref node (radix index height)) index (fx- height 1))]
+         [else
+          (define-values (bi si) (step node index height))
+          (walk (node-ref node bi) si (fx- height 1))]))]))
 
 (define (treelist-equal? tl other-tl recur)
-  (define len (treelist-size tl))
   (cond
-    [(not (fx= len (treelist-size other-tl)))
-     #f]
+    [(or (impersonator? tl)
+         (impersonator? other-tl))
+     (treelist-equal?/slow tl other-tl recur)]
     [else
-     ;; we could use `for` to iterate through the trees, but
-     ;; we implement the traversal manually so that we can detect
-     ;; a shared subtree and skip it
-     (let loop ([i 0]
-                [a-node empty-node]
-                [a-pos 0]
-                [b-node empty-node]
-                [b-pos 0])
-       (cond
-         [(fx= i len) #t]
-         [(a-pos . >= . (node-size a-node))
+     (define len (treelist-size tl))
+     (cond
+       [(not (fx= len (treelist-size other-tl)))
+        #f]
+       [else
+        ;; we could use `for` to iterate through the trees, but
+        ;; we implement the traversal manually so that we can detect
+        ;; a shared subtree and skip it
+        (let loop ([i 0]
+                   [a-node empty-node]
+                   [a-pos 0]
+                   [b-node empty-node]
+                   [b-pos 0])
           (cond
-            [(and (b-pos . >= . (node-size b-node))
-                  (shared-subtree-size tl other-tl i))
-             => (lambda (len)
-                  (loop (fx+ i len) empty-node 0 empty-node 0))]
+            [(fx= i len) #t]
+            [(a-pos . >= . (node-size a-node))
+             (cond
+               [(and (b-pos . >= . (node-size b-node))
+                     (shared-subtree-size tl other-tl i))
+                => (lambda (len)
+                     (loop (fx+ i len) empty-node 0 empty-node 0))]
+               [else
+                (define-values (a-node a-pos) (treelist-node-for tl i))
+                (loop i a-node a-pos b-node b-pos)])]
+            [(b-pos . >= . (node-size b-node))
+             (define-values (b-node b-pos) (treelist-node-for other-tl i))
+             (loop i a-node a-pos b-node b-pos)]
             [else
-             (define-values (a-node a-pos) (treelist-node-for tl i))
-             (loop i a-node a-pos b-node b-pos)])]
-         [(b-pos . >= . (node-size b-node))
-          (define-values (b-node b-pos) (treelist-node-for other-tl i))
-          (loop i a-node a-pos b-node b-pos)]
-         [else
-          (and (recur (node-ref a-node a-pos) (node-ref b-node b-pos))
-               (loop (fx+ i 1) a-node (fx+ a-pos 1) b-node (fx+ b-pos 1)))]))]))
+             (and (recur (node-ref a-node a-pos) (node-ref b-node b-pos))
+                  (loop (fx+ i 1) a-node (fx+ a-pos 1) b-node (fx+ b-pos 1)))]))])]))
 
 ;; same traversal as `treelist-node-for`, but for two trees at the
 ;; same time to try to find a shared subtree and return its size
@@ -302,41 +313,53 @@
 
 ;; functionally update the slot at `index` to `el`
 (define (treelist-set tl index el)
-  (check-treelist 'treelist-set tl)
-  (check-treelist-index 'treelist-set tl index)
-  (define new-node
-    (let set ([node (treelist-root tl)]
-              [index index]
-              [el el]
-              [height (treelist-height tl)])
-      (cond
-        [(fx= height 0)
-         (node-set node (radix index height) el)]
-        [(node-leftwise-dense? node)
-         (define branch-index (radix index height))
-         (node*-set node branch-index (set (node*-ref node branch-index) index el (fx- height 1)))]
-        [else
-         (define-values (branch-index subindex) (step node index height))
-         (node-set node branch-index (set (node-ref node branch-index) subindex el (fx- height 1)))])))
-  (treelist new-node (treelist-size tl) (treelist-height tl)))
+  (cond
+    [(impersonator? tl)
+     (treelist-set/slow tl index el)]
+    [else
+     (check-treelist 'treelist-set tl)
+     (define size (treelist-size tl))
+     (check-treelist-index 'treelist-set size index)
+     (define height (treelist-height tl))
+     (define new-node
+       (let set ([node (treelist-root tl)]
+                 [index index]
+                 [el el]
+                 [height height])
+         (cond
+           [(fx= height 0)
+            (node-set node (radix index height) el)]
+           [(node-leftwise-dense? node)
+            (define branch-index (radix index height))
+            (node*-set node branch-index (set (node*-ref node branch-index) index el (fx- height 1)))]
+           [else
+            (define-values (branch-index subindex) (step node index height))
+            (node-set node branch-index (set (node-ref node branch-index) subindex el (fx- height 1)))])))
+     (treelist new-node size height)]))
 
 ;; add `el` to end of vector
 (define (treelist-add tl el)
-  (check-treelist 'treelist-set tl)
-  (define size (treelist-size tl))
   (cond
-    [(fx= size 0)
-     (treelist (leaf el) 1 0)]
+    [(impersonator? tl)
+     (treelist-add/slow tl el)]
     [else
-     (define new-root (build (treelist-root tl) (treelist-height tl) el))
-     (if new-root
-         ;; enough space in original tree
-         (treelist new-root (fx+ size 1) (treelist-height tl))
-         ;; not enough space in original tree
-         (treelist (Node (vector (treelist-root tl)
-                                 (new-branch el (treelist-height tl))))
-                  (fx+ size 1)
-                  (fx+ (treelist-height tl) 1)))]))
+     (check-treelist 'treelist-set tl)
+     (define size (treelist-size tl))
+     (cond
+       [(fx= size 0)
+        (treelist (leaf el) 1 0)]
+       [else
+        (define root (treelist-root tl))
+        (define height (treelist-height tl))
+        (define new-root (build root height el))
+        (if new-root
+            ;; enough space in original tree
+            (treelist new-root (fx+ size 1) height)
+            ;; not enough space in original tree
+            (treelist (Node (vector root
+                                    (new-branch el height)))
+                      (fx+ size 1)
+                      (fx+ height 1)))])]))
 
 (define (treelist->list tl)
   (check-treelist 'treelist->list tl)
@@ -374,178 +397,210 @@
 ;; and future concatenations would restore the invariants due to rebalancing being done on concats.
 ;; TODO write some tests showing this
 (define (treelist-take tl pos)
-  (check-treelist 'treelist-take tl)
-  (check-treelist-end-index 'treelist-take tl pos)
   (cond
-    [(fx= pos 0)
-     empty-treelist]
-    [(fx= pos (treelist-size tl))
-     tl]
+    [(impersonator? tl)
+     (treelist-take/slow tl pos)]
     [else
-     (define new-root
-       (let take ([node (treelist-root tl)]
-                  [index (fx- pos 1)]
-                  [height (treelist-height tl)])
-         (cond
-           [(fx= height 0)
-            (Node (vector*-take (node-children node) (fx+ (radix index 0) 1)))]
-           [(node-leftwise-dense? node)
-            (define branch-index (radix index height))
-            (define children (node*-children node))
-            (define new-child (take (vector*-ref children branch-index) index (fx- height 1)))
-            (define new-children (vector*-take children (fx+ branch-index 1)))
-            (vector*-set! new-children branch-index new-child)
-            (Node new-children)]
-           [else
-            (define-values (branch-index subindex) (step node index height))
-            (define children (node-children node))
-            (define new-child (take (vector*-ref children branch-index) subindex (fx- height 1)))
-            (define new-children (vector*-take children (fx+ branch-index 1)))
-            (vector*-set! new-children branch-index new-child)
+     (check-treelist 'treelist-take tl)
+     (define size (treelist-size tl))
+     (check-treelist-end-index 'treelist-take size pos)
+     (cond
+       [(fx= pos 0)
+        empty-treelist]
+       [(fx= pos size)
+        tl]
+       [else
+        (define height (treelist-height tl))
+        (define new-root
+          (let take ([node (treelist-root tl)]
+                     [index (fx- pos 1)]
+                     [height height])
             (cond
-              [(fx= 1 (vector*-length new-children))
-               ;; one child => leftwise dense
+              [(fx= height 0)
+               (Node (vector*-take (node-children node) (fx+ (radix index 0) 1)))]
+              [(node-leftwise-dense? node)
+               (define branch-index (radix index height))
+               (define children (node*-children node))
+               (define new-child (take (vector*-ref children branch-index) index (fx- height 1)))
+               (define new-children (vector*-take children (fx+ branch-index 1)))
+               (vector*-set! new-children branch-index new-child)
                (Node new-children)]
               [else
-               ;; it's possible that we drop off a non-dense part and end up leftwise dense, but we don't try to check
-               (define new-sizes (vector*-take (node-sizes node) (fx+ branch-index 1)))
-               (vector*-set! new-sizes branch-index (fx+ index 1))
-               (Node new-children new-sizes)])])))
-     (squash new-root pos (treelist-height tl))]))
-
-(define (treelist-drop tl pos)
-  (check-treelist 'treelist-drop tl)
-  (check-treelist-end-index 'treelist-drop tl pos)
-  (cond
-    [(fx= pos 0)
-     tl]
-    [(fx= pos (treelist-size tl))
-     empty-treelist]
-    [else
-     (define new-root
-       (let drop ([node (treelist-root tl)]
-                  [index pos]
-                  [height (treelist-height tl)])
-         (cond
-           [(fx= height 0)
-            (Node (vector*-drop (node-children node) (radix index 0)))]
-           [(node-leftwise-dense? node)
-            (define branch-index (radix index height))
-            (define children (node*-children node))
-            (define new-child (drop (vector*-ref children branch-index) index (fx- height 1)))
-            (define new-children (vector*-drop children branch-index))
-            (vector*-set! new-children 0 new-child)
-
-            (define new-len (fx- (node-size node) branch-index))
-            (cond
-              [(fx= new-len 1)
-               ;; one child => leftwise dense
-               (Node new-children)]
-              [else
-               (define size0 (size-subtree new-child (fx- height 1)))
-               (define step (fxlshift 1 (fx* height BITS)))
+               (define-values (branch-index subindex) (step node index height))
+               (define children (node-children node))
+               (define new-child (take (vector*-ref children branch-index) subindex (fx- height 1)))
+               (define new-children (vector*-take children (fx+ branch-index 1)))
+               (vector*-set! new-children branch-index new-child)
                (cond
-                 [(fx= size0 step)
-                  ;; we dropped complete subtress to stay leftwise dense
+                 [(fx= 1 (vector*-length new-children))
+                  ;; one child => leftwise dense
                   (Node new-children)]
                  [else
-                  (define new-sizes (make-vector new-len size0))
-                  (for ([i (in-range 0 (fx- new-len 1))])
-                    (vector*-set! new-sizes i (fx+ size0 (fx* i step))))
-                  (define sizeN (size-subtree (vector*-ref new-children (fx- new-len 1)) (fx- height 1)))
-                  (vector*-set! new-sizes (fx- new-len 1) (fx+ size0 (fx* (fx- new-len 2) step) sizeN))
-                  (Node new-children new-sizes)])])]
-           [else
-            (define-values (branch-index subindex) (step node index height))
-            (define children (node-children node))
-            (define new-child (drop (vector*-ref children branch-index) subindex (fx- height 1)))
-            (define new-children (vector*-drop children branch-index))
-            (vector*-set! new-children 0 new-child)
-            (define old-len (vector*-length (node-sizes node)))
-            (define new-len (fx- old-len branch-index))
+                  ;; it's possible that we drop off a non-dense part and end up leftwise dense, but we don't try to check
+                  (define new-sizes (vector*-take (node-sizes node) (fx+ branch-index 1)))
+                  (vector*-set! new-sizes branch-index (fx+ index 1))
+                  (Node new-children new-sizes)])])))
+        (squash new-root pos height)])]))
+
+(define (treelist-drop tl pos)
+  (cond
+    [(impersonator? tl)
+     (treelist-drop/slow tl pos)]
+    [else
+     (check-treelist 'treelist-drop tl)
+     (define size (treelist-size tl))
+     (check-treelist-end-index 'treelist-drop size pos)
+     (cond
+       [(fx= pos 0)
+        tl]
+       [(fx= pos size)
+        empty-treelist]
+       [else
+        (define height (treelist-height tl))
+        (define new-root
+          (let drop ([node (treelist-root tl)]
+                     [index pos]
+                     [height height])
             (cond
-              [(fx= new-len 1)
-               ;; one child => leftwise dense
-               (Node new-children)]
+              [(fx= height 0)
+               (Node (vector*-drop (node-children node) (radix index 0)))]
+              [(node-leftwise-dense? node)
+               (define branch-index (radix index height))
+               (define children (node*-children node))
+               (define new-child (drop (vector*-ref children branch-index) index (fx- height 1)))
+               (define new-children (vector*-drop children branch-index))
+               (vector*-set! new-children 0 new-child)
+
+               (define new-len (fx- (node-size node) branch-index))
+               (cond
+                 [(fx= new-len 1)
+                  ;; one child => leftwise dense
+                  (Node new-children)]
+                 [else
+                  (define size0 (size-subtree new-child (fx- height 1)))
+                  (define step (fxlshift 1 (fx* height BITS)))
+                  (cond
+                    [(fx= size0 step)
+                     ;; we dropped complete subtress to stay leftwise dense
+                     (Node new-children)]
+                    [else
+                     (define new-sizes (make-vector new-len size0))
+                     (for ([i (in-range 0 (fx- new-len 1))])
+                       (vector*-set! new-sizes i (fx+ size0 (fx* i step))))
+                     (define sizeN (size-subtree (vector*-ref new-children (fx- new-len 1)) (fx- height 1)))
+                     (vector*-set! new-sizes (fx- new-len 1) (fx+ size0 (fx* (fx- new-len 2) step) sizeN))
+                     (Node new-children new-sizes)])])]
               [else
-               ;; it's possible that the result is leftwise dense, but we don't try to check
-               (define new-sizes (for/vector #:length new-len
-                                             ([i (in-range branch-index old-len)])
-                                             (fx- (vector*-ref (node-sizes node) i) index)))
-               (Node new-children new-sizes)])])))
-     (squash new-root (fx- (treelist-size tl) pos) (treelist-height tl))]))
+               (define-values (branch-index subindex) (step node index height))
+               (define children (node-children node))
+               (define new-child (drop (vector*-ref children branch-index) subindex (fx- height 1)))
+               (define new-children (vector*-drop children branch-index))
+               (vector*-set! new-children 0 new-child)
+               (define old-len (vector*-length (node-sizes node)))
+               (define new-len (fx- old-len branch-index))
+               (cond
+                 [(fx= new-len 1)
+                  ;; one child => leftwise dense
+                  (Node new-children)]
+                 [else
+                  ;; it's possible that the result is leftwise dense, but we don't try to check
+                  (define new-sizes (for/vector #:length new-len
+                                                ([i (in-range branch-index old-len)])
+                                                (fx- (vector*-ref (node-sizes node) i) index)))
+                  (Node new-children new-sizes)])])))
+        (squash new-root (fx- size pos) height)])]))
 
 (define (treelist-split tl at)
   (check-treelist 'treelist-split tl)
-  (check-treelist-end-index 'treelist-split tl at)
+  (check-treelist-end-index 'treelist-split (treelist-size tl) at)
   (cond
     [(fx= at 0) (values empty-treelist tl)]
     [(fx= at (treelist-size tl)) (values tl empty-treelist)]
     [else (values (treelist-take tl at) (treelist-drop tl at))]))
 
 (define (treelist-insert tl at el)
-  (check-treelist 'treelist-insert tl)
-  (check-treelist-end-index 'treelist-insert tl at)
   (cond
-    [(fx= at 0) (treelist-cons tl el)]
-    [(fx= at (treelist-size tl)) (treelist-add tl el)]
-    [else (treelist-append (treelist-add (treelist-take tl at) el)
-                           (treelist-drop tl at))]))
+    [(impersonator? tl)
+     (treelist-insert/slow tl at el)]
+    [else
+     (check-treelist 'treelist-insert tl)
+     (define size (treelist-size tl))
+     (check-treelist-end-index 'treelist-insert size at)
+     (cond
+       [(fx= at 0) (treelist-cons tl el)]
+       [(fx= at size) (treelist-add tl el)]
+       [else (treelist-append (treelist-add (treelist-take tl at) el)
+                              (treelist-drop tl at))])]))
 
 (define (treelist-remove tl at)
-  (check-treelist 'treelist-remove tl)
-  (check-treelist-index 'treelist-remove tl at)
   (cond
-    [(fx= at 0) (treelist-drop tl 1)]
-    [(fx= at (fx- (treelist-size tl))) (treelist-take tl at)]
-    [else (treelist-append (treelist-take tl at)
-                           (treelist-drop tl (fx+ at 1)))]))
+    [(impersonator? tl)
+     (treelist-remove/slow tl at)]
+    [else
+     (check-treelist 'treelist-remove tl)
+     (define size (treelist-size tl))
+     (check-treelist-index 'treelist-remove size at)
+     (cond
+       [(fx= at 0) (treelist-drop tl 1)]
+       [(fx= at (fx- size 1)) (treelist-take tl at)]
+       [else (treelist-append (treelist-take tl at)
+                              (treelist-drop tl (fx+ at 1)))])]))
 
 (define (treelist-cons tl el)
-  (check-treelist 'treelist-insert tl)
   (cond
-    [(fx= 0 (treelist-size tl))
-     (treelist (leaf el) 1 0)]
+    [(impersonator? tl)
+     (treelist-cons/slow tl el)]
     [else
-     ;; insert in leftmost node, if it has space; this
-     ;; will always work for small lists
-     (define new-root
-       (let insert-left ([a (treelist-root tl)]
-                         [height (treelist-height tl)])
-         (cond
-           [(fx= height 0)
-            (and ((node-size a) . < . MAX_WIDTH)
-                 (Node (vector*-add-left el (node-children a))))]
-           [else
-            (define left (insert-left (vector*-ref (node-children a) 0) (fx- height 1)))
-            (and left
-                 (Node (vector*-set/copy (node-children a) 0 left)
-                       (let ([sizes (node-sizes a)])
-                         (for/vector #:length (vector*-length sizes) ([n (in-vector sizes)])
-                                     (fx+ n 1)))))])))
+     (check-treelist 'treelist-cons tl)
+     (define size (treelist-size tl))
      (cond
-       [new-root
-        (treelist new-root (fx+ (treelist-size tl) 1) (treelist-height tl))]
+       [(fx= 0 size)
+        (treelist (leaf el) 1 0)]
        [else
-        (treelist-append (treelist (leaf el) 1 0) tl)])]))
+        ;; insert in leftmost node, if it has space; this
+        ;; will always work for small lists
+        (define height (treelist-height tl))
+        (define new-root
+          (let insert-left ([a (treelist-root tl)]
+                            [height height])
+            (cond
+              [(fx= height 0)
+               (and ((node-size a) . < . MAX_WIDTH)
+                    (Node (vector*-add-left el (node-children a))))]
+              [else
+               (define left (insert-left (vector*-ref (node-children a) 0) (fx- height 1)))
+               (and left
+                    (Node (vector*-set/copy (node-children a) 0 left)
+                          (let ([sizes (node-sizes a)])
+                            (for/vector #:length (vector*-length sizes) ([n (in-vector sizes)])
+                                        (fx+ n 1)))))])))
+        (cond
+          [new-root
+           (treelist new-root (fx+ size 1) height)]
+          [else
+           (treelist-append (treelist (leaf el) 1 0) tl)])])]))
 
 (define (treelist-append tl rhs)
-  (check-treelist 'treelist-append tl)
-  (check-treelist 'treelist-append rhs)
   (cond
-    [(fx= 0 (treelist-size tl)) rhs]
-    [(fx= 0 (treelist-size rhs)) tl]
+    [(or (impersonator? tl)
+         (impersonator? rhs))
+     (treelist-append/slow tl rhs)]
     [else
-     (define-values (new-children new-height)
-       (concat-subtree (treelist-root tl)
-                       (treelist-height tl)
-                       (treelist-root rhs)
-                       (treelist-height rhs)))
-     (treelist new-children
-              (fx+ (treelist-size tl)
-                   (treelist-size rhs))
-              new-height)]))
-
+     (check-treelist 'treelist-append tl)
+     (check-treelist 'treelist-append rhs)
+     (cond
+       [(fx= 0 (treelist-size tl)) rhs]
+       [(fx= 0 (treelist-size rhs)) tl]
+       [else
+        (define-values (new-children new-height)
+          (concat-subtree (treelist-root tl)
+                          (treelist-height tl)
+                          (treelist-root rhs)
+                          (treelist-height rhs)))
+        (treelist new-children
+                  (fx+ (treelist-size tl)
+                       (treelist-size rhs))
+                  new-height)])]))
 
 ;; after take or drop, squash tree if it can be shorter:
 (define (squash node new-size new-height)
@@ -793,3 +848,120 @@
   (if (fx= height 0)
       (leaf el)
       (Node (vector (new-branch el (fx- height 1))))))
+
+(define-values (prop:treelist-chaperone
+                treelist-chaperone?
+                treelist-chaperone-ref)
+  (make-impersonator-property 'treelist))
+
+(struct treelist-wrapper (prev ref set insert append))
+
+(define (chaperone-treelist tl
+                            ref-proc
+                            set-proc
+                            insert-proc
+                            append-proc)
+  (check-treelist 'in-treelist tl)
+  (chaperone-struct tl
+                    struct:treelist
+                    prop:treelist-chaperone
+                    (treelist-wrapper tl
+                                      ref-proc
+                                      set-proc
+                                      insert-proc
+                                      append-proc)))
+
+(define (check-chaperone who v old-v)
+  (unless (chaperone-of? v old-v)
+    (error who "result is not a chaperone"))
+  v)
+
+(define (re-chaperone new-prev w)
+  (chaperone-struct new-prev
+                    struct:treelist
+                    prop:treelist-chaperone
+                    (struct-copy treelist-wrapper w [prev new-prev])))
+
+(define (treelist-ref/slow tl index)
+  (define who 'treelist-ref)
+  (check-treelist who tl)
+  (check-treelist-index who (treelist-size tl) index)
+  (define w (treelist-chaperone-ref tl))
+  (define prev (treelist-wrapper-prev w))
+  (define v (treelist-ref prev index))
+  (check-chaperone who ((treelist-wrapper-ref w) prev index v) v))
+
+(define (treelist-node-for/slow tl index)
+  (values (Node (vector (treelist-ref tl index)))
+          0))
+
+(define (treelist-equal?/slow tl other-tl recur)
+  (define len (treelist-size tl))
+  (and (fx= len (treelist-size other-tl))
+       (for/and ([i (in-range len)])
+         (recur (treelist-ref tl i) (treelist-ref other-tl i)))))
+
+(define (treelist-set/slow tl index el)
+  (define who 'treelist-set)
+  (check-treelist who tl)
+  (check-treelist-index who (treelist-size tl) index)
+  (define w (treelist-chaperone-ref tl))
+  (define prev (treelist-wrapper-prev w))
+  (define new-el
+    (check-chaperone who ((treelist-wrapper-set w) prev index el) el))
+  (define new-prev (treelist-set prev index new-el))
+  (re-chaperone new-prev w))
+
+(define (treelist-insert/slow tl at el)
+  (define who 'treelist-insert)
+  (check-treelist who tl)
+  (define size (treelist-size tl))
+  (check-treelist-end-index who size at)
+  (define w (treelist-chaperone-ref tl))
+  (define prev (treelist-wrapper-prev w))
+  (define new-el
+    (check-chaperone who ((treelist-wrapper-insert w) prev at el) el))
+  (define new-prev (treelist-insert prev at new-el))
+  (re-chaperone new-prev w))
+
+(define (treelist-add/slow tl el)
+  (check-treelist 'treelist-add tl)
+  (treelist-insert/slow tl (treelist-length tl) el))
+
+(define (treelist-cons/slow tl el)
+  (check-treelist 'treelist-cons tl)
+  (treelist-insert/slow tl 0 el))
+
+(define (treelist-do-slow who op tl at)
+  (define who who)
+  (check-treelist who tl)
+  (define size (treelist-size tl))
+  (check-treelist-end-index who size at)
+  (define w (treelist-chaperone-ref tl))
+  (define prev (treelist-wrapper-prev w))
+  (define new-prev (op prev at))
+  (re-chaperone new-prev w))
+
+(define (treelist-remove/slow tl at)
+  (treelist-do-slow 'treelist-remove treelist-remove tl at))
+
+(define (treelist-take/slow tl pos)
+  (treelist-do-slow 'treelist-take treelist-take tl pos))
+
+(define (treelist-drop/slow tl pos)
+  (treelist-do-slow 'treelist-drop treelist-drop tl pos))
+
+(define (treelist-append/slow tl rhs)
+  (cond
+    [(impersonator? tl)
+     (define who 'treelist-append)
+     (check-treelist who tl)
+     (define w (treelist-chaperone-ref tl))
+     (define prev (treelist-wrapper-prev w))
+     (define new-tl ((treelist-wrapper-append w) prev rhs))
+     (unless (treelist? new-tl)
+       (error who "result is not a treelist"))
+     (re-chaperone new-tl w)]
+    [else
+     (for/fold ([tl tl]) ([e (in-treelist rhs)])
+       (treelist-add tl e))]))
