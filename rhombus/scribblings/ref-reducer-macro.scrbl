@@ -146,7 +146,7 @@
          def ($id, ...) = $finish $data
          values($count + 1, $id, ...)'
   ~repl:
-    for counted(List) (i: 0..3): i
+    for counted(PairList) (i: 0..3): i
   ~defn:
     :
       // static information is also chained
