@@ -2,6 +2,8 @@
 (require syntax/stx
          enforest/proc-name
          shrubbery/property
+         "treelist.rkt"
+         "to-list.rkt"
          "realm.rkt"
          "srcloc.rkt")
 
@@ -121,7 +123,7 @@
        (if (= 2 (length l))
            (cadr l)
            (fail))]
-      [(list? r) (and who (cannot-coerce-list who r))]
+      [(or (treelist? r) (list? r)) (and who (cannot-coerce-list who r))]
       [else (datum->syntax at-stx r)])))
 
 ;; "Packs" to a `group` form, but `r` starts with `group` already
@@ -147,9 +149,10 @@
        [(= 2 (length l)) (cadr l)]
        [else (and who (raise-error who "multi-group syntax not allowed in group context" r))])]
     [(group-syntax? r) r]
-    [(null? r) (cannot-coerce-empty-list who r)]
-    [(list? r)
-     (define elems (for/list ([e (in-list r)])
+    [(listable? r)
+     (define es (to-list #f r))
+     (when (null? es) (cannot-coerce-empty-list who r))
+     (define elems (for/list ([e (in-list es)])
                      (unpack-term e who at-stx)))
      (check-valid-group who elems '())
      (and elems
@@ -225,8 +228,8 @@
           [else (raise-error who "multi-group syntax not allowed in group context" r)])]
        [(group-syntax? r) (cdr (syntax->list r))]
        [else (list r)])]
-    [(list? r)
-     (define terms (for/list ([e (in-list r)])
+    [(or (treelist? r) (list? r))
+     (define terms (for/list ([e (in-list (to-list #f r))])
                      (unpack-term e who at-stx)))
      (check-valid-group who terms '())
      terms]
@@ -259,12 +262,15 @@
   (cond
     [(multi-syntax? r) (cdr (syntax->list r))]
     [(group-syntax? r) (list r)]
-    [(null? r) null]
-    [(list? r)
-     ;; unpack assuming a list of elements instead of a list of groups;
-     ;; this means that we don't really have a multi-group splicing form,
-     ;; but it avoid ambiguity
-     (list (unpack-group r who at-stx))]
+    [(listable? r)
+     (define es (to-list #f r))
+     (cond
+       [(null? es) null]
+       [else
+        ;; unpack assuming a list of elements instead of a list of groups;
+        ;; this means that we don't really have a multi-group splicing form,
+        ;; but that constraint avoids ambiguity
+        (list (unpack-group es who at-stx))])]
     [else (list (datum->syntax #f (list group-blank (datum->syntax at-stx r))))]))
 
 ;; assumes that `tail` is a syntax list of terms, and wraps it with `multi`;
@@ -334,10 +340,14 @@
   (let unpack* ([r r] [depth depth])
     (cond
       [(eqv? depth 0) (unpack r (syntax-e qs) qs)]
-      [(not (list? r))
-       (raise-argument-error* (syntax-e qs) rhombus-realm "List" r)]
-      [else (for/list ([r (in-list r)])
-              (unpack* r (sub1 depth)))])))
+      [(treelist? r)
+       (for/list ([r (in-treelist r)])
+         (unpack* r (sub1 depth)))]
+      [(list? r)
+       (for/list ([r (in-list r)])
+         (unpack* r (sub1 depth)))]
+      [else
+       (raise-argument-error* (syntax-e qs) rhombus-realm "Listable" r)])))
 
 (define (pack-term* stx depth)
   (pack* stx depth pack-term))
@@ -501,7 +511,7 @@
                             [(procedure? who) (proc-name who)]
                             [else who])
                           rhombus-realm
-                          "cannot coerce list to syntax"
+                          "cannot coerce Listable to syntax"
                           "list" r))
 
 (define (cannot-coerce-empty-list who r)
@@ -510,7 +520,7 @@
                             [(procedure? who) (proc-name who)]
                             [else who])
                           rhombus-realm
-                          "cannot coerce empty list to group syntax"))
+                          "cannot coerce empty Listable to group syntax"))
 
 (define (cannot-coerce-pair who r)
   (raise-arguments-error* (if (syntax? who) (syntax-e who) who) rhombus-realm

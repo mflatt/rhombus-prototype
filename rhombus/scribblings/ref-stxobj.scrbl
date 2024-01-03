@@ -632,7 +632,7 @@ Metadata for a syntax object can include a source location and the raw
 }
 
 @doc(
-  fun Syntax.make_group(terms :: List,
+  fun Syntax.make_group(terms :: Listable,
                         ctx_stx :: maybe(Term) = #false)
     :: Syntax
 ){
@@ -651,7 +651,7 @@ Metadata for a syntax object can include a source location and the raw
 }
 
 @doc(
-  fun Syntax.make_sequence(groups :: List,
+  fun Syntax.make_sequence(groups :: Listable,
                            ctx_stx :: maybe(Term) = #false)
     :: Syntax
 ){
@@ -760,7 +760,7 @@ Metadata for a syntax object can include a source location and the raw
 
 
 @doc(
-  fun Syntax.unwrap_group(stx :: Group) :: List.of(Syntax)
+  fun Syntax.unwrap_group(stx :: Group) :: Listable.of(Syntax)
 ){
 
  Unwraps a multi-term, single-group syntax object by one layer. The
@@ -782,7 +782,7 @@ Metadata for a syntax object can include a source location and the raw
 
 @doc(
   fun Syntax.unwrap_sequence(stx :: Syntax)
-    :: List.of(Syntax)
+    :: Listable.of(Syntax)
 ){
 
  Unwraps a multi-group syntax object by one layer. The result is a
@@ -888,7 +888,7 @@ Metadata for a syntax object can include a source location and the raw
 
 @doc(
   fun Syntax.relocate_span(stx :: Term,
-                           like_stxes :: List.of(Syntax))
+                           like_stxes :: Listable.of(Syntax))
     :: Syntax
 ){
 

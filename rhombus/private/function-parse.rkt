@@ -5,6 +5,7 @@
                      syntax/parse/pre
                      enforest/name-parse
                      shrubbery/print
+                     "treelist.rkt"
                      "hash-set.rkt"
                      "srcloc.rkt"
                      "tag.rkt"
@@ -13,6 +14,8 @@
                      (submod "entry-point-adjustment.rkt" for-struct)
                      (only-in "annotation-string.rkt" annotation-any-string))
          racket/unsafe/undefined
+         "treelist.rkt"
+         "to-list.rkt"
          "parens.rkt"
          "binding.rkt"
          "parse.rkt"
@@ -430,14 +433,16 @@
        #:with (arg-info::binding-info ...) #'(arg-impl.info ...)
        #:with (tmp-id ...) (generate-temporaries #'(arg-info.name-id ...))
        #:with (arg ...) args
-       #:with (maybe-rest-tmp (maybe-rest-tmp* ...) maybe-match-rest)
+       #:with (maybe-rest-tmp (maybe-rest-tmp* ...) (rest-def ...) maybe-match-rest)
        (if (syntax-e rest-arg)
            (syntax-parse rest-parsed
              [rest::binding-form
               #:with rest-impl::binding-impl #'(rest.infoer-id () rest.data)
               #:with rest-info::binding-info #'rest-impl.info
-              #`(rest-tmp (#:rest rest-tmp) (rest-tmp rest-info #,rest-arg #f))])
-           #'(() () #f))
+              #`(rest-tmp-lst (#:rest rest-tmp-lst)
+                              ((define rest-tmp (list->treelist rest-tmp-lst)))
+                              (rest-tmp rest-info #,rest-arg #f))])
+           #'(() () () #f))
        #:with ((maybe-kwrest-tmp ...) maybe-match-kwrest)
        (if (syntax-e kwrest-arg)
            (syntax-parse kwrest-parsed
@@ -484,7 +489,7 @@
                     function-name converter annot-str
                     #`(rhombus-body-expression #,rhs))))))))
        (define (adjust-args args)
-         (append (entry-point-adjustment-prefix-arguments adjustments)
+         (append (treelist->list (entry-point-adjustment-prefix-arguments adjustments))
                  args))
        (values
         (relocate+reraw
@@ -493,8 +498,10 @@
              #`(lambda/kwrest
                 #,(adjust-args #'(arg-form ... ...))
                 maybe-rest-tmp* ... maybe-kwrest-tmp ...
+                rest-def ...
                 #,body)
              #`(lambda #,(adjust-args #'(arg-form ... ... . maybe-rest-tmp))
+                 rest-def ...
                  #,body)))
         arity)]))
 
@@ -524,7 +531,7 @@
             rhss)))
     (define pos-arity
       (normalize-arity
-       (let ([adj (length (entry-point-adjustment-prefix-arguments adjustments))])
+       (let ([adj (treelist-length (entry-point-adjustment-prefix-arguments adjustments))])
          (for/list ([n+same (in-list n+sames)])
            (define n (car n+same))
            (cond
@@ -566,19 +573,24 @@
                                                          (cons 'try-next
                                                                (fcase-pos fcase-args (find-matching-case n same))))]
                              [(maybe-rest-tmp ...) (if (negative? n)
-                                                       #'(#:rest rest-tmp)
+                                                       #'(#:rest rest-tmp-lst)
                                                        #'())]
                              [maybe-rest-tmp-use (if (negative? n)
-                                                     #'rest-tmp
+                                                     #'rest-tmp-lst
                                                      #'null)]
+                             [(rest-def ...) (if (negative? n)
+                                                 #'((define rest-tmp (list->treelist rest-tmp-lst)))
+                                                 #'())]
                              [(maybe-kwrest-tmp ...) (if kws?
                                                          #'(#:kwrest kwrest-tmp)
                                                          #'())]
                              [maybe-kwrest-tmp-use (if kws?
                                                        #'kwrest-tmp
                                                        #''#hashalw())])
-                 #`[(#,@(entry-point-adjustment-prefix-arguments adjustments) pos-arg-id ...)
+                 #`[(#,@(treelist->list (entry-point-adjustment-prefix-arguments adjustments)) pos-arg-id ...)
                     maybe-rest-tmp ... maybe-kwrest-tmp ...
+                    rest-def ... ;; possible improvement: convert to treelist in indivual try instead of for
+                    ;;              all tries; whether that's better depends on the shapes of the cases
                     #,(for/foldr ([next #`(cases-failure
                                            '#,function-name
                                            maybe-rest-tmp-use maybe-kwrest-tmp-use pos-arg-id ...)])
@@ -751,11 +763,11 @@
                    (cons tmp new-arg-ids-rev)
                    (lambda (body)
                      (wrap
-                      #`(if (pair? #,rest-tmp)
-                            (let ([#,tmp (car #,rest-tmp)])
-                              (let ([#,rest-tmp (cdr #,rest-tmp)])
-                                #,body))
-                            (#,try-next)))))]
+                      #`(if (treelist-empty? #,rest-tmp)
+                            (#,try-next)
+                            (let ([#,tmp (treelist-ref #,rest-tmp 0)])
+                              (let ([#,rest-tmp (treelist-drop #,rest-tmp 1)])
+                                #,body))))))]
           [else
            (unless kwrest-tmp (error "assert failed in wrap-adapted: kwrest-tmp 1"))
            (define tmp (car (generate-temporaries (list arg))))
@@ -778,7 +790,7 @@
          (unless (negative? n) (error "assert failed in wrap-adapted: n"))
          (lambda (body)
            (wrap/single-args
-            #`(if (null? #,rest-tmp)
+            #`(if (treelist-empty? #,rest-tmp)
                   (let () #,body)
                   (#,try-next))))]))
     ;; check empty keyword rest if it exists in the kwrest-tmp but not the fcase
@@ -890,10 +902,10 @@
                                         #:srcloc [srcloc #f] ; for `relocate` on result
                                         #:rator-kind [rator-kind (if repetition? 'repetition 'function)]
                                         #:rator-arity [rator-arity #f])
-  (define (generate rands rsts dots kwrsts tag tail)
+  (define (generate rands rsts amp dots kwrsts tag tail)
     (syntax-parse stxes
       [(_ args . _)
-       (generate-call rator-in #'args extra-args rands rsts dots kwrsts tail
+       (generate-call rator-in #'args extra-args rands rsts amp dots kwrsts tail
                       #:static? static?
                       #:repetition? repetition?
                       #:rator-stx rator-stx
@@ -924,9 +936,9 @@
                                       (~parse kwrsts #'(kwrst-tag kwrst ...)))))
         . tail)
      (check-complex-allowed)
-     (generate #'(rand ...) #'rep #'dots.name (attribute kwrsts) #'tag #'tail)]
+     (generate #'(rand ...) #'rep #f #'dots.name (attribute kwrsts) #'tag #'tail)]
     [(_ (~or* (~and (tag::parens rand ...
-                                 ((~and rst-tag group) _::&-expr rst ...)
+                                 ((~and rst-tag group) amp::&-expr rst ...)
                                  (~optional (~and ((~and kwrst-tag group) _::~&-expr kwrst ...)
                                                   (~parse kwrsts #'(kwrst-tag kwrst ...)))))
                     (~parse rsts #'(rst-tag rst ...)))
@@ -935,11 +947,11 @@
                     (~parse kwrsts #'(kwrst-tag kwrst ...))))
         . tail)
      (check-complex-allowed)
-     (generate #'(rand ...) (attribute rsts) #f (attribute kwrsts) #'tag #'tail)]
+     (generate #'(rand ...) (attribute rsts) (and (attribute amp) #'amp.name) #f (attribute kwrsts) #'tag #'tail)]
     [(_ (tag::parens rand ...) . tail)
-     (generate #'(rand ...) #f #f #f #'tag #'tail)]))
+     (generate #'(rand ...) #f #f #f #f #'tag #'tail)]))
 
-(define-for-syntax (generate-call rator-in args-stx extra-rands rands rsts dots kwrsts tail
+(define-for-syntax (generate-call rator-in args-stx extra-rands rands rsts amp dots kwrsts tail
                                   #:static? static?
                                   #:repetition? repetition?
                                   #:rator-stx rator-stx
@@ -954,7 +966,7 @@
        repetition?
        (if repetition? rator-in (rhombus-local-expand rator-in))
        (syntax->list #'(rand.exp ...))
-       rsts dots
+       rsts amp dots
        kwrsts
        (lambda (rator args rest-args kwrest-args rator-static-info)
          (define kws (syntax->list #'(rand.kw ...)))
@@ -1004,7 +1016,7 @@
 (define-for-syntax (handle-repetition repetition?
                                       rator ; already parsed as expression or repetition
                                       rands
-                                      rsts dots
+                                      rsts amp dots
                                       kwrsts
                                       k)
   (cond
@@ -1016,7 +1028,9 @@
      (define rest-args
        (cond
          [dots (repetition-as-list dots rsts 1)]
-         [rsts (syntax-parse rsts [rst::expression #'rst.parsed])]
+         [rsts (syntax-parse rsts [rst::expression (if amp
+                                                       #`(to-list '#,amp rst.parsed)
+                                                       #'rst.parsed)])]
          [else #''()]))
      (define kwrest-args
        (and kwrsts
@@ -1130,7 +1144,7 @@
                                                     #`(list #,(car arg))]
                                                    [else
                                                     (car arg)]))))))
-                                  #f
+                                  #f #f
                                   (let ([kwss (for/list ([arg (in-list args)]
                                                          #:when (eq? (cadr arg) 'kws))
                                                 (car arg))])
@@ -1147,9 +1161,9 @@
                                   #:rator-arity rator-arity
                                   #:props-stx props-stx))
                  term))]
-      [(((~and tag group) _::&-expr rand ...) . gs)
+      [(((~and tag group) op::&-expr rand ...) . gs)
        (loop #'gs
-             (cons (list (gen-id) 'list #'(rhombus-expression (tag rand ...)) #f)
+             (cons (list (gen-id) 'list #'(to-list 'op.name (rhombus-expression (tag rand ...))) #f)
                    rev-args))]
       [(g0 (group dots::...-expr) . gs)
        (define-values (new-gs extras) (consume-extra-ellipses #'gs))

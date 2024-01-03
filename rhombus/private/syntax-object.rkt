@@ -7,6 +7,7 @@
          racket/symbol
          shrubbery/property
          shrubbery/print
+         "to-list.rkt"
          "provide.rkt"
          "expression.rkt"
          (submod "annotation.rkt" for-class)
@@ -236,6 +237,7 @@
                                   (null? ds))
                             (l-loop ds))])))
            (invalid))]
+      [(listable? e) (group (to-list #f e))]
       [(syntax? e)
        (or (unpack-group e #f #f)
            (invalid))]
@@ -284,6 +286,7 @@
               (invalid))]
          [else (invalid)])]
       [(pair? v) (invalid)]
+      [(listable? v) (loop (to-list #f v) pre-alt? tail?)]
       [(syntax? v) (let ([t (unpack-term v #f #f)])
                      (cond
                        [t
@@ -317,12 +320,13 @@
 
 (define (check-nonempty-list who l)
   (unless (and (pair? l) (list? l))
-    (raise-argument-error* who rhombus-realm "NonemptyList" l)))
+    (raise-argument-error* who rhombus-realm "NonemptyListable" l)))
 
 (define/arity (Syntax.make_group v [ctx-stx #f])
   #:static-infos ((#%call-result #,syntax-static-infos))
+  (define v (if (listable? v) (to-list v) v))
   (check-nonempty-list who v)
-  (define terms (let loop ([es v])
+  (define terms (let loop ([es (to-list #f v)])
                   (cond
                     [(null? es) null]
                     [else
@@ -335,13 +339,13 @@
   (datum->syntax #f (cons group-tag terms)))
 
 (define (check-list who l)
-  (unless (list? l)
-    (raise-argument-error* who rhombus-realm "List" l)))
+  (unless (listable? l)
+    (raise-argument-error* who rhombus-realm "Listable" l)))
 
 (define/arity (Syntax.make_sequence v [ctx-stx #f])
   #:static-infos ((#%call-result #,syntax-static-infos))
   (check-list who v)
-  (pack-multi (for/list ([e (in-list v)])
+  (pack-multi (for/list ([e (in-list (to-list #f v))])
                 (do-make who e ctx-stx #t #t #t))))
 
 (define (check-readable-string who s)
@@ -498,13 +502,14 @@
 
 (define (check-list-of-stx who stxs)
   (unless (and (list? stxs) (andmap syntax? stxs))
-    (raise-argument-error* who rhombus-realm "List.of(Syntax)" stxs)))
+    (raise-argument-error* who rhombus-realm "Listable.of(Syntax)" stxs)))
 
 ;; also reraws:
-(define/method (Syntax.relocate_span stx-in ctx-stxes)
+(define/method (Syntax.relocate_span stx-in ctx-stxes-in)
   #:static-infos ((#%call-result #,syntax-static-infos))
   (define stx (and (syntax? stx-in) (unpack-term stx-in #f #f)))
   (unless stx (raise-argument-error* who rhombus-realm "Term" stx-in))
+  (define ctx-stxes (if (listable? ctx-stxes-in) (to-list #f ctx-stxes-in) ctx-stxes-in))
   (check-list-of-stx who ctx-stxes)
 
   (at-relevant-dest-syntax

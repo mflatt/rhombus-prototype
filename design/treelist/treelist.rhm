@@ -1,15 +1,7 @@
-#lang rhombus/private/core
+#lang rhombus/static/and_meta
 import:
   rhombus/unsafe.use_unsafe
-  "core-macro.rkt" open
-  "core-meta.rkt" open
-  "sequence.rhm" open
-  "check.rhm" open
-  "maybe.rhm" open
-  "sequence_meta.rhm" open
-  "recur.rhm" open
 
-use_static
 use_unsafe
 
 // comment out for fast

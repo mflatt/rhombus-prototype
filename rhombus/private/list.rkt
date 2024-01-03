@@ -33,6 +33,7 @@
 
 (provide (for-spaces (rhombus/namespace
                       #f
+                      rhombus/repet
                       rhombus/bind
                       rhombus/annot
                       rhombus/reducer)
@@ -49,7 +50,8 @@
                        parse-list-repetition)))
 
 (module+ for-builtin
-  (provide list-method-table))
+  (provide treelist-method-table
+           list-method-table))
 
 (module+ for-implicit
   (provide (for-syntax set-#%call-ids!)))
@@ -64,18 +66,21 @@
 (define-primitive-class List treelist
   #:lift-declaration
   #:constructor-arity -1
-  #:instance-static-info ((#%index-get List.ref)
+  #:instance-static-info ((#%index-get List.get)
                           (#%append List.append)
                           (#%sequence-constructor in-treelist))
   #:existing
   #:opaque
   #:fields ()
   #:namespace-fields
-  ([cons treelist-cons]
+  ([cons List.cons]
+   [add List.add]
+   [insert List.insert]
+   [delete List.delete]
    [empty empty-treelist]
    [iota List.iota]
    [repet List.repet]
-   of)
+   [of List.of])
   #:properties
   ([first List.first
           (lambda (e)
@@ -119,7 +124,7 @@
   ([first PairList.first
           (lambda (e)
             (syntax-local-static-info e #'#%index-result))]
-   [rest List.rest
+   [rest PairList.rest
          (lambda (e)
            (define maybe-index-result
              (syntax-local-static-info e #'#%index-result))
@@ -147,6 +152,24 @@
   #:fields
   ([of NonemptyPairList.of]))
 
+(define-binding-syntax List.cons
+  (binding-transformer
+   (let ([composite (make-composite-binding-transformer
+                     "PairList.cons" #'nonempty-treelist? (list #'(lambda (l) (treelist-ref l 0))) (list #'())
+                     #:static-infos treelist-static-infos
+                     #:index-result-info? #t
+                     #:rest-accessor #'(lambda (l) (treelist-drop l 1))
+                     #:rest-to-repetition #'treelist->list
+                     #:repetition-to-rest #'list->treelist
+                     #:rest-repetition? #f)])
+     (lambda (tail)
+       (syntax-parse tail
+         [(form-id (tag::parens elem list) . new-tail)
+          (composite #'(form-id (tag elem) . new-tail)
+                     #`(#,group-tag rest-bind #,treelist-static-infos
+                        #:annot-prefix? #f
+                        list))])))))
+
 (define-binding-syntax PairList.cons
   (binding-transformer
    (let ([composite (make-composite-binding-transformer
@@ -162,7 +185,7 @@
                      #`(#,group-tag rest-bind #,list-static-infos
                         #:annot-prefix? #f
                         list))])))))
-
+  
 (set-primitive-contract! 'list? "PairList")
 (set-primitive-contract! 'treelist? "List")
 
@@ -174,11 +197,31 @@
   (unless (list? l)
     (raise-argument-error* who rhombus-realm "PairList" l)))
 
+(define/arity (List.cons a d)
+  #:inline
+  #:static-infos ((#%call-result #,treelist-static-infos))
+  (treelist-cons d a))
+
 (define/arity (PairList.cons a d)
   #:inline
   #:static-infos ((#%call-result #,list-static-infos))
   (check-list who d)
   (cons a d))
+
+(define/arity (List.add d a)
+  #:inline
+  #:static-infos ((#%call-result #,treelist-static-infos))
+  (treelist-add d a))
+
+(define/arity (List.insert d pos a)
+  #:inline
+  #:static-infos ((#%call-result #,treelist-static-infos))
+  (treelist-insert d pos a))
+
+(define/arity (List.delete d pos)
+  #:inline
+  #:static-infos ((#%call-result #,treelist-static-infos))
+  (treelist-delete d pos))
 
 (define (nonempty-treelist? l)
   (and (treelist? l) ((treelist-length l) . > . 0)))
@@ -196,6 +239,7 @@
   (treelist-ref l 0))
 
 (define/method (List.rest l)
+  #:static-infos ((#%call-result #,treelist-static-infos))
   (check-nonempty-treelist who l)
   (treelist-drop l 1))
 
@@ -249,44 +293,54 @@
   (reverse l))
 
 ;; used to define `List` and `PairList` further below:
-(define-for-syntax (make-constructor proc-stx build-form static-infos wrap-static-infos)
-  (expression-transformer
-   ;; special cases optimize for `...` and `&`; letting it expand
-   ;; instead to `(apply list ....)` is not so bad, but but we can
-   ;; avoid a `list?` check in `apply`, and we can expose more static
-   ;; information this way
-   (lambda (stx)
-     (syntax-parse stx
-       #:datum-literals (group)
-       [(form-id (tag::parens _ ... _ (group _::...-expr)) . tail)
-        #:when (normal-call? #'tag)
-        (parse-*list-form stx build-form static-infos wrap-static-infos
-                          #:repetition? #f #:span-form-name? #t)]
-       [(form-id (tag::parens _ ... (group _::&-expr _ ...)) . tail)
-        #:when (normal-call? #'tag)
-        (parse-*list-form stx build-form static-infos wrap-static-infos
-                          #:repetition? #f #:span-form-name? #t)]
-       [(form-id (tag::brackets _ ...) . tail)
-        (parse-*list-form stx build-form static-infos wrap-static-infos
-                          #:repetition? #f #:span-form-name? #t)]
-       [(_ . tail)
-        (values proc-stx #'tail)]))))
+(define-for-syntax (make-constructor proc-stx build-form static-infos wrap-static-infos
+                                     #:repetition? [repetition? #f]
+                                     #:convert-rep [convert-rep #f])
+  ;; special cases optimize for `...` and `&`; letting it expand
+  ;; instead to `(apply list ....)` is not so bad, but but we can
+  ;; avoid a `list?` check in `apply`, and we can expose more static
+  ;; information this way
+  (lambda (stx)
+    (syntax-parse stx
+      #:datum-literals (group)
+      [(form-id (tag::parens _ ... _ (group _::...-expr)) . tail)
+       #:when (normal-call? #'tag)
+       (parse-*list-form stx build-form static-infos wrap-static-infos
+                         #:convert-rep convert-rep
+                         #:repetition? repetition?
+                         #:span-form-name? #t)]
+      [(form-id (tag::parens _ ... (group _::&-expr _ ...)) . tail)
+       #:when (normal-call? #'tag)
+       (parse-*list-form stx build-form static-infos wrap-static-infos
+                         #:convert-rep convert-rep
+                         #:repetition? repetition?
+                         #:span-form-name? #t)]
+      [(form-id (tag::brackets _ ...) . tail)
+       (parse-*list-form stx build-form static-infos wrap-static-infos
+                         #:convert-rep convert-rep
+                         #:repetition? repetition?
+                         #:span-form-name? #t)]
+      [(_ . tail)
+       (values proc-stx #'tail)])))
 
-
-(define-for-syntax (make-treelist-rest-selector args-n)
+(define-for-syntax (make-treelist-rest-selector args-n for-rep?)
   (if (= 0 args-n)
-      #'treelist->list
-      #`(lambda (v) (treelist->list (treelist-drop v #,args-n)))))
+      #'values
+      #`(lambda (v) (treelist-drop v #,args-n))))
 
-(define-for-syntax (make-binding generate-binding)
+(define-for-syntax (make-list-rest-selector args-n for-rep?)
+  (if (= 0 args-n)
+      #'values
+      (if (= 0 args-n) #'values #'cdr)))
+
+(define-for-syntax (make-binding generate-binding make-rest-selector)
   (binding-transformer
    (lambda (stx)
      (syntax-parse stx
        [(form-id (_::parens arg ...) . tail)
-        (parse-*list-binding stx generate-binding make-treelist-rest-selector)]
+        (parse-*list-binding stx generate-binding make-rest-selector)]
        [(form-id (_::brackets arg ...) . tail)
-        (parse-*list-binding stx generate-binding 
-                             (lambda (args-n) (if (= 0 args-n) #'values #'cdr)))]))))
+        (parse-*list-binding stx generate-binding make-rest-selector)]))))
 
 (define-for-syntax (parse-list-binding stx)
   (parse-*list-binding stx generate-treelist-binding make-treelist-rest-selector))
@@ -317,7 +371,7 @@
 
 (define-syntax (treelist-build-convert arg-id build-convert-stxs kws data)
   #`(for/fold ([lst empty-treelist])
-              ([v (in-list #,arg-id)])
+              ([v (in-treelist #,arg-id)])
       #:break (not lst)
       (#,(car build-convert-stxs)
        v
@@ -358,7 +412,7 @@
     [(_ up-static-infos _)
      (binding-info "List.empty"
                    #'empty
-                   (static-infos-union list-static-infos #'up-static-infos)
+                   (static-infos-union treelist-static-infos #'up-static-infos)
                    #'()
                    #'treelist-empty-matcher
                    #'literal-bind-nothing
@@ -377,7 +431,7 @@
                    #'literal-commit-nothing
                    #'datum)]))
 
-(define-syntax (tree-empty-matcher stx)
+(define-syntax (treelist-empty-matcher stx)
   (syntax-parse stx
     [(_ arg-id datum IF success fail)
      #'(IF (treelist-empty? arg-id)
@@ -400,7 +454,7 @@
   1
   #f
   (lambda (arg-id predicate-stxs)
-    #`(for/and ([e (in-list #,arg-id)])
+    #`(for/and ([e (in-treelist #,arg-id)])
         (#,(car predicate-stxs) e)))
   (lambda (static-infoss)
     #`((#%index-result #,(car static-infoss))))
@@ -466,7 +520,7 @@
        [(form-id (~and args (_::parens g)) . tail)
         (values (make-repetition-info #'(form-id args)
                                       #'repet
-                                      g-to-list-stx
+                                      (g-to-list-stx #'g)
                                       1
                                       0
                                       #'()
@@ -474,14 +528,16 @@
                 #'tail)]))))
 
 (define-repetition-syntax List.repet
-  (make-repet #'(let ([l (rhombus-expression g)])
-                  (check-treelist 'List.repet l)
-                  (treelist->list l))))
+  (make-repet (lambda (g)
+                #`(let ([l (rhombus-expression #,g)])
+                    (check-treelist 'List.repet l)
+                    (treelist->list l)))))
 
 (define-repetition-syntax PairList.repet
-  (make-repet #'(let ([l (rhombus-expression g)])
-                  (check-list 'PairList.repet l)
-                  l)))
+  (make-repet (lambda (g)
+                #`(let ([l (rhombus-expression #,g)])
+                    (check-list 'PairList.repet l)
+                    l))))
 
 (define (check-function-of-arity n who proc)
   (unless (and (procedure? proc)
@@ -584,7 +640,7 @@
   #:inline
   #:primitive (treelist-drop-right)
   #:static-infos ((#%call-result #,treelist-static-infos))
-  (treelist-drop l n))
+  (treelist-drop-right l n))
 
 ;; primitive doesn't check for listness
 (define/method (PairList.drop_left l n)
@@ -651,13 +707,13 @@
      (generate-binding #'form-id len #t args #'tail
                        #`(#,group-tag rest-bind #,list-static-infos
                           (#,group-tag rest-arg ...))
-                       (make-rest-selector len)
+                       (make-rest-selector len #f)
                        #f)]
     [(form-id (_ arg ... rest-arg (group _::...-bind)) . tail)
      (define args (syntax->list #'(arg ...)))
      (define len (length args))
      (generate-binding #'form-id len #t args #'tail #'rest-arg
-                       (make-rest-selector len)
+                       (make-rest-selector len #t)
                        #t)]
     [(form-id (_ arg ...) . tail)
      (define args (syntax->list #'(arg ...)))
@@ -678,6 +734,8 @@
                                        #:index-result-info? #t
                                        #:rest-accessor rest-selector
                                        #:rest-repetition? rest-repetition?
+                                       #:rest-to-repetition #'treelist->list
+                                       #:repetition-to-rest #'list->treelist
                                        #:static-infos treelist-static-infos)
    #`(#,form-id (parens . #,args) . #,tail)
    rest-arg))
@@ -707,13 +765,14 @@
    #`(#,form-id (parens . #,args) . #,tail)
    rest-arg))
 
-(define-binding-syntax List (make-binding generate-treelist-binding))
-(define-binding-syntax PairList (make-binding generate-list-binding))
+(define-binding-syntax List (make-binding generate-treelist-binding make-treelist-rest-selector))
+(define-binding-syntax PairList (make-binding generate-list-binding make-list-rest-selector))
 
 (define-for-syntax (parse-*list-form stx
                                      build-form
                                      static-infos
                                      wrap-static-info
+                                     #:convert-rep convert-rep
                                      #:repetition? repetition?
                                      #:span-form-name? span-form-name?)
   (syntax-parse stx
@@ -758,12 +817,20 @@
        src-span
        (cond
          [(and (pair? content) (null? (cdr content))
-               (pair? (car content)) (eq? 'rep (caar content)))
+               (pair? (car content)) (eq? 'rep (caar content))
+               ;; FIXME: ned better handling of nested treelists
+               (or (not repetition?) (not convert-rep)))
           ;; special case, especially to expose static info on rest elements
           (define seq (cadar content))
           (cond
             [repetition? (repetition-as-deeper-repetition seq static-infos)]
-            [else (wrap-static-info (build-form content))])]
+            [(not convert-rep) (wrap-static-info seq)]
+            [else (wrap-static-info
+                   ;; rotate static info for `content` out to converted form
+                   (let ([content-static-infos (extract-static-infos seq)])
+                     (wrap-static-info*
+                      #`(#,convert-rep #,(unwrap-static-infos seq))
+                      content-static-infos)))])]
          [(not repetition?)
           (wrap-static-info
            (tag-props
@@ -826,16 +893,35 @@
       [else
        (loop (cdr content) (cons (car content) accum) accums)])))
 
-(define-syntax List (make-constructor #'treelist build-treelist-form treelist-static-infos wrap-treelist-static-info))
-(define-syntax PairList (make-constructor #'list build-list-form list-static-infos wrap-list-static-info))
+(define-syntax List
+  (expression-transformer
+   (make-constructor #'treelist build-treelist-form treelist-static-infos wrap-treelist-static-info
+                     #:convert-rep #'list->treelist)))
+(define-syntax PairList
+  (expression-transformer
+   (make-constructor #'list build-list-form list-static-infos wrap-list-static-info)))
+
+(define-repetition-syntax List
+  (repetition-transformer
+   (make-constructor #:repetition? #t
+                     #'treelist build-treelist-form treelist-static-infos wrap-treelist-static-info
+                     #:convert-rep #'list->treelist)))
+(define-repetition-syntax PairList
+  (repetition-transformer
+   (make-constructor #:repetition? #t
+                     #'list build-list-form list-static-infos wrap-list-static-info)))
 
 (define-for-syntax (parse-list-expression stx)
   (parse-*list-form stx build-treelist-form treelist-static-infos wrap-treelist-static-info
-                    #:repetition? #f #:span-form-name? #f))
+                    #:convert-rep #'list->treelist
+                    #:repetition? #f
+                    #:span-form-name? #f))
 
 (define-for-syntax (parse-list-repetition stx)
   (parse-*list-form stx build-treelist-form treelist-static-infos wrap-treelist-static-info
-                    #:repetition? #t #:span-form-name? #f))
+                    #:convert-rep #'list->treelist
+                    #:repetition? #t
+                    #:span-form-name? #f))
 
 (define (length-at-least v len)
   (or (eqv? len 0)

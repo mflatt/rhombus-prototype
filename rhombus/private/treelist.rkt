@@ -117,7 +117,17 @@
                               (lambda (v recur)
                                 (treelist-hash-code v recur))
                               (lambda (v recur)
-                                42)))
+                                42))
+  #:property prop:sequence (lambda (tl)
+                             (make-do-sequence
+                              (lambda ()
+                                (values
+                                  (lambda (i) (treelist-ref tl i))
+                                  add1
+                                  0
+                                  (lambda (i) (i . < . (treelist-length tl)))
+                                  #f
+                                  #f)))))
 
 (define empty-treelist (treelist empty-node 0 0))
 
@@ -140,21 +150,21 @@
   (unless (treelist? tl)
     (raise-argument-error* who 'racket/primitive "treelist?" tl)))
 
-(define (check-treelist-index who size index)
+(define (check-treelist-index who tl size index)
   (unless (fixnum? index)
     (if (exact-nonnegative-integer? index)
         (raise-argument-error* who 'racket/primitive "exact-nonnegative-integer?" index)
-        (raise-range-error* who 'racket/primitive "treelist" "" index 0 (fx- size 1))))
+        (raise-range-error* who 'racket/primitive "treelist" "" index tl 0 (fx- size 1))))
   (when (or (index . fx< . 0) (index . fx>= . size))
-    (raise-range-error* who 'racket/primitive "treelist" "" index 0 (fx- size 1))))
+    (raise-range-error* who 'racket/primitive "treelist" "" index tl 0 (fx- size 1))))
 
-(define (check-treelist-end-index who size index)
+(define (check-treelist-end-index who tl size index)
   (unless (fixnum? index)
     (if (exact-nonnegative-integer? index)
         (raise-argument-error* who 'racket/primitive "exact-nonnegative-integer?" index)
-        (raise-range-error* who 'racket/primitive "treelist" "" index 0 size)))
-  (when (or (index . fx< . 0) (index . fx>= . size))
-    (raise-range-error* who 'racket/primitive "treelist" "" index 0 size)))
+        (raise-range-error* who 'racket/primitive "treelist" "" index tl 0 size)))
+  (when (or (index . fx< . 0) (index . fx> . size))
+    (raise-range-error* who 'racket/primitive "treelist" "" index tl 0 size)))
 
 (define-sequence-syntax in-treelist
   (lambda () #'in-treelist/proc)
@@ -200,7 +210,7 @@
     [(impersonator? tl) (treelist-ref/slow tl index)]
     [else
      (check-treelist 'treelist-ref tl)
-     (check-treelist-index 'treelist-ref (treelist-size tl) index)
+     (check-treelist-index 'treelist-ref tl (treelist-size tl) index)
      (define-values (node pos) (treelist-node-for tl index))
      (node-ref node pos)]))
 
@@ -333,7 +343,7 @@
     [else
      (check-treelist 'treelist-set tl)
      (define size (treelist-size tl))
-     (check-treelist-index 'treelist-set size index)
+     (check-treelist-index 'treelist-set tl size index)
      (define height (treelist-height tl))
      (define new-node
        (let set ([node (treelist-root tl)]
@@ -413,8 +423,9 @@
   (unless (list? lst) (raise-argument-error 'list->treelist "list?" lst))
   (vector->treelist (list->vector lst)))
 
-(define (treelist-length treelist)
-  (treelist-size treelist))
+(define (treelist-length tl)
+  (check-treelist 'treelist-length tl)
+  (treelist-size tl))
 
 ;; trees that are a result of this method may not meet invariants, but rebalancing is costly
 ;; and future concatenations would restore the invariants due to rebalancing being done on concats.
@@ -426,7 +437,7 @@
     [else
      (check-treelist 'treelist-take tl)
      (define size (treelist-size tl))
-     (check-treelist-end-index 'treelist-take size pos)
+     (check-treelist-end-index 'treelist-take tl size pos)
      (cond
        [(fx= pos 0)
         empty-treelist]
@@ -472,7 +483,7 @@
     [else
      (check-treelist 'treelist-drop tl)
      (define size (treelist-size tl))
-     (check-treelist-end-index 'treelist-drop size pos)
+     (check-treelist-end-index 'treelist-drop tl size pos)
      (cond
        [(fx= pos 0)
         tl]
@@ -536,18 +547,18 @@
 (define (treelist-take-right tl pos)
   (check-treelist 'treelist-take-right tl)
   (define size (treelist-size tl))
-  (check-treelist-end-index 'treelist-take-right size pos)
+  (check-treelist-end-index 'treelist-take-right tl size pos)
   (treelist-drop tl (fx- size pos)))
 
 (define (treelist-drop-right tl pos)
   (check-treelist 'treelist-drop-right tl)
   (define size (treelist-size tl))
-  (check-treelist-end-index 'treelist-drop-right size pos)
+  (check-treelist-end-index 'treelist-drop-right tl size pos)
   (treelist-take tl (fx- size pos)))
 
 (define (treelist-split tl at)
   (check-treelist 'treelist-split tl)
-  (check-treelist-end-index 'treelist-split (treelist-size tl) at)
+  (check-treelist-end-index 'treelist-split tl (treelist-size tl) at)
   (cond
     [(fx= at 0) (values empty-treelist tl)]
     [(fx= at (treelist-size tl)) (values tl empty-treelist)]
@@ -560,7 +571,7 @@
     [else
      (check-treelist 'treelist-insert tl)
      (define size (treelist-size tl))
-     (check-treelist-end-index 'treelist-insert size at)
+     (check-treelist-end-index 'treelist-insert tl size at)
      (cond
        [(fx= at 0) (treelist-cons tl el)]
        [(fx= at size) (treelist-add tl el)]
@@ -574,7 +585,7 @@
     [else
      (check-treelist 'treelist-delete tl)
      (define size (treelist-size tl))
-     (check-treelist-index 'treelist-delete size at)
+     (check-treelist-index 'treelist-delete tl size at)
      (cond
        [(fx= at 0) (treelist-drop tl 1)]
        [(fx= at (fx- size 1))
@@ -932,7 +943,7 @@
 (define (treelist-ref/slow tl index)
   (define who 'treelist-ref)
   (check-treelist who tl)
-  (check-treelist-index who (treelist-size tl) index)
+  (check-treelist-index who tl (treelist-size tl) index)
   (define w (treelist-chaperone-ref tl))
   (define prev (treelist-wrapper-prev w))
   (define v (treelist-ref prev index))
@@ -951,7 +962,7 @@
 (define (treelist-set/slow tl index el)
   (define who 'treelist-set)
   (check-treelist who tl)
-  (check-treelist-index who (treelist-size tl) index)
+  (check-treelist-index who tl (treelist-size tl) index)
   (define w (treelist-chaperone-ref tl))
   (define prev (treelist-wrapper-prev w))
   (define new-el
@@ -963,7 +974,7 @@
   (define who 'treelist-insert)
   (check-treelist who tl)
   (define size (treelist-size tl))
-  (check-treelist-end-index who size at)
+  (check-treelist-end-index who tl size at)
   (define w (treelist-chaperone-ref tl))
   (define prev (treelist-wrapper-prev w))
   (define new-el
@@ -983,7 +994,7 @@
   (define who who)
   (check-treelist who tl)
   (define size (treelist-size tl))
-  (check-treelist-end-index who size at)
+  (check-treelist-end-index who tl size at)
   (define w (treelist-chaperone-ref tl))
   (define prev (treelist-wrapper-prev w))
   (define new-prev (op prev at))

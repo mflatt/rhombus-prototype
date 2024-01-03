@@ -1,8 +1,7 @@
 #lang rhombus
 import:
   rhombus/measure
-  lib("rhombus/private/treelist.rhm").TreeList
-  lib("rhombus/private/treelist.rkt") open
+  "treelist.rhm".TreeList
 
 def M = 1000000
 def N = 10
@@ -20,10 +19,10 @@ bm "Pair.cons":
     for values (l = []) (i: 0..N):
       Pair.cons(i, l)
 
-bm "List.cons":
+bm "PairList.cons":
   for values(r = #false) (i: 0..M):
-    for values (l = []) (i: 0..N):
-      List.cons(i, l)
+    for values (l = PairList[]) (i: 0..N):
+      PairList.cons(i, l)
 
 bm "Set.add":
   for values(r = #false) (i: 0..M):
@@ -35,20 +34,20 @@ bm "TreeList.add":
     for values (l = TreeList.empty) (i: 0..N):
       TreeList.add(l, i)
 
-bm "treelist-add":
+bm "List.add":
   for values(r = #false) (i: 0..M):
-    for values (l = #{make-treelist}()) (i: 0..N):
-      #{treelist-add}(l, i)
+    for values (l = []) (i: 0..N):
+      List.add(l, i)
 
 bm "TreeList.cons":
   for values(r = #false) (i: 0..M):
     for values (l = TreeList.empty) (i: 0..N):
       TreeList.cons(l, i)
 
-bm "treelist-cons":
+bm "List.cons":
   for values(r = #false) (i: 0..M):
-    for values (l = #{make-treelist}()) (i: 0..N):
-      #{treelist-cons}(l, i)
+    for values (l = []) (i: 0..N):
+      List.cons(i, l)
 
 bm "Pair.rest":
   let init:
@@ -58,13 +57,12 @@ bm "Pair.rest":
     for values (l = init) (i: 0..N):
       Pair.rest(l)
 
-bm "List.rest":
+bm "PairList.rest":
   let init:
-    for values (l = []) (i: 0..N):
-      List.cons(i, l)
+    for PairList (i: 0..N): i
   for values(r = #false) (i: 0..M):
     for values (l = init) (i: 0..N):
-      List.rest(l)
+      PairList.rest(l)
 
 bm "Set.remove":
   let init:
@@ -82,18 +80,16 @@ bm "TreeList.drop":
     for values (l = init) (i: 0..N):
       TreeList.drop(l, 1)
 
-bm "treelist-drop":
+bm "List.rest":
   let init:
-    for values (l = #{make-treelist}()) (i: 0..N):
-      #{treelist-cons}(l, i)
+    for List (i: 0..N): i
   for values(r = #false) (i: 0..M):
     for values (l = init) (i: 0..N):
-      #{treelist-drop}(l, 1)
+      List.rest(l)
 
-bm "List.iter":
-  let init :~ List:
-    for List (i: 0..N):
-      i
+bm "PairList.iter":
+  let init :~ PairList:
+    for PairList (i: 0..N): i
   for values(r = #false) (i: 0..M):
     for values (r = r) (e: init):
       e
@@ -106,10 +102,9 @@ bm "TreeList.iter":
     for values (r = r) (e: init):
       e
 
-bm "treelist-iter":
-  let init:
-    for values (l = #{make-treelist}()) (i: 0..N):
-      #{treelist-cons}(l, i)
+bm "List.iter":
+  let init :~ List:
+    for List (i: 0..N): i
   for values(r = #false) (i: 0..M):
-    for values (r = r) (e: #{in-treelist}(init)):
+    for values (r = r) (e: init):
       e

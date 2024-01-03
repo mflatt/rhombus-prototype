@@ -184,12 +184,15 @@
          (wrap-static-info* #'rep-info.seq-expr infos)
          (wrap-static-info #'rep-info.seq-expr #'#%index-result infos))]))
 
-(define-for-syntax (repetition-as-deeper-repetition rep-parsed static-infos)
+(define-for-syntax (repetition-as-deeper-repetition rep-parsed static-infos
+                                                    #:convert [convert #f])
   (syntax-parse rep-parsed
     [rep-info::repetition-info
      (make-repetition-info #'rep-info.rep-expr
                            #'rep-info.name
-                           #'rep-info.seq-expr
+                           (if convert
+                               (convert #'rep-info.seq-expr)
+                               #'rep-info.seq-expr)
                            #'rep-info.bind-depth
                            (+ 1 (syntax-e #'rep-info.use-depth))
                            #`((#%index-result rep-info.element-static-infos)
