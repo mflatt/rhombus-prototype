@@ -3,6 +3,7 @@
                      syntax/parse/pre
                      "consistent.rkt"
                      (submod "entry-point-adjustment.rkt" for-struct))
+         "treelist.rkt"
          "provide.rkt"
          (submod "function-parse.rkt" for-build)
          (submod "list.rkt" for-compound-repetition)
@@ -57,8 +58,26 @@
     (raise-argument-error* who rhombus-realm "Function" proc)))
 
 (define (check-list who l)
-  (unless (list? l)
+  (unless (treelist? l)
     (raise-argument-error* who rhombus-realm "List" l)))
+
+(define (check-proc-arity who fn n)
+  (unless (procedure-arity-includes? fn n)
+    (raise-arguments-error* who rhombus-realm
+                            (string-append
+                             "map: argument mismatch;\n"
+                             " the given procedure's expected number of arguments does not match the given number of lists\n")
+                            "given procedure" fn
+                            "expected" (procedure-arity fn)
+                            "given" 1)))
+
+(define (check-list-length who fn l1 l2)
+  (unless (= (treelist-length l1) (treelist-length l2))
+    (raise-arguments-error* who rhombus-realm
+                            "all lists must have same size"
+                            "first list length" (treelist-length l1)
+                            "other list length" (treelist-length l2)
+                            "procedure" fn)))
 
 (define-syntax (define-map stx)
   (syntax-parse stx
@@ -71,18 +90,33 @@
            [(fn lst)
             (check-proc who fn)
             (check-list who lst)
-            (map fn lst)]
+            (check-proc-arity who fn 1)
+            (list->treelist
+             (for/list ([e (in-treelist lst)])
+               (fn e)))]
            [(fn lst1 lst2)
             (check-proc who fn)
             (check-list who lst1)
             (check-list who lst2)
-            (map fn lst1 lst2)]
+            (check-list-length who fn lst1 lst2)
+            (check-proc-arity who fn 2)
+            (list->treelist
+             (for/list ([e1 (in-treelist lst1)]
+                        [e2 (in-treelist lst2)])
+               (fn e1 e2)))]
            [(fn lst1 . lsts)
             (check-proc who fn)
             (check-list who lst1)
             (for ([lst (in-list lsts)])
-              (check-list who lst))
-            (apply map fn lst1 lsts)]))]))
+              (check-list who lst)
+              (check-list-length who fn lst1 lst))
+            (check-proc-arity who fn (add1 (length lsts)))
+            (list->treelist
+             (for/list ([i (in-range (treelist-length lst1))])
+               (apply fn
+                      (treelist-ref lst1 i)
+                      (for/list ([lst (in-list lsts)])
+                        (treelist-ref lst i)))))]))]))
 
 (define-map map map
   #:static-infos ((#%call-result #,list-static-infos)))

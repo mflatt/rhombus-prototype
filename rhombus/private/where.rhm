@@ -54,7 +54,6 @@ bind.infoer 'where_infoer($static_info, ($bind_a, ($bind_b, $b_expr), ...))':
       if i == len-1
       | statinfos
       | statinfos.map(fun (_): '()')
-  println("here")
   def ann: Syntax.unwrap(a_ann) +& " where ...."
   '($ann,
     $a_name,

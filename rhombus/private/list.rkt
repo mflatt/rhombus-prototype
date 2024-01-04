@@ -160,7 +160,6 @@
                      #:index-result-info? #t
                      #:rest-accessor #'(lambda (l) (treelist-drop l 1))
                      #:rest-to-repetition #'treelist->list
-                     #:repetition-to-rest #'list->treelist
                      #:rest-repetition? #f)])
      (lambda (tail)
        (syntax-parse tail
@@ -735,7 +734,6 @@
                                        #:rest-accessor rest-selector
                                        #:rest-repetition? rest-repetition?
                                        #:rest-to-repetition #'treelist->list
-                                       #:repetition-to-rest #'list->treelist
                                        #:static-infos treelist-static-infos)
    #`(#,form-id (parens . #,args) . #,tail)
    rest-arg))
@@ -817,13 +815,13 @@
        src-span
        (cond
          [(and (pair? content) (null? (cdr content))
-               (pair? (car content)) (eq? 'rep (caar content))
-               ;; FIXME: ned better handling of nested treelists
-               (or (not repetition?) (not convert-rep)))
+               (pair? (car content)) (eq? 'rep (caar content)))
           ;; special case, especially to expose static info on rest elements
           (define seq (cadar content))
           (cond
-            [repetition? (repetition-as-deeper-repetition seq static-infos)]
+            [repetition? (repetition-as-deeper-repetition
+                          seq static-infos
+                          #:convert convert-rep)]
             [(not convert-rep) (wrap-static-info seq)]
             [else (wrap-static-info
                    ;; rotate static info for `content` out to converted form
@@ -896,7 +894,7 @@
 (define-syntax List
   (expression-transformer
    (make-constructor #'treelist build-treelist-form treelist-static-infos wrap-treelist-static-info
-                     #:convert-rep #'list->treelist)))
+                     #:convert-rep #'list->treelist/optimize)))
 (define-syntax PairList
   (expression-transformer
    (make-constructor #'list build-list-form list-static-infos wrap-list-static-info)))
@@ -905,7 +903,7 @@
   (repetition-transformer
    (make-constructor #:repetition? #t
                      #'treelist build-treelist-form treelist-static-infos wrap-treelist-static-info
-                     #:convert-rep #'list->treelist)))
+                     #:convert-rep #'list->treelist/optimize)))
 (define-repetition-syntax PairList
   (repetition-transformer
    (make-constructor #:repetition? #t
@@ -913,15 +911,22 @@
 
 (define-for-syntax (parse-list-expression stx)
   (parse-*list-form stx build-treelist-form treelist-static-infos wrap-treelist-static-info
-                    #:convert-rep #'list->treelist
+                    #:convert-rep #'list->treelist/optimize
                     #:repetition? #f
                     #:span-form-name? #f))
 
 (define-for-syntax (parse-list-repetition stx)
   (parse-*list-form stx build-treelist-form treelist-static-infos wrap-treelist-static-info
-                    #:convert-rep #'list->treelist
+                    #:convert-rep #'list->treelist/optimize
                     #:repetition? #t
                     #:span-form-name? #f))
+
+(define-syntax (list->treelist/optimize stx)
+  (syntax-parse stx
+    #:literals (treelist->list)
+    [(_ (treelist->list t)) #'t]
+    [(_ e) #'(list->treelist e)]
+    [_ #'list->treelist]))
 
 (define (length-at-least v len)
   (or (eqv? len 0)
