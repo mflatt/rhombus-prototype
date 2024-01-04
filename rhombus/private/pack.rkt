@@ -511,7 +511,7 @@
                             [(procedure? who) (proc-name who)]
                             [else who])
                           rhombus-realm
-                          "cannot coerce Listable to syntax"
+                          "cannot coerce list to syntax"
                           "list" r))
 
 (define (cannot-coerce-empty-list who r)
@@ -520,7 +520,7 @@
                             [(procedure? who) (proc-name who)]
                             [else who])
                           rhombus-realm
-                          "cannot coerce empty Listable to group syntax"))
+                          "cannot coerce empty list to group syntax"))
 
 (define (cannot-coerce-pair who r)
   (raise-arguments-error* (if (syntax? who) (syntax-e who) who) rhombus-realm

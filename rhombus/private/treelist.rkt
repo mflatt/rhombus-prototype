@@ -1,5 +1,6 @@
 #lang racket/base
-(require (for-syntax racket/base)
+(require (for-syntax racket/base
+                     syntax/for-body)
          racket/fixnum
          racket/vector
          racket/hash-code
@@ -26,7 +27,14 @@
          treelist->list
          list->treelist
          in-treelist
+         for/treelist
+         for*/treelist
          chaperone-treelist)
+
+(module+ unsafe
+  (provide unsafe-root-add
+           (rename-out [empty-node unsafe-empty-root]
+                       [treelist unsafe-treelist])))
 
 (#%declare #:unsafe)
 
@@ -187,7 +195,36 @@
                    (values (node-ref node node-pos) node (fx+ node-pos 1))))])
            #t
            #t
-           ((fx+ pos 1) next-node next-node-pos))]])))
+           ((fx+ pos 1) next-node next-node-pos))]]
+      [_ #f])))
+
+(define-syntax (for/treelist stx)
+  (syntax-case stx ()
+    [(_ binds body0 body ...)
+     (with-syntax ([((pre-body ...) (post-body ...)) (split-for-body stx #'(body0 body ...))])
+       #'(for/fold/derived #,stx ([root empty-node] [size 0] [height 0]
+                                                    #:result (if (fx= size 0)
+                                                                 empty-treelist
+                                                                 (treelist root size height)))
+                           binds
+           pre-body ...
+           (unsafe-root-add root size height
+                            (let ()
+                              post-body ...))))]))
+
+(define-syntax (for*/treelist stx)
+  (syntax-case stx ()
+    [(_ binds body0 body ...)
+     (with-syntax ([((pre-body ...) (post-body ...)) (split-for-body stx #'(body0 body ...))])
+       #'(for*/fold/derived #,stx ([root empty-node] [size 0] [height 0]
+                                                     #:result (if (fx= size 0)
+                                                                  empty-treelist
+                                                                  (treelist root size height)))
+                            binds
+           pre-body ...
+           (unsafe-root-add root size height
+                            (let ()
+                              post-body ...))))]))
 
 (define (in-treelist/proc tl)
   ;; Slower strategy than the inline version, but the
@@ -385,6 +422,16 @@
                       (fx+ size 1)
                       (fx+ height 1)))])]))
 
+(define (unsafe-root-add root size height el)
+  ;; similar to `treelist-add`, used for `for/treelist`
+  (define new-root (build root height el))
+  (if new-root
+      (values new-root (fx+ size 1) height)
+      (values (Node (vector root
+                            (new-branch el height)))
+              (fx+ size 1)
+              (fx+ height 1))))
+
 (define (treelist->vector tl)
   (check-treelist 'treelist->vector tl)
   (for/vector #:length (treelist-size tl) ([el (in-treelist tl)])
@@ -394,25 +441,28 @@
   ;; build a dense tree of vectors directly
   (unless (vector? vec) (raise-argument-error 'vector->treelist "vector?" vec))
   (define size (vector*-length vec))
-  (define-values (root height)
-    (cond
-      [(size . fx<= . MAX_WIDTH) (values (Node vec) 0)]
-      [else
-       (define height (fx- (fxquotient (fx+ (integer-length (fx- size 1)) BITS -1) BITS) 1))
-       (values
-        (let loop ([start 0] [height height])
-          (cond
-            [(fx= height 0)
-             (Node (vector*-copy vec start (fxmin size (fx+ start MAX_WIDTH))))]
-            [else
-             (define width (fxlshift MAX_WIDTH (fx* height BITS)))
-             (define end (fxmin size (fx+ width start)))
-             (define step (fxrshift width BITS))
-             (define len (fxquotient (fx+ (fx- end start) (fx- step 1)) step))
-             (Node (for/vector #:length len ([start (in-range start end step)])
-                      (loop start (fx- height 1))))]))
-        height)]))
-  (treelist root size height))
+  (cond
+    [(fx= size 0) empty-treelist]
+    [else
+     (define-values (root height)
+       (cond
+         [(size . fx<= . MAX_WIDTH) (values (Node vec) 0)]
+         [else
+          (define height (fx- (fxquotient (fx+ (integer-length (fx- size 1)) BITS -1) BITS) 1))
+          (values
+           (let loop ([start 0] [height height])
+             (cond
+               [(fx= height 0)
+                (Node (vector*-copy vec start (fxmin size (fx+ start MAX_WIDTH))))]
+               [else
+                (define width (fxlshift MAX_WIDTH (fx* height BITS)))
+                (define end (fxmin size (fx+ width start)))
+                (define step (fxrshift width BITS))
+                (define len (fxquotient (fx+ (fx- end start) (fx- step 1)) step))
+                (Node (for/vector #:length len ([start (in-range start end step)])
+                                  (loop start (fx- height 1))))]))
+           height)]))
+     (treelist root size height)]))
 
 (define (treelist->list tl)
   (check-treelist 'treelist->list tl)
@@ -421,7 +471,9 @@
 
 (define (list->treelist lst)
   (unless (list? lst) (raise-argument-error 'list->treelist "list?" lst))
-  (vector->treelist (list->vector lst)))
+  (if (null? lst)
+      empty-treelist
+      (vector->treelist (list->vector lst))))
 
 (define (treelist-length tl)
   (check-treelist 'treelist-length tl)

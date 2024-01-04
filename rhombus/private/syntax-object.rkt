@@ -322,9 +322,9 @@
   (unless (and (pair? l) (list? l))
     (raise-argument-error* who rhombus-realm "NonemptyListable" l)))
 
-(define/arity (Syntax.make_group v [ctx-stx #f])
+(define/arity (Syntax.make_group v-in [ctx-stx #f])
   #:static-infos ((#%call-result #,syntax-static-infos))
-  (define v (if (listable? v) (to-list v) v))
+  (define v (if (listable? v-in) (to-list #f v-in) v-in))
   (check-nonempty-list who v)
   (define terms (let loop ([es (to-list #f v)])
                   (cond

@@ -1064,9 +1064,10 @@
                  [args (for/list ([i (in-range n)]
                                   [arg (in-list (cdr one-args))])
                          arg)]
-                 [rest-args (and rsts (list-ref one-args (add1 n)))]
+                 [rest-args (and rsts
+                                 #`(to-list '#,amp #,(list-ref one-args (add1 n))))]
                  [kwrest-args (and kwrsts (list-ref one-args (+ n 1 (if rsts 1 0))))])
-            ;; returns expression plus static infors for result elements
+            ;; returns expression plus static infos for result elements
             (k one-rator args (or rest-args #''()) kwrest-args
                (lambda (key)
                  (syntax-parse rator

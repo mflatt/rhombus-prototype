@@ -81,7 +81,7 @@
 
 (define-syntax (define-map stx)
   (syntax-parse stx
-    [(_ Map map
+    [(_ Map for/treelist
         (~optional (~seq #:static-infos static-infos)))
      #:with method-name (datum->syntax #'Map (string->symbol (format "Function.~a" (syntax-e #'Map))))
      #'(define/method method-name
@@ -91,19 +91,17 @@
             (check-proc who fn)
             (check-list who lst)
             (check-proc-arity who fn 1)
-            (list->treelist
-             (for/list ([e (in-treelist lst)])
-               (fn e)))]
+            (for/treelist ([e (in-treelist lst)])
+              (fn e))]
            [(fn lst1 lst2)
             (check-proc who fn)
             (check-list who lst1)
             (check-list who lst2)
             (check-list-length who fn lst1 lst2)
             (check-proc-arity who fn 2)
-            (list->treelist
-             (for/list ([e1 (in-treelist lst1)]
-                        [e2 (in-treelist lst2)])
-               (fn e1 e2)))]
+            (for/treelist ([e1 (in-treelist lst1)]
+                           [e2 (in-treelist lst2)])
+              (fn e1 e2))]
            [(fn lst1 . lsts)
             (check-proc who fn)
             (check-list who lst1)
@@ -111,16 +109,15 @@
               (check-list who lst)
               (check-list-length who fn lst1 lst))
             (check-proc-arity who fn (add1 (length lsts)))
-            (list->treelist
-             (for/list ([i (in-range (treelist-length lst1))])
-               (apply fn
-                      (treelist-ref lst1 i)
-                      (for/list ([lst (in-list lsts)])
-                        (treelist-ref lst i)))))]))]))
+            (for/treelist ([i (in-range (treelist-length lst1))])
+              (apply fn
+                     (treelist-ref lst1 i)
+                     (for/list ([lst (in-list lsts)])
+                       (treelist-ref lst i))))]))]))
 
-(define-map map map
-  #:static-infos ((#%call-result #,list-static-infos)))
-(define-map for_each for-each)
+(define-map map for/treelist
+  #:static-infos ((#%call-result #,treelist-static-infos)))
+(define-map for_each for)
 
 (define-for-syntax (wrap-function-static-info expr)
   (wrap-static-info* expr function-static-infos))

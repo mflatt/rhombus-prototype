@@ -51,7 +51,7 @@ check:
     '$final $data'
   expr.macro 'build_finish [$count, $wrap, $step, $break, $final, $finish, $data]':
     'values($finish $data, $count + 1)'
-  for AndCount(List):
+  for AndCount(PairList):
     each i: 0..3
     i
-  ~is values([0, 1, 2], 3)
+  ~is values(PairList[0, 1, 2], 3)

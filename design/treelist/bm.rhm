@@ -39,6 +39,16 @@ bm "List.add":
     for values (l = []) (i: 0..N):
       List.add(l, i)
 
+bm "PairList.for":
+  for values(r = #false) (i: 0..M):
+    for PairList (i: 0..N):
+      i
+
+bm "List.for":
+  for values(r = #false) (i: 0..M):
+    for List (i: 0..N):
+      i
+
 bm "TreeList.cons":
   for values(r = #false) (i: 0..M):
     for values (l = TreeList.empty) (i: 0..N):

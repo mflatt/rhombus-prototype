@@ -5,6 +5,7 @@
                      "tag.rkt")
          racket/vector
          "treelist.rkt"
+         (submod "treelist.rkt" unsafe)
          "provide.rkt"
          "composite.rkt"
          "expression.rkt"
@@ -260,8 +261,8 @@
 (define/arity (List.iota n)
   #:static-infos ((#%call-result #,treelist-static-infos))
   (check-nonneg-int who n)
-  (list->treelist (for/list ([i (in-range n)])
-                    i)))
+  (for/treelist ([i (in-range n)])
+    i))
 
 (define/arity (PairList.iota n)
   #:static-infos ((#%call-result #,list-static-infos))
@@ -332,17 +333,17 @@
       #'values
       (if (= 0 args-n) #'values #'cdr)))
 
-(define-for-syntax (make-binding generate-binding make-rest-selector)
+(define-for-syntax (make-binding generate-binding make-rest-selector static-infos)
   (binding-transformer
    (lambda (stx)
      (syntax-parse stx
        [(form-id (_::parens arg ...) . tail)
-        (parse-*list-binding stx generate-binding make-rest-selector)]
+        (parse-*list-binding stx generate-binding make-rest-selector static-infos)]
        [(form-id (_::brackets arg ...) . tail)
-        (parse-*list-binding stx generate-binding make-rest-selector)]))))
+        (parse-*list-binding stx generate-binding make-rest-selector static-infos)]))))
 
 (define-for-syntax (parse-list-binding stx)
-  (parse-*list-binding stx generate-treelist-binding make-treelist-rest-selector))
+  (parse-*list-binding stx generate-treelist-binding make-treelist-rest-selector treelist-static-infos))
 
 (define-annotation-constructor (List List.of)
   ()
@@ -476,16 +477,23 @@
    (lambda (stx)
      (syntax-parse stx
        [(_ . tail)
-        (values (reducer/no-break #'build-identity
-                                  #'([accum empty-treelist])
+        (values (reducer/no-break #'build-from-root
+                                  #'([root unsafe-empty-root]
+                                     [size 0]
+                                     [height 0])
                                   #'build-treelist-accum
                                   treelist-static-infos
-                                  #'accum)
+                                  #'(root size height))
                 #'tail)]))))
 
 (define-syntax (build-treelist-accum stx)
   (syntax-parse stx
-    [(_ accum e) #'(treelist-add accum e)]))
+    [(_ (root size height) e) #'(unsafe-root-add root size height e)]))
+
+(define-syntax (build-from-root stx)
+  (syntax-parse stx
+    [(_ _ e) #'(let-values ([(root size height) e])
+                 (unsafe-treelist root size height))]))
 
 (define-reducer-syntax PairList
   (reducer-transformer
@@ -697,14 +705,14 @@
 
 ;; parses a list pattern that has already been checked for use with a
 ;; suitable `parens` or `brackets` form
-(define-for-syntax (parse-*list-binding stx generate-binding make-rest-selector)
+(define-for-syntax (parse-*list-binding stx generate-binding make-rest-selector static-infos)
   (syntax-parse stx
     #:datum-literals (group)
     [(form-id (_ arg ... (group _::&-bind rest-arg ...)) . tail)
      (define args (syntax->list #'(arg ...)))
      (define len (length args))
      (generate-binding #'form-id len #t args #'tail
-                       #`(#,group-tag rest-bind #,list-static-infos
+                       #`(#,group-tag rest-bind #,static-infos
                           (#,group-tag rest-arg ...))
                        (make-rest-selector len #f)
                        #f)]
@@ -763,8 +771,8 @@
    #`(#,form-id (parens . #,args) . #,tail)
    rest-arg))
 
-(define-binding-syntax List (make-binding generate-treelist-binding make-treelist-rest-selector))
-(define-binding-syntax PairList (make-binding generate-list-binding make-list-rest-selector))
+(define-binding-syntax List (make-binding generate-treelist-binding make-treelist-rest-selector treelist-static-infos))
+(define-binding-syntax PairList (make-binding generate-list-binding make-list-rest-selector list-static-infos))
 
 (define-for-syntax (parse-*list-form stx
                                      build-form
