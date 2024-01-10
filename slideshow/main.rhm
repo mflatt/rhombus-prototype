@@ -1,0 +1,223 @@
+#lang rhombus/static
+
+import:
+  rhombus/draw
+  pict:
+    expose Pict
+  lib("slideshow/main.rkt") as rkt
+  lib("pict/main.rkt") as rkt_pict
+  lib("racket/string.rkt")
+
+export:
+  Pict
+
+  // flattens nested lists in arguments:
+  slide
+
+  // special values recognized by `slide`
+  pause
+  alts
+
+  // finds all picts tat `slide` would (including flattening lists,
+  // and going into `alts`) to get the maximum pict width, then makes
+  // all picts that wide; use this to align a subsequence within `slide`
+  align
+
+  // these flatten nested lists of mixtures of strings and picts
+  // and convert only the strings, combining all with `beside`;
+  // so, they work well with `@` notation
+  t
+  bold
+  italic
+  tt
+  roman
+
+  // `ly` variants are syntactic forms that `parameterize`
+  // the argument expressions, so that `italic` can be nested in
+  // `boldly` to get bold italic, etc.
+  boldly
+  italicly
+  ttly
+  romanly
+
+  // like `above`, but with the current line separation
+  lines
+
+  // these flatten nested lists, so they work well with `@` notation;
+  // unlike Racket slideshow, the default is that the result pict is
+  // only as wide as needed, with the intent that `align` is used to
+  // make blocks of paragraphs and bullets
+  para
+  item
+  subitem
+
+  interactive
+
+// Rhombus should have a short way to write this, and one that
+// gives current_font() the right static info
+def current_font = Parameter.make(draw.Font(~size: 32),
+                                  ~guard:
+                                    block:
+                                      fun current_font(font :: draw.Font):
+                                        font
+                                      current_font)
+
+
+fun flatten_string(who, c, font) :~ Pict:
+  match c
+  | s :: String: pict.text(s, ~font: font)
+  | p :: Pict: p
+  | [c, ...]: Pict.from_handle(rkt.#{htl-append}(flatten_string(who, c, font).handle, ...))
+  | ~else:
+      error(who, "bad text content: " +& to_string(c, ~mode: #'expr))
+
+fun t(~font: font :: draw.Font = current_font(),
+      s, ...) :~ Pict:
+  flatten_string(#'t, [s, ...], font)
+
+fun current_font_as_bold():
+   (current_font() :~ draw.Font) with (weight = #'bold)
+
+fun current_font_as_italic():
+   (current_font() :~ draw.Font) with (style = #'italic)
+
+fun current_font_as_tt():
+   (current_font() :~ draw.Font) with (kind = #'modern)
+
+fun current_font_as_roman():
+   (current_font() :~ draw.Font) with (kind = #'roman)
+
+macro 'boldly($arg, ...)':
+  '(parameterize { current_font: current_font_as_bold() }:
+      t($arg, ...)) :~ Pict'
+
+macro 'italicly($arg, ...)':
+  '(parameterize { current_font: current_font_as_italic() }:
+      t($arg, ...)) :~ Pict'
+
+macro 'ttly($arg, ...)':
+  '(parameterize { current_font: current_font_as_tt() }:
+      t($arg, ...)) :~ Pict'
+
+macro 'romanly($arg, ...)':
+  '(parameterize { current_font: current_font_as_roman() }:
+      t($arg, ...)) :~ Pict'
+
+fun bold(a, ...) :~ Pict:
+  boldly(a, ...)
+
+fun italic(a, ...) :~ Pict:
+  italicly(a, ...)
+
+fun tt(a, ...) :~ Pict:
+  ttly(a, ...)
+
+fun roman(a, ...) :~ Pict:
+  romanly(a, ...)
+
+// ----------------------------------------
+
+class Pause()
+
+class Alts(elems :~ List):
+  opaque
+
+def pause = Pause()
+
+// when `convert` is true, converts to Racket `slide` form
+fun flatten_slide_content(who, c, convert) :~ List:
+  match c
+  | p :: Pict: [if convert | p.handle | p]
+  | p :: satisfying(rkt_pict.#{pict?}): [if convert | p | Pict.from_handle(p)]
+  | [c, ...]: List.append(flatten_slide_content(who, c, convert), ...)
+  | p :: Pause: [if convert | #'next | p]
+  | Alts([elem, ...]):
+      if convert
+      | [#'alts, PairList[PairList[& flatten_slide_content(who, elem, convert)], ...]]
+      | [c]
+  | ~else:
+      error(who, "bad slide content: " +& to_string(c, ~mode: #'expr))
+
+fun alts(alt, ...):
+  // flattens for checking, but does not convert
+  Alts([flatten_slide_content(#'alts, alt, #false),
+        ...])
+
+fun slide(~title: title :: maybe(String || Pict) = #false,
+          ~layout: layout :: matching(#'auto || #'center || #'top || #'tall) = #'auto,      
+          content, ...):
+  rkt.slide(~title: title,
+            ~layout: layout,
+            // conversion happens here:
+            & flatten_slide_content(#'slide, [content, ...], #true))
+
+// flattens, but does not convert
+fun align(~align: dir :: matching(#'left || #'center || #'right) = #'left,
+          content, ...):
+  let cs = flatten_slide_content(#'align, [content, ...], #false)
+  let width:
+    recur loop (cs :~ List = cs):
+      for values(w = 0) (c: cs):
+        match c
+        | p :: Pict: math.max(w, p.width)
+        | a :: Alts:
+            for values(w = 0) (elem: a.elems):
+              math.max(w, loop(elem))
+        | ~else: w
+  recur loop (cs :~ List = cs):
+    for List (c: cs):
+        match c
+        | p :: Pict:
+            match dir
+            | #'left: p.inset(0, 0, width - p.width, 0)
+            | #'center: p.inset((width - p.width) / 2, 0)
+            | #'right: p.inset(width - p.width, 0, 0, 0)
+        | a :: Alts:
+            Alts(for List (elem: a.elems):
+                   loop(elem))
+        | ~else: c
+
+// ----------------------------------------
+
+fun lines(~align: align :: matching(#'left || #'center || #'right) = #'left,
+          p :: Pict, ...) :~ Pict:
+  pict.above(~sep: rkt.#{current-line-sep}(),
+             ~align: align,
+             p, ...)
+
+def current_para_width = rkt.#{current-para-width}
+
+fun flatten_para_content(who, c) :~ List:
+  match c
+  | s :: String: [& string.#{string-split}(s)]
+  | p :: Pict: [p.handle]
+  | [c, ...]: List.append(flatten_para_content(who, c), ...)
+  | ~else:
+      error(who, "bad paragraph content: " +& to_string(c, ~mode: #'expr))
+
+
+fun para(~width: width = current_para_width(),
+         ~at_max: at_max = #false,
+         content, ...) :~ Pict:
+  Pict.from_handle(rkt.para(#{#:fill?}: at_max,
+                            ~width: width,
+                            & flatten_para_content(#'slide, [content, ...])))
+
+fun item(~width: width = current_para_width(),
+         ~at_max: at_max = #false,
+         content, ...) :~ Pict:
+  Pict.from_handle(rkt.item(#{#:fill?}: at_max,
+                            ~width: width,
+                            & flatten_para_content(#'slide, [content, ...])))
+
+fun subitem(~width: width = current_para_width(),
+            ~at_max: at_max = #false,
+            content, ...) :~ Pict:
+  Pict.from_handle(rkt.subitem(#{#:fill?}: at_max,
+                               ~width: width,
+                               & flatten_para_content(#'slide, [content, ...])))
+
+// ----------------------------------------
+
+fun interactive(p :: Pict, callback :: Function.of_arity(1)) :~ Pict:
+  Pict.from_handle(rkt.interactive(p.handle, callback))
