@@ -1,0 +1,224 @@
+#lang rhombus/static/and_meta
+
+import:
+  draw
+  pict:
+    expose Pict
+  pict/text
+  slideshow/config
+  lib("slideshow/main.rkt") as rkt
+  lib("pict/main.rkt") as rkt_pict
+  lib("slideshow/play.rkt") as rkt_play
+  lib("racket/string.rkt")
+
+export:
+  all_from(.pict)
+  all_from(.text)
+
+  SlideLayout
+
+  // flattens nested lists in arguments:
+  slide
+  slide_content
+
+  interactive
+
+  start_at_recent_slide
+  retract_recent_slide
+
+namespace slide:
+  export:
+    next
+    alts
+    align
+    in_align
+
+// ----------------------------------------
+
+class Next():
+  implements Printable
+  override describe(mode, recur):
+    "slide.next"
+def next = Next()
+
+class Alts(alts :~ List.of(List)):
+  implements Printable
+  override describe(mode, recur):
+    PrintDesc.list("slide.alts(", alts.map(recur), ")")
+
+fun alts(contents, ...):
+  Alts([flatten_slide_content(#'Alts, contents),
+        ...])
+
+fun gap(): 24
+
+fun flatten_slide_content(who, c, ~in_align = #false) :~ List:
+  match c
+  | [c, ...]: List.append(flatten_slide_content(who, c, ~in_align: in_align), ...)
+  | p :: pict.NothingPict: []
+  | p :: Pict: [p]
+  | p :: satisfying(rkt_pict.#{pict?}): [Pict.from_handle(p)]
+  | p :: Next: [p]
+  | Alts([]): []
+  | Alts([alt]): alt
+  | p :: Alts: [p]
+  | (p :: InAlign) when in_align: [p]
+  | ~else:
+      error(who, "bad slide content: " +& to_string(c, ~mode: #'expr))
+
+fun next_to_anim(contents) :~ Pict:
+  recur loop (contents = contents, accum :~ List = []) :~ Pict:
+    match contents
+    | []:
+        pict.stack(~sep: gap(), & accum)
+    | [p :: Next, & contents]:
+        let pre = pict.stack(~sep: gap(), & accum)
+        let post = loop(contents, [])
+        pict.stack(~sep: gap(),
+                   pre.sustain(post.duration),
+                   post.time_pad(~before: pre.duration))
+    | [Alts([alt, ...]), & contents]:
+        let alts = [next_to_anim(alt), ...]
+        let p = pict.overlay(~vert: #'top,
+                             ~duration: #'pad,
+                             & pict.sequential(& alts))
+        let pre = pict.stack(~sep: gap(), & accum)
+        loop(contents, [pre, p])
+    | [c, & contents]:
+        loop(contents, accum.add(c))
+
+annot.macro 'SlideLayout': 'matching(#'auto || #'center || #'top || #'tall)'
+
+fun slide(~title: title :: maybe(String || Pict) = #false,
+          ~name: name = title,
+          ~layout: layout :: SlideLayout = #'auto,
+          ~intro: intro :: NonnegInt = 0,
+          content, ...):
+  let p = next_to_anim(flatten_slide_content(#'slide, [content, ...]))
+  match title
+  | _ :: False || String || pict.StaticPict:
+      let title:
+        match title
+        | _ :: pict.NothingPict: #false
+        | p :: Pict: p.snapshot(0, 0).handle
+        | ~else: title
+      when intro == 1
+      | rkt_play.#{play-n}(~title: title,
+                           ~name: if name is_a String | name | to_string(name),
+                           ~layout: layout,
+                           #{#:skip-first?}: #true,
+                           #{#:skip-last?}: #true,
+                           fun (n): p.snapshot(-1, n).handle)
+      for (i: 0..p.duration):
+        let extent = p.epoch_extent(i)
+        if extent .= 0
+        | rkt.slide(~title: title,
+                    ~layout: layout,
+                    & (if p == pict.nothing
+                       | []
+                       | [p.snapshot(i, 0).handle]))
+        | rkt_play.#{play-n}(~title: title,
+                             ~name: if name is_a String | name | to_string(name),
+                             ~layout: layout,                         
+                             ~delay: extent / rkt_play.#{current-play-steps}(),
+                             #{#:skip-last?}: #true,
+                             fun (n): p.snapshot(i, n).handle)
+  | ~else:
+      // use slide_content to combine an animated title
+      slide(~name: name,
+            ~layout: #'top,
+            ~intro: intro,
+            slide_content(~title: title,
+                          ~full: #true,
+                          ~layout: layout,
+                          p))
+
+fun slide_content(~title: title :: maybe(String || Pict) = #false,
+                  ~full: full = title && #true,
+                  ~layout: layout :: SlideLayout = #'auto,
+                  content, ...) :~ Pict:
+  let p = next_to_anim(flatten_slide_content(#'slide_content, [content, ...]))
+  if full
+  | assemble_slide(title, layout, p)
+  | p
+
+fun assemble_slide(title, layout, p) :~ Pict:  
+  match [title, p]
+  | [_ :: pict.NothingPict, _]:
+      assemble_slide(#false, layout, p)
+  | [_ :: pict.StaticPict || False || String, p :: pict.StaticPict]:
+      let v_sep = if layout == #'tall | gap() | 2*gap()
+      let back :~ Pict:
+        if title
+        | Pict.from_handle(rkt.#{get-titleless-page}()).pad(~top: if layout == #'tall | 0 | -gap())
+        | Pict.from_handle(rkt.#{get-full-page}())
+      let p:
+        pict.overlay(~vert: match layout
+                            | #'tall: #'top
+                            | #'auto:
+                                if p.height > back.height | #'top | #'center
+                            | ~else: layout,
+                     back,
+                     p)
+      let p = Pict.from_handle(rkt.#{current-slide-assembler}()(match title
+                                                                | title :: Pict: title.snapshot().handle
+                                                                | ~else: title,
+                                                                v_sep,
+                                                                p.snapshot().handle))
+      pict.overlay(p, Pict.from_handle(rkt.#{get-full-page}()))
+  | [_ :: False || String, _]:
+      pict.animate_map([p],
+                       ~combine: fun ([p]): assemble_slide(title, layout, p),
+                       ~non_sustain_combine: fun ([p]): assemble_slide(title, layout, p).ghost())
+  | ~else:
+      pict.animate_map([title, p],
+                       ~combine: fun ([title, p]): assemble_slide(title, layout, p),
+                       ~non_sustain_combine: fun ([title, p]): assemble_slide(title, layout, p).ghost())
+                        
+// ----------------------------------------
+
+class InAlign(dir, cs :: List)
+
+fun align(~horiz: dir :: matching(#'left || #'center || #'right) = #'left,
+          content, ...):
+  let cs = flatten_slide_content(#'align, [content, ...], ~in_align: #true)
+  let width:
+    recur loop (cs :: List = cs):
+      for values(w = 0) (c: cs):
+        match c
+        | p :: Pict: math.max(w, p.width)
+        | Alts([alt, ...]):
+            math.max(loop(alt), ...)
+        | InAlign(dir, cs):
+            math.max(w, loop(cs))
+        | ~else: w
+  recur loop (dir = dir, cs :: List = cs):
+    List.append(
+      & for List (c: cs):
+        match c
+        | p :: Pict:
+            [match dir
+             | #'left: p.pad(~right: width - p.width)
+             | #'center: p.pad(~horiz: (width - p.width) / 2)
+             | #'right: p.pad(~left: width - p.width)]
+        | Alts([alt, ...]):
+            [Alts([loop(dir, alt), ...])]
+        | InAlign(dir, cs):
+            loop(dir, cs)
+        | ~else: [c]
+    )
+
+fun in_align(~horiz: dir :: matching(#'left || #'center || #'right) = #'left,
+             content, ...):
+  InAlign(dir, flatten_slide_content(#'in_align, [content, ...], ~in_align: #true))
+
+// ----------------------------------------
+
+fun interactive(p :: Pict, callback :: Function.of_arity(1)) :~ Pict:
+  Pict.from_handle(rkt.interactive(p.snapshot().handle, callback))
+
+fun start_at_recent_slide():
+  rkt.#{start-at-recent-slide}()
+
+fun retract_recent_slide():
+  rkt.#{retract-most-recent-slide}()
