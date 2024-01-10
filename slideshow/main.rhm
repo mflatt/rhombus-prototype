@@ -1,0 +1,441 @@
+#lang rhombus/static
+
+import:
+  rhombus/draw
+  pict:
+    expose Pict
+  lib("slideshow/main.rkt") as rkt
+  lib("pict/main.rkt") as rkt_pict
+  lib("slideshow/play.rkt") as rkt_play
+  lib("racket/string.rkt")
+
+export:
+  Pict
+
+  // flattens nested lists in arguments:
+  slide
+  slide_content
+
+  pause
+  alts
+  align
+
+  // these flatten nested lists of mixtures of strings and picts
+  // and convert only the strings, combining all with `beside`;
+  // so, they work well with `@` notation
+  t
+  bold
+  italic
+  tt
+  roman
+  title
+  subscript
+
+  // `ly` variants are syntactic forms that `parameterize`
+  // the argument expressions, so that `italic` can be nested in
+  // `boldly` to get bold italic, etc.
+  boldly
+  italicly
+  ttly
+  romanly
+  titlely
+
+  // like `above`, but with the current line separation
+  lines
+
+  // these flatten nested lists, so they work well with `@` notation;
+  // unlike Racket slideshow, the default is that the result pict is
+  // only as wide as needed, with the intent that `align` is used to
+  // make blocks of paragraphs and bullets
+  para
+  item
+  subitem
+
+  verbatim
+
+  table
+
+  interactive
+
+  start_at_recent_slide
+  retract_recent_slide
+
+// Rhombus should have a short way to write this, and one that
+// gives current_font() the right static info
+def current_font = Parameter.make(block:
+                                    let init = rkt.#{current-main-font}()
+                                    fun find_one(a, pred):
+                                      match a
+                                      | Pair(a, d): find_one(a, pred) || find_one(d, pred)
+                                      | ~else: pred(a) && a
+                                    draw.Font(~size: 32,
+                                              ~name: find_one(init, fun (x): x is_a String),
+                                              ~kind: find_one(init, fun (x): x is_a Symbol) || #'default),
+                                  ~guard:
+                                    block:
+                                      fun current_font(font :: draw.Font):
+                                        font
+                                      current_font)
+
+fun flatten_string(who, c, font) :~ Pict:
+  match c
+  | s :: String: pict.text(s, ~font: font)
+  | p :: Pict: p
+  | [c, ...]: pict.beside(~valign: #'topline, flatten_string(who, c, font), ...)
+  | ~else:
+      error(who, "bad text content: " +& to_string(c, ~mode: #'expr))
+
+fun t(~font: font :: draw.Font = current_font(),
+      s, ...) :~ Pict:
+  flatten_string(#'t, [s, ...], font)
+
+fun current_font_as_bold():
+   (current_font() :~ draw.Font) with (weight = #'bold)
+
+fun current_font_as_italic():
+   (current_font() :~ draw.Font) with (style = #'italic)
+
+fun current_font_as_tt():
+   (current_font() :~ draw.Font) with (kind = #'modern, name = #false)
+
+fun current_font_as_roman():
+   (current_font() :~ draw.Font) with (kind = #'roman, name = #false)
+
+fun current_font_as_title():
+   (current_font() :~ draw.Font) with (size = 40)
+
+macro 'boldly($arg, ...)':
+  '(parameterize { current_font: current_font_as_bold() }:
+      t($arg, ...)) :~ Pict'
+
+macro 'italicly($arg, ...)':
+  '(parameterize { current_font: current_font_as_italic() }:
+      t($arg, ...)) :~ Pict'
+
+macro 'ttly($arg, ...)':
+  '(parameterize { current_font: current_font_as_tt() }:
+      t($arg, ...)) :~ Pict'
+
+macro 'romanly($arg, ...)':
+  '(parameterize { current_font: current_font_as_roman() }:
+      t($arg, ...)) :~ Pict'
+
+macro 'titlely($arg, ...)':
+  '(parameterize { current_font: current_font_as_title() }:
+      t($arg, ...)) :~ Pict'
+
+fun bold(a, ...) :~ Pict:
+  boldly(a, ...)
+
+fun italic(a, ...) :~ Pict:
+  italicly(a, ...)
+
+fun tt(a, ...) :~ Pict:
+  ttly(a, ...)
+
+fun roman(a, ...) :~ Pict:
+  romanly(a, ...)
+
+fun title(a, ...) :~ Pict:
+  titlely(a, ...)
+
+fun subscript(arg, ...) :~ Pict:
+  let p = t(arg, ...)
+  p.lift(-15).scale(0.75)
+
+// ----------------------------------------
+
+class Pause():
+  implements Printable
+  override describe(mode, recur):
+    "pause"
+def pause = Pause()
+
+class Alts(alts :~ List.of(List)):
+  implements Printable
+  override describe(mode, recur):
+    PrintDesc.list("alts(", alts.map(recur), ")")
+
+fun alts(contents, ...):
+  Alts([flatten_slide_content(#'Alts, contents),
+        ...])
+
+fun gap(): 24
+
+fun flatten_slide_content(who, c) :~ List:
+  match c
+  | [c, ...]: List.append(flatten_slide_content(who, c), ...)
+  | p :: Pict: [p]
+  | p :: satisfying(rkt_pict.#{pict?}): [Pict.from_handle(p)]
+  | p :: Pause: [p]
+  | Alts([]): []
+  | Alts([alt]): alt
+  | p :: Alts: [p]
+  | ~else:
+      error(who, "bad slide content: " +& to_string(c, ~mode: #'expr))
+
+fun pause_to_anim(contents) :~ Pict:
+  recur loop (contents = contents, accum :~ List = []) :~ Pict:
+    match contents
+    | []:
+        pict.above(~sep: gap(), ~salign: #'sustain, & accum)
+    | [p :: Pause, & contents]:
+        let pre = pict.above(~sep: gap(), ~salign: #'sustain, & accum)
+        let post = loop(contents, [])
+        pict.above(~sep: gap(),
+                   pre.sustain(post.sustain_length),
+                   post.delay(pre.sustain_length))
+    | [Alts([alt, ...]), & contents]:
+        let alts = [pause_to_anim(alt), ...]
+        let p = pict.overlay(~valign: #'top,
+                             ~salign: #'ragged,
+                             & pict.sequential(& alts))
+        let pre = pict.above(~sep: gap(), ~salign: #'sustain, & accum)
+        loop(contents, [pre, p])
+    | [c, & contents]:
+        loop(contents, accum.add(c))
+
+fun slide(~title: title :: maybe(String || Pict) = #false,
+          ~layout: layout :: matching(#'auto || #'center || #'top || #'tall) = #'auto,      
+          content, ...):
+  let p = pause_to_anim(flatten_slide_content(#'slide, [content, ...]))
+  let title = match title | p :: Pict: p.snapshot(0, 0, MutableMap{}).handle | ~else: title
+  for (i: 0..p.sustain_length):
+    let duration = p.epoch_duration(i)
+    if duration .= 0
+    | rkt.slide(~title: title,
+                ~layout: layout,
+                & (if p == pict.nothing
+                   | []
+                   | [p.snapshot(i, 0, MutableMap{}).handle]))
+    | rkt_play.#{play-n}(~title: title,
+                         ~layout: layout,
+                         #{#:skip-last?}: #true,
+                         fun (n): p.snapshot(i, n, MutableMap{}).handle)
+
+fun slide_content(content, ...) :~ Pict:
+  pause_to_anim(flatten_slide_content(#'slide_content, [content, ...]))
+
+// ----------------------------------------
+
+fun align(~align: dir :: matching(#'left || #'center || #'right) = #'left,
+          content, ...):
+  let cs = flatten_slide_content(#'align, [content, ...])
+  let width:
+    recur loop (cs :~ List = cs):
+      for values(w = 0) (c: cs):
+        match c
+        | p :: Pict: math.max(w, p.width)
+        | a :: Alts:
+            for values(w = 0) (alt: a.alts):
+              math.max(w, loop(alt))
+        | ~else: w
+  recur loop (cs :~ List = cs):
+    for List (c: cs):
+      match c
+      | p :: Pict:
+          match dir
+          | #'left: p.inset(0, 0, width - p.width, 0)
+          | #'center: p.inset((width - p.width) / 2, 0)
+          | #'right: p.inset(width - p.width, 0, 0, 0)
+      | Alts([alt, ...]):
+          Alts([loop(alt), ...])
+      | ~else: c
+
+// ----------------------------------------
+
+fun lines(~halign: align :: matching(#'left || #'center || #'right) = #'left,
+          p :: Pict, ...) :~ Pict:
+  pict.above(~sep: rkt.#{current-line-sep}(),
+             ~halign: align,
+             p, ...)
+
+def current_para_width = rkt.#{current-para-width}
+
+fun flatten_para_content(who, c) :~ List:
+  match c
+  | s :: String:
+      let PairList[str, ...] = string.#{string-split}(s)
+      [rkt.para(#{#:fill?}: #false, str), ...]
+  | p :: Pict: [p.snapshot().handle]
+  | [c, ...]: List.append(flatten_para_content(who, c), ...)
+  | ~else:
+      error(who, "bad paragraph content: " +& to_string(c, ~mode: #'expr))
+
+
+fun para(~width: width = current_para_width(),
+         ~halign: align :: pict.HorizontalAlignment = #'left,
+         ~at_max: at_max = #false,
+         content, ...) :~ Pict:
+  parameterize { rkt.#{current-main-font}: draw.Font.handle(current_font()) }:
+    Pict.from_handle(rkt.para(#{#:fill?}: at_max,
+                              ~width: width,
+                              ~align: align,
+                              & flatten_para_content(#'slide, [content, ...])))
+
+fun item(~width: width = current_para_width(),
+         ~at_max: at_max = #false,
+         ~halign: align :: pict.HorizontalAlignment = #'left,
+         content, ...) :~ Pict:
+  parameterize { rkt.#{current-main-font}: draw.Font.handle(current_font()) }:
+    Pict.from_handle(rkt.item(#{#:fill?}: at_max,
+                              ~width: width,
+                              ~align: align,
+                              & flatten_para_content(#'slide, [content, ...])))
+
+fun subitem(~width: width = current_para_width(),
+            ~at_max: at_max = #false,
+            ~halign: align :: pict.HorizontalAlignment = #'left,
+            content, ...) :~ Pict:
+  parameterize { rkt.#{current-main-font}: draw.Font.handle(current_font()) }:
+    Pict.from_handle(rkt.subitem(#{#:fill?}: at_max,
+                                 ~width: width,
+                                 ~align: align,
+                                 & flatten_para_content(#'slide, [content, ...])))
+
+// ----------------------------------------
+
+fun flatten_content(who, c) :~ List:
+  match c
+  | s :: String: [s]
+  | p :: Pict: [p]
+  | [c, ...]: List.append(flatten_content(who, c), ...)
+  | ~else:
+      error(who, "bad content: " +& to_string(c, ~mode: #'expr))
+
+fun verbatim(content, ...) :~ Pict:
+  let content = flatten_content(#'verbatim, [content, ...])
+  let [row, ...]:
+    recur loop(content = content) :~ List:
+      match content
+      | []: []
+      | ["\n", & content]:
+          loop(content).insert(0, [])
+      | [p, & content]:
+          let rows = loop(content)
+          match rows
+          | []: [[p]]
+          | [row :~ List, & rows]: [row.insert(0, p), & rows]
+  fun tt_maybe_empty(row):
+    if row == [] | tt("") | tt(row)
+  lines(tt_maybe_empty(row), ...)
+
+// ----------------------------------------
+
+fun table(rows :: List.of(List),
+          ~halign: halign :: pict.HorizontalAlignment || List.of(pict.HorizontalAlignment) = #'left,
+          ~valign: valign :: pict.VerticalAlignment || List.of(pict.VerticalAlignment) = #'topline,
+          ~hsep: hsep :: Real || List.of(Real) = gap(),
+          ~vsep: vsep :: Real || List.of(Real) = rkt.#{current-line-sep}(),
+          ~inset: ins :: matching((_ :: Real) || [_ :: Real, _ :: Real] || [_ :: Real, _ :: Real, _ :: Real, _ :: Real]) = 0,
+          ~line: line :: maybe(String || pict.Color || matching(#'inherit)) = #false,
+          ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+          ~hline: hline :: maybe(String || pict.Color || matching(#'inherit)) = line,
+          ~hline_width: hline_width :: Real || matching(#'inherit) = line_width,
+          ~vline: vline :: maybe(String || pict.Color || matching(#'inherit)) = line,
+          ~vline_width: vline_width :: Real || matching(#'inherit) = line_width) :~ Pict:
+  let [[elem, ...], ...] = rows
+  fun convert(elem):
+    match elem
+    | elem :: String: t(elem).snapshot().handle
+    | elem :: Pict: elem.snapshot().handle
+  fun to_align(align):
+    match align
+    | [align, ...]:
+        PairList[to_align(align), ...]
+    | #'left:
+        rkt.#{lc-superimpose}
+    | #'right:
+        rkt.#{rc-superimpose}
+    | #'center:
+        rkt.#{cc-superimpose}
+    | #'top:
+        rkt.#{ct-superimpose}
+    | #'topline:
+        rkt.#{ctl-superimpose}
+    | #'baseline:
+        rkt.#{cbl-superimpose}
+    | #'bottom:
+        rkt.#{cb-superimpose}
+  let picts = PairList[convert(elem), ..., ...]
+  let row_length = rows[0].length()
+  let r = rkt.table(row_length,
+                    picts,
+                    to_align(halign),
+                    to_align(valign),
+                    if hsep is_a List | PairList[& hsep] | hsep,
+                    if vsep is_a List | PairList[& vsep] | vsep)
+  if !hline && !vline
+  | Pict.from_handle(r).inset(& if ins is_a List | ins | [ins])
+  | let picts = [& picts]
+    let col_length = rows.length()
+    let ws:
+      for List (i: 0 .. row_length):
+        let [p, ...]: for List (r: 0 .. col_length):
+                        picts[i + r * row_length]
+        math.max(rkt.#{pict-width}(p), ...)
+    let hs:
+      for List (i: 0 .. col_length):
+        let [p, ...]: for List (r: 0 .. row_length):
+                        picts[r + i * row_length]
+        math.max(rkt.#{pict-height}(p), ...)
+    let r: rkt.inset(r, & if ins is_a List | ins | [ins])
+    let (left_ins, top_ins): match ins
+                             | [l, t, _, _]: values(l, t)
+                             | [h, v]: values(h, v)
+                             | a: values(a, a)
+    let r:
+      if !vline
+      | r
+      | recur loop(r = r, i = 1, dx = left_ins):
+          if i == row_length
+          | r
+          |  let dx = dx + ws[i-1]
+             let sep:
+               match hsep:
+               | hsep :: List: if hsep.length() > i-1
+                               | hsep[i-1]
+                               | hsep[hsep.length() - 1]
+               | else: hsep
+             loop(rkt.#{pin-under}(r,
+                                   dx + sep / 2, 0,
+                                   pict.line(~dy: rkt.#{pict-height}(r),
+                                             ~color: vline,
+                                             ~width: vline_width).snapshot().handle),
+                  i + 1,
+                  dx + sep)
+    let r:
+      if !hline
+      | r
+      | recur loop(r = r, i = 1, dy = top_ins):
+          if i == col_length
+          | r
+          |  let dy = dy + hs[i-1]
+             let sep:
+               match vsep:
+               | vsep :: List: if vsep.length() > i-1
+                               | vsep[i-1]
+                               | vsep[vsep.length() - 1]
+               | else: vsep
+             loop(rkt.#{pin-under}(r,
+                                   0, dy + sep / 2,
+                                   pict.line(~dx: rkt.#{pict-width}(r),
+                                             ~color: hline,
+                                             ~width: hline_width).snapshot().handle),
+                  i + 1,
+                  dy + sep)
+    let p = Pict.from_handle(r)
+    if line
+    | pict.rectangle(~around: p, ~line: line, ~line_width: line_width)
+    | p
+
+// ----------------------------------------
+
+fun interactive(p :: Pict, callback :: Function.of_arity(1)) :~ Pict:
+  Pict.from_handle(rkt.interactive(p.snapshot().handle, callback))
+
+fun start_at_recent_slide():
+  rkt.#{start-at-recent-slide}()
+
+fun retract_recent_slide():
+  rkt.#{retract-most-recent-slide}()

@@ -1,0 +1,818 @@
+#lang rhombus/static/and_meta
+
+import:
+  rhombus/draw:
+    expose Color
+  lib("pict/main.rkt") as rkt:
+    expose #{pict?}
+  lib("pict/balloon2.rkt") as bln
+  lib("file/convertible.rkt") as fileconv
+  lib("pict/convert.rkt") as pictconv
+
+export:
+  Color
+  HorizontalAlignment
+  VerticalAlignment
+  EpochAlignment
+  SustainAlignment
+
+  Pict
+
+  nothing
+
+  text
+  
+  beside
+  above
+  overlay
+  cellophane
+
+  blank
+  line
+  rectangle
+  square
+  ellipse
+  circle
+  polygon
+  bitmap
+
+  Find
+  connect
+  pin
+
+  balloon
+  balloon_note
+
+module private:
+  export:
+    set_convert
+    _Pict
+    StaticPict
+    NothingPict
+    remove_nothings
+
+annot.delayed_declare SnapshotPict
+
+class Pict():
+  nonfinal
+  export from_handle
+  internal _Pict
+
+  private implements Equatable
+  private override equals(other, recur):
+    other === this
+  private override hash_code(recur):
+    Equatable.identity_hash(this)
+
+  primitive_property fileconv.#{prop:convertible}:
+    fun (self :~ Pict, req, defval):
+      fileconv.convert(self.snapshot().handle, req, defval)
+  primitive_property pictconv.#{prop:pict-convertible}:
+    fun (self :~ Pict):
+      self.snapshot().handle
+  
+  abstract property width
+  abstract property height
+  abstract property ascent
+  abstract property descent
+
+  abstract property sustain_length :~ Int
+  abstract method epoch_duration(i :: Int) :~ Real
+  abstract method
+  | snapshot() :~ SnapshotPict
+  | snapshot(epoch :: Int,
+             n :: Real.in(0, 1),
+             instances :: MutableMap) :~ SnapshotPict
+
+  abstract method launder() :~ Pict
+  abstract method ghost() :~ Pict
+  abstract method refocus(to_p :: Pict) :~ Pict
+  abstract method
+  | inset(amt :: Real) :~ Pict
+  | inset(h_amt :: Real, v_amt :: Real) :~ Pict
+  | inset(left_amt :: Real, top_amt :: Real,
+          right_amt :: Real, bottom_amt :: Real) :~ Pict
+  
+  abstract method lift(amt :: Real) :~ Pict
+  abstract method drop(amt :: Real) :~ Pict
+
+  abstract method
+  | scale(amt :: Real) :~ Pict
+  | scale(h_amt :: Real, v_amt :: Real) :~ Pict
+
+  abstract method rotate(radians :: Real) :~ Pict
+
+  abstract method colorize(c :: (Color || String)) :~ Pict
+
+  abstract method fade(n :: Real.in(0, 1)) :~ Pict
+
+  abstract method timecrop(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict    
+
+  abstract method delay(n :: NonnegInt) :~ Pict
+  abstract method sustain(n :: NonnegInt = 1) :~ Pict
+  
+class StaticPict(private _handle):
+  extends Pict
+  opaque
+  internal _StaticPict
+  constructor (): _StaticPict()(rkt.blank())
+
+  property handle: _handle
+  override property width: rkt.#{pict-width}(_handle)
+  override property height: rkt.#{pict-height}(_handle)
+  override property ascent: rkt.#{pict-ascent}(_handle)
+  override property descent: rkt.#{pict-descent}(_handle)
+
+  override property sustain_length: 1
+  override method epoch_duration(i): 0
+
+  override method
+  | snapshot(): this
+  | snapshot(epoch, n, instances): this
+
+  override method launder() :~ Pict:
+    static_pict(rkt.launder(handle))
+
+  override method ghost() :~ Pict:
+    static_pict(rkt.ghost(handle))
+
+  override method refocus(to_p :: Pict) :~ Pict:
+    match to_p
+    | to_p :: StaticPict:
+        static_pict(rkt.refocus(handle, to_p.handle))
+
+  override method
+  | inset(amt :: Real) :~ Pict:
+      static_pict(rkt.inset(handle, amt))
+  | inset(h_amt :: Real, v_amt :: Real) :~ Pict:
+      static_pict(rkt.inset(handle, h_amt, v_amt))
+  | inset(left_amt :: Real, top_amt :: Real,
+          right_amt :: Real, bottom_amt :: Real) :~ Pict:
+      static_pict(rkt.inset(handle, left_amt, top_amt, right_amt, bottom_amt))
+
+  override method lift(amt :: Real) :~ Pict:
+    static_pict(rkt.#{lift-bottom-relative-to-baseline}(handle, amt))
+  override method drop(amt :: Real) :~ Pict:
+    static_pict(rkt.#{drop-top-relative-to-ascent}(handle, amt))
+
+  override method
+  | scale(amt :: Real) :~ Pict:
+      let p = rkt.scale(handle, amt)
+      let p = if amt .= 0 | rkt.ghost(p) | p
+      static_pict(p)
+  | scale(h_amt :: Real, v_amt :: Real) :~ Pict:
+      let p = rkt.scale(handle, h_amt, v_amt)
+      let p = if h_amt .= 0 || v_amt .= 0 | rkt.ghost(p) | p
+      static_pict(p)
+
+  override method rotate(radians :: Real) :~ Pict:
+    static_pict(rkt.rotate(handle, radians))
+
+  override method colorize(c :: (Color || String)) :~ Pict:
+    static_pict(rkt.colorize(handle, as_color(c)))
+
+  override method fade(n :: Real.in(0, 1)) :~ Pict:
+    static_pict(rkt.cellophane(handle, n))
+
+  override method timecrop(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict:
+    convert([this], #'center, #'ragged, fun (ps :~ List): ps[0]).timecrop(~keep: keep)
+
+  override method delay(n :: NonnegInt) :~ Pict:
+    if n == 0
+    | this
+    | convert([this], #'center, #'ragged, fun (ps :~ List): ps[0]).delay(n)
+  override method sustain(n :: NonnegInt = 1) :~ Pict:  
+    if n == 0
+    | this
+    | convert([this], #'center, #'ragged, fun (ps :~ List): ps[0]).sustain(n)
+
+annot.delayed_complete SnapshotPict: StaticPict
+
+fun static_pict(handle) :~ StaticPict:
+  _StaticPict()(handle)
+
+def mutable do_convert = (fun (p): error("convert not ready"))
+fun convert(p :~ List.of(Pict), ealign, salign, combine, non_sustain_combine = combine) :~ Pict:
+  do_convert(p, ealign, salign, combine, non_sustain_combine)
+fun set_convert(proc):
+  do_convert := proc
+
+class NothingPict(_handle):
+  extends Pict
+  opaque
+  internal _NothingPict
+  constructor (): _NothingPict()(rkt.blank())
+
+  property handle: _handle
+  override property width: 0
+  override property height: 0
+  override property ascent: 0
+  override property descent: 0
+
+  override property sustain_length: 1
+  override method epoch_duration(i): 0
+
+  override method
+  | snapshot(): this
+  | snapshot(epoch, n, instances): this
+
+  override method launder(): this
+  override method ghost(): this
+  override method refocus(to_p :: Pict):
+    error(#'refocus, "cannot refocus nothing")
+
+  override method
+  | inset(amt :: Real): this
+  | inset(h_amt :: Real, v_amt :: Real): this
+  | inset(left_amt :: Real, top_amt :: Real,
+          right_amt :: Real, bottom_amt :: Real): this
+
+  override method lift(amt :: Real): this
+  override method drop(amt :: Real): this
+
+  override method
+  | scale(amt :: Real): this
+  | scale(h_amt :: Real, v_amt :: Real): this
+
+  override method rotate(radians :: Real): this
+
+  override method colorize(c :: (Color || String)): this
+
+  override method fade(n :: Real.in(0, 1)): this
+
+  override method timecrop(~keep: keep :: maybe(matching(#'before || #'after)) = #false): this
+
+  override method delay(n :: NonnegInt): this
+  override method sustain(n :: NonnegInt = 1): this
+
+def nothing = _NothingPict()(rkt.blank())
+
+fun remove_nothings(ps :~ List):
+  for List (p: ps):
+    skip_when p == nothing
+    p
+
+fun from_handle(p :: satisfying(#{pict?})) :~ Pict:
+  static_pict(p)
+
+def default_font = draw.Font()
+
+annot.macro 'HorizontalAlignment':
+  annot_meta.pack_predicate('is_horiz_aign', '()')
+fun is_horiz_aign(v):
+  match v
+  | #'left || #'center || #'right: #true
+  | ~else: #false
+
+annot.macro 'VerticalAlignment':
+  annot_meta.pack_predicate('is_vert_aign', '()')
+fun is_vert_aign(v):
+  match v
+  | #'top || #'topline || #'center || #'baseline || #'bottom: #true
+  | ~else: #false
+
+annot.macro 'EpochAlignment':
+  annot_meta.pack_predicate('is_epoch_align', '()')
+fun is_epoch_align(v):
+  match v
+  | #'early || #'center || #'stretch || #'late: #true
+  | ~else: #false
+
+annot.macro 'SustainAlignment':
+  annot_meta.pack_predicate('is_sustain_align', '()')
+fun is_sustain_align(v):
+  match v
+  | #'sustain || #'ragged: #true
+  | ~else: #false
+
+fun beside(~sep: sep = 0,
+           ~valign: align :: VerticalAlignment = #'center,
+           ~ealign: ealign :: EpochAlignment = #'center,
+           ~salign: salign :: SustainAlignment = #'sustain,
+           p :: Pict, ...) :~ Pict:
+  recur retry (ps = [p, ...]):
+    match remove_nothings(ps):
+    | []:
+        nothing
+    | [p :: StaticPict, ...]:
+        match align
+        | #'top: static_pict(rkt.#{ht-append}(sep, p.handle, ...))
+        | #'topline: static_pict(rkt.#{htl-append}(sep, p.handle, ...))
+        | #'center: static_pict(rkt.#{hc-append}(sep, p.handle, ...))
+        | #'baseline: static_pict(rkt.#{hbl-append}(sep, p.handle, ...))
+        | #'bottom: static_pict(rkt.#{hb-append}(sep, p.handle, ...))
+    | ps:
+        convert(ps, ealign, salign, retry)
+
+fun above(~sep: sep = 0,
+          ~halign: align :: HorizontalAlignment = #'center,
+          ~ealign: ealign :: EpochAlignment = #'center,
+          ~salign: salign :: SustainAlignment = #'sustain,
+          p :: Pict, ...) :~ Pict:
+  recur retry (ps = [p, ...]):
+    match remove_nothings(ps):
+    | []:
+        nothing
+    | [p :: StaticPict, ...]:
+        match align
+        | #'left: static_pict(rkt.#{vl-append}(sep, p.handle, ...))
+        | #'center: static_pict(rkt.#{vc-append}(sep, p.handle, ...))
+        | #'right: static_pict(rkt.#{vr-append}(sep, p.handle, ...))
+    | ps:
+        convert(ps, ealign, salign, retry)
+
+fun overlay(~halign: halign :: HorizontalAlignment = #'center,
+            ~valign: valign :: VerticalAlignment = #'center,
+            ~ealign: ealign :: EpochAlignment = #'center,
+            ~salign: salign :: SustainAlignment = #'sustain,
+            p :: Pict, ...) :~ Pict:
+  recur retry (ps = [p, ...]):
+    match remove_nothings(ps):
+    | []:
+        nothing
+    | [p :: StaticPict, ...]:
+        let [p, ...] = [p.handle, ...]
+        static_pict(
+          match halign
+          | #'left:
+              match valign:
+              | #'top: rkt.#{lt-superimpose}(p, ...)
+              | #'topline: rkt.#{ltl-superimpose}(p, ...)
+              | #'center: rkt.#{lc-superimpose}(p, ...)
+              | #'baseline: rkt.#{lbl-superimpose}(p, ...)
+              | #'bottom: rkt.#{lb-superimpose}(p, ...)
+          | #'center:
+              match valign:
+              | #'top: rkt.#{ct-superimpose}(p, ...)
+              | #'topline: rkt.#{ctl-superimpose}(p, ...)
+              | #'center: rkt.#{cc-superimpose}(p, ...)
+              | #'baseline: rkt.#{cbl-superimpose}(p, ...)
+              | #'bottom: rkt.#{cb-superimpose}(p, ...)
+          | #'right:
+              match valign:
+              | #'top: rkt.#{rt-superimpose}(p, ...)
+              | #'topline: rkt.#{rtl-superimpose}(p, ...)
+              | #'center: rkt.#{rc-superimpose}(p, ...)
+              | #'baseline: rkt.#{rbl-superimpose}(p, ...)
+              | #'bottom: rkt.#{rb-superimpose}(p, ...)
+        )
+    | ps:
+        convert(ps, ealign, salign, retry)
+
+fun text(content :: String,
+         ~font: font :: draw.Font = default_font) :~ Pict:
+  static_pict(rkt.text(content, font.handle))
+
+fun
+| blank() :~ Pict: static_pict(rkt.blank())
+| blank(size :: Real) :~ Pict: static_pict(rkt.blank(size))
+| blank(width :: Real, height :: Real) :~ Pict: static_pict(rkt.blank(width, height))
+
+fun line(~dx: dx :: Real = 0,
+         ~dy: dy :: Real = 0,
+         ~color: color :: Color || String || matching(#'inherit) = #'inherit,
+         ~width: width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
+  def ln:
+    cond
+    | dx == 0: if dy == 0
+               | rkt.blank()
+               | rkt.vline(0, dy)
+    | dy == 0: rkt.hline(dx, 0)
+    | ~else:
+        rkt.dc(fun (dc_handle, ddx, ddy):
+                 def dc = draw.DC.from_handle(dc_handle)
+                 dc.line([ddx, ddy], [ddx + dx, ddy + dy]),
+               dx, dy)
+  def cln:
+    if color != #'inherit
+    | rkt.colorize(ln, color)
+    | ln
+  static_pict(if width != #'inherit
+              | rkt.linewidth(width, cln)
+              | cln)
+
+fun as_color(color):
+  match color
+  | #'inherit: #false
+  | s :: String: s
+  | c :: Color: c.handle
+
+fun as_width(w):
+  match w
+  | #'inherit: #false
+  | ~else: w
+
+fun rectangle(~around: around :: maybe(Pict) = #false,
+              width :: Real || Pict: around || 32,
+              height :: Real || Pict: around || 32,
+              ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
+              ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
+              ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+              ~ealign: ealign :: EpochAlignment = #'center,
+              ~salign: salign :: SustainAlignment = #'sustain) :~ Pict:
+  recur retry(around = around, width = width, height = height, ghosted = #false):
+    match [around, width, height]
+    | [_ :: NothingPict, _, _]:
+        nothing
+    | [_ :: False || StaticPict, _ :: Real || StaticPict, _ :: Real || StaticPict]:
+        let width = match width | w :: Pict: w.width | ~else: width
+        let height = match height | h :: Pict: h.height | ~else: height
+        let r :~ Pict:
+          cond
+          | fill:
+              rkt.#{filled-rectangle}(width,
+                                      height,
+                                      #{#:color}: as_color(fill),
+                                      #{#:draw-border?}: line,
+                                      #{#:border-color}: line && as_color(line),
+                                      #{#:border-width}: as_width(line_width))
+          | line:
+              rkt.#{rectangle}(width,
+                               height,
+                               #{#:border-color}: as_color(line),
+                               #{#:border-width}: as_width(line_width))
+          | ~else:
+              rkt.blank(width,
+                        height)
+        let r = if ghosted | r.ghost() | r
+        static_pict(if around
+                    | rkt.#{cc-superimpose}(r, StaticPict.handle(around))
+                    | r)
+    | ~else:
+        convert_some([around, width, height], ealign, salign, retry)
+
+fun convert_some([around, width, height], ealign, salign, retry):
+  let ps = [around,
+            & (if width is_a Pict | [width] | []),
+            & (if height is_a Pict | [height] | [])]
+  fun retry_g(ps :~ List, ghosted):
+    retry(ps[0],
+          if width is_a Pict | ps[1] | width,
+          if height is_a Pict | ps[if width is_a Pict | 2 | 1] | height,
+          ghosted)
+  convert(ps,
+          ealign,
+          salign,
+          fun (ps): retry_g(ps, #false),
+          fun (ps): retry_g(ps, #true))
+        
+fun square(~around: around :: maybe(Pict) = #false,
+           size :: Real || Pict: around || 32,
+           ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
+           ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
+           ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+           ~ealign: ealign :: EpochAlignment = #'center,
+           ~salign: salign :: SustainAlignment = #'sustain) :~ Pict:
+  rectangle(~around: around,
+            size, size,
+            ~line: line,
+            ~fill: fill,
+            ~line_width: line_width,
+            ~ealign: ealign,
+            ~salign: salign)
+
+fun ellipse(~around: around :: maybe(Pict) = #false,
+            width :: Real || Pict: around || 32,
+            height :: Real || Pict: around || 32,
+            ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
+            ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
+            ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+            ~ealign: ealign :: EpochAlignment = #'center,
+            ~salign: salign :: SustainAlignment = #'sustain) :~ Pict:
+  recur retry(around = around, width = width, height = height, ghosted = #false):
+    match [around, width, height]
+    | [_ :: NothingPict, _, _]:
+        nothing
+    | [_ :: False || StaticPict, _ :: Real || StaticPict, _ :: Real || StaticPict]:
+        let width = match width | w :: Pict: w.width | ~else: width
+        let height = match height | h :: Pict: h.height | ~else: height
+        let r :~ Pict:
+          cond
+          | fill:
+              rkt.#{filled-ellipse}(width,
+                                    height,
+                                    #{#:color}: as_color(fill),
+                                    #{#:draw-border?}: line,
+                                    #{#:border-color}: line && as_color(line),
+                                    #{#:border-width}: as_width(line_width))
+          | line:
+              rkt.#{ellipse}(width,
+                             height,
+                             #{#:border-color}: as_color(line),
+                             #{#:border-width}: as_width(line_width))
+          | ~else:
+              rkt.blank(width,
+                        height)
+        let r = if ghosted | r.ghost() | r
+        static_pict(if around
+                    | rkt.#{cc-superimpose}(r, StaticPict.handle(around))
+                    | r)
+    | ~else:
+        convert_some([around, width, height], ealign, salign, retry)
+
+fun circle(~around: around :: maybe(Pict) = #false,
+           size :: Real || Pict: around || 32,
+           ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
+           ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
+           ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+           ~ealign: ealign :: EpochAlignment = #'center,
+           ~salign: salign :: SustainAlignment = #'sustain) :~ Pict:
+  let size = match size | p :: Pict: math.max(p.width, p.height) | ~else: size
+  ellipse(~around: around,
+          size, size,
+          ~line: line,
+          ~fill: fill,
+          ~line_width: line_width,
+          ~ealign: ealign,
+          ~salign: salign)
+
+fun polygon([pt :: draw.PointLike.to_point, ...],
+            ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
+            ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
+            ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
+  static_pict(
+    rkt.dc(fun (dc_handle, dx, dy):
+             let dc = draw.DC.from_handle(dc_handle)
+             dc.save()
+             match line
+             | #'inherit:
+                 when line_width != #'inherit
+                 | dc.pen := dc.pen with (width = line_width)
+             | #false: dc.pen := draw.Pen.none
+             | ~else: dc.pen := draw.Pen(~color: line,
+                                         ~width: (if line_width == #'inherit
+                                                  | dc.pen.width
+                                                  | line_width))
+             match fill
+             | #false: dc.brush := draw.Brush.none
+             | ~else: dc.brush := draw.Brush(~color: fill)                    
+             dc.polygon([pt, ...], ~dx: dx, ~dy: dy)
+             dc.restore(),
+           math.max(pt.x, ...),
+           math.max(pt.y, ...))
+  )
+
+fun bitmap(path :: Path || String) :~ Pict:
+  static_pict(rkt.bitmap(path))
+
+// ------------------------------------------------------------
+
+class Find(private q, private find):
+  internal _Find
+
+  constructor(dx :: Real, dy :: Real):
+    _Find(#false, fun (p, q): values(dx, dy))
+
+  implements Printable
+  override describe(mode, recur):
+    "Pict(....)"
+
+  method in(p :: Pict):
+    match p
+    | p :: StaticPict:
+        find(p.handle, q && StaticPict.handle(q))
+
+  export:
+    center
+    left
+    right
+    top
+    topline
+    baseline
+    bottom
+    left_top
+    left_topline
+    left_center
+    left_baseline
+    left_bottom
+    center_top
+    center_topline
+    center_center
+    center_baseline
+    center_bottom
+    right_top
+    right_topline
+    right_center
+    right_baseline
+    right_bottom
+
+fun offset(proc, dx, dy):
+  if dx == 0 && dy == 0
+  | proc
+  | fun (p, q):
+      when q == nothing | error(#'Find, "cannot find nothing")
+      let (x, y) = proc(p, q)
+      values(x + dx, y + dy)
+
+fun center(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{cc-find}, dx, dy))
+fun left(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{lc-find}, dx, dy))
+fun right(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{rc-find}, dx, dy))
+fun top(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{ct-find}, dx, dy))
+fun topline(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{ct-find}, dx, dy))
+fun baseline(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{cb-find}, dx, dy))
+fun bottom(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{cb-find}, dx, dy))
+  
+fun left_top(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{lt-find}, dx, dy))
+fun left_topline(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{ltl-find}, dx, dy))
+fun left_center(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{lc-find}, dx, dy))
+fun left_baseline(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{lbl-find}, dx, dy))
+fun left_bottom(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{lb-find}, dx, dy))
+
+fun center_top(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{ct-find}, dx, dy))
+fun center_topline(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{ctl-find}, dx, dy))
+fun center_center(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{cc-find}, dx, dy))
+fun center_baseline(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{cbl-find}, dx, dy))
+fun center_bottom(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{cb-find}, dx, dy))
+
+fun right_top(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{rt-find}, dx, dy))
+fun right_topline(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{rtl-find}, dx, dy))
+fun right_center(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{rc-find}, dx, dy))
+fun right_baseline(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{rbl-find}, dx, dy))
+fun right_bottom(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
+  _Find(q, offset(rkt.#{rb-find}, dx, dy))
+
+fun connect(p :: Pict,
+            from :: Find,
+            to :: Find,
+            ~style: style :: matching(#'line || #'arrow || #'arrows) = #'line,
+            ~color: color :: Color || String || matching(#'inherit) = #'inherit,
+            ~width: width :: Real || matching(#'inherit) = #'inherit,
+            ~order: order = #'over,
+            ~arrow_size: arrow_size :: Real = 16,
+            ~arrow_solid: solid = #true,
+            ~arrow_hidden: hidden = #false,
+            ~start_angle: start_angle :: maybe(Real) = #false,
+            ~start_pull: start_pull :: maybe(Real) = #false,
+            ~end_angle: end_angle :: maybe(Real) = #false,
+            ~end_pull: end_pull :: maybe(Real) = #false,
+            ~label: label :: maybe(Pict) = #false,
+            ~label_dx: label_dx :: Real = 0,
+            ~label_dy: label_dy :: Real = 0,
+            ~ealign: ealign :: EpochAlignment = #'center,
+            ~salign: salign :: SustainAlignment = #'sustain) :~ Pict:
+  recur retry(p = p):
+    match p
+    | _ :: NothingPict:
+        nothing
+    | p :: StaticPict:
+        let (from_x, from_y) = from.in(p)
+        let (to_x, to_y) = to.in(p)
+        let (proc, [pre, ...], kw_args):
+          match style
+          | #'line: values(rkt.#{pin-line}, [], {})
+          | #'arrow: values(rkt.#{pin-arrow-line},
+                            [arrow_size],
+                            { #'#{#:solid?}: solid, #'#{#:hide-arrowhead?}: hidden })
+          | #'arrows: values(rkt.#{pin-arrows-line},
+                             [arrow_size],
+                             { #'#{#:solid?}: solid, #'#{#:hide-arrowhead?}: hidden })
+        static_pict(proc(pre, ...,
+                         p.handle,
+                         p.handle, fun (p, q): values(from_x, from_y),
+                         p.handle, fun (p, q): values(to_x, to_y),
+                         #{#:start-angle}: start_angle,
+                         #{#:start-pull}: start_pull,    
+                         #{#:end-angle}: end_angle,
+                         #{#:end-pull}: end_pull,
+                         #{#:line-width}: as_width(width),
+                         #{#:color}: as_color(color),
+                         #{#:under?}: order == #'under,
+                         #{#:label}: label && (label != nothing) && StaticPict.handle(label),
+                         #{#:x-adjust-label}: label_dx,
+                         #{#:y-adjust-label}: label_dy,
+                         ~& kw_args))
+    | ~else:
+        convert([p], #'center, #'sustain,
+                fun ([p]): retry(p),
+                fun ([p]): p)
+
+fun pin(p :: Pict,
+        at :: Find,
+        q :: Pict,
+        ~order: order :: matching(#'over || #'under) = #'over,
+        ~ealign: ealign :: EpochAlignment = #'center,
+        ~salign: salign :: SustainAlignment = #'sustain) :~ Pict:
+  match [p, q]
+  | [_ :: NothingPict, _]:
+      error(#'pin, "cannot over nothing")
+  | [p :: StaticPict, q :: StaticPict]:
+      let (at_x, at_y) = at.in(p)
+      static_pict((if order == #'over
+                   | rkt.#{pin-over}
+                   | rkt.#{pin-under})(p.handle,
+                                       at_x, at_y,
+                                       q.handle))
+
+// ------------------------------------------------------------
+
+fun cellophane(p :: Pict, n :: Real.in(0, 1)) :~ Pict:
+  p.fade(n)
+
+fun balloon(p :: Pict,
+            at :: Find,
+            content :: Pict,
+            ~spike: spike :: matching(#'n || #'ne || #'e || #'se || #'s || #'sw || #'w || #'nw),
+            ~margin: margin :: maybe(Real) = #false,
+            ~hmargin: hmargin :: Real = margin || bln.#{current-balloon-x-margin}(),
+            ~vmargin: vmargin :: Real = margin || bln.#{current-balloon-y-margin}(),
+            ~corner_radius: corner_radius :: Real = 10,
+            ~spike_radius: spike_radius :: Real = corner_radius,
+            ~dx: dx :: Real = bln.#{spike->dx}(spike),
+            ~dy: dy :: Real = bln.#{spike->dy}(spike),
+            ~sprout: sprout :: Real = 0.5,
+            ~thought: thought = #false,
+            ~color: color :: maybe(Color || String) = #false,
+            ~line_color: line_color :: maybe(Color || String) = #false,
+            ~line_width: line_width :: Real = 0,
+            ~ealign: ealign :: EpochAlignment = #'center,
+            ~salign: salign :: SustainAlignment = #'sustain) :~ Pict:
+  recur retry(ps = [p, content]):
+    match ps:
+    | [_ :: NothingPict, _]:
+        nothing
+    | [p :: StaticPict, content :: StaticPict]:
+        let (at_x, at_y) = at.in(p)
+        static_pict(
+          bln.#{pin-balloon}(p.handle,
+                             p.handle, fun (p, q): values(at_x, at_y),
+                             content.handle,
+                             ~spike: spike,
+                             #{#:x-margin}: hmargin,
+                             #{#:y-margin}: vmargin,
+                             #{#:corner-radius}: corner_radius,
+                             #{#:spike-radius}: spike_radius,
+                             ~dx: dx,
+                             ~dy: dy,
+                             ~sprout: sprout,
+                             #{#:thought?}: thought,
+                             ~color: (color && as_color(color)) || bln.#{current-balloon-color}(),
+                             #{#:line-color}: line_color,
+                             #{#:line-width}: line_width)
+        )
+    | [p, content]:
+        convert([p, content], ealign, salign,
+                retry,
+                fun ([p :~ Pict, content :~ Pict]):
+                  let pg = p.ghost()
+                  let cg = content.ghost()
+                  let b :~ Pict = retry([pg, cg])
+                  let b = b.ghost()
+                  pin(pin(b, Find.left_top(pg), p),
+                      Find.left_top(cg),
+                      content))
+
+fun balloon_note(content :: Pict,
+                 ~margin: margin :: maybe(Real) = #false,
+                 ~hmargin: hmargin :: Real = margin || bln.#{current-balloon-x-margin}(),
+                 ~vmargin: vmargin :: Real = margin || bln.#{current-balloon-y-margin}(),
+                 ~corner_radius: corner_radius :: Real = 10,
+                 ~thought: thought = #false,
+                 ~color: color :: maybe(Color || String) = #false,
+                 ~line_color: line_color :: maybe(Color || String) = #false,
+                 ~line_width: line_width :: Real = 0,
+                 ~ealign: ealign :: EpochAlignment = #'center,
+                 ~salign: salign :: SustainAlignment = #'sustain) :~ Pict:
+  recur retry(contents = [content]):
+    match contents:
+    | [_ :: NothingPict]:
+        nothing
+    | [content :: StaticPict]:
+        static_pict(
+          bln.#{balloon-note}(content.handle,
+                              #{#:x-margin}: hmargin,
+                              #{#:y-margin}: vmargin,
+                              #{#:corner-radius}: corner_radius,
+                              #{#:thought?}: thought,
+                              ~color: (color && as_color(color)) || bln.#{current-balloon-color}(),
+                              #{#:line-color}: line_color,
+                              #{#:line-width}: line_width)
+        )
+    | ~else:
+        convert(content, ealign, salign,
+                retry,
+                fun ([content :~ Pict]):
+                  let cg = content.ghost()
+                  let b :~ Pict = retry([cg])
+                  let b = b.ghost()
+                  pin(b, Find.left_top(cg), content))
