@@ -1,0 +1,127 @@
+#lang rhombus/static/and_meta
+
+import:
+  pict:
+    expose:
+      Pict
+      Find
+      Color
+      EpochAlignment
+      DurationAlignment
+      nothing
+      animate_map
+  lib("pict/balloon2.rkt") as bln
+
+export:
+  pin
+  note
+  current_color
+  current_horiz_margin
+  current_vert_margin
+    
+Parameter.def current_color :: Color || String:
+  bln.#{current-balloon-color}()
+Parameter.def current_horiz_margin :: Real:
+  bln.#{current-balloon-x-margin}()
+Parameter.def current_vert_margin :: Real:
+  bln.#{current-balloon-y-margin}()
+ 
+fun pin(p :: Pict,
+        at :: Find,
+        content :: Pict,
+        ~spike: spike :: matching(#'n || #'ne || #'e || #'se || #'s || #'sw || #'w || #'nw),
+        ~margin: margin :: maybe(Real) = #false,
+        ~horiz_margin: hmargin :: Real = margin || current_horiz_margin(),
+        ~vert_margin: vmargin :: Real = margin || current_vert_margin(),
+        ~corner_radius: corner_radius :: Real = 10,
+        ~spike_radius: spike_radius :: Real = corner_radius,
+        ~dx: dx :: Real = bln.#{spike->dx}(spike),
+        ~dy: dy :: Real = bln.#{spike->dy}(spike),
+        ~sprout: sprout :: Real = 0.5,
+        ~thought: thought = #false,
+        ~color: color :: maybe(Color || String) = #false,
+        ~line_color: line_color :: maybe(Color || String) = #false,
+        ~line_width: line_width :: Real = 0,
+        ~epoch: epoch :: EpochAlignment = #'center,
+        ~duration: duration :: DurationAlignment = #'sustain) :~ Pict:
+  recur retry(ps = [p, content]):
+    match ps:
+    | [_ :: pict.NothingPict, _]:
+        nothing
+    | [p :: pict.StaticPict, content :: pict.StaticPict]:
+        let (at_x, at_y) = at.in(p)
+        Pict.from_handle(
+          bln.#{pin-balloon}(p.handle,
+                             p.handle, fun (p, q): values(at_x, at_y),
+                             content.handle,
+                             ~spike: spike,
+                             #{#:x-margin}: hmargin,
+                             #{#:y-margin}: vmargin,
+                             #{#:corner-radius}: corner_radius,
+                             #{#:spike-radius}: spike_radius,
+                             ~dx: dx,
+                             ~dy: dy,
+                             ~sprout: sprout,
+                             #{#:thought?}: thought,
+                             ~color: (color && as_color(color)) || current_color(),
+                             #{#:line-color}: line_color,
+                             #{#:line-width}: line_width)
+        )
+    | [p, content]:
+        animate_map([p, content],
+                    ~epoch: epoch,
+                    ~duration: duration,
+                    ~combine: retry,
+                    ~non_sustain_combine:
+                      fun ([p :~ Pict, content :~ Pict]):
+                        let pg = p.ghost()
+                        let cg = content.ghost()
+                        let b :~ Pict = retry([pg, cg])
+                        let b = b.ghost()
+                        pict.pin(pict.pin(b, Find.left_top(pg), p),
+                                 Find.left_top(cg),
+                                 content))
+
+fun note(content :: Pict,
+         ~margin: margin :: maybe(Real) = #false,
+         ~hmargin: hmargin :: Real = margin || current_horiz_margin(),
+         ~vmargin: vmargin :: Real = margin || current_vert_margin(),
+         ~corner_radius: corner_radius :: Real = 10,
+         ~thought: thought = #false,
+         ~color: color :: maybe(Color || String) = #false,
+         ~line_color: line_color :: maybe(Color || String) = #false,
+         ~line_width: line_width :: Real = 0,
+         ~epoch: epoch :: EpochAlignment = #'center,
+         ~duration: duration :: DurationAlignment = #'sustain) :~ Pict:
+  recur retry(contents = [content]):
+    match contents:
+    | [_ :: pict.NothingPict]:
+        nothing
+    | [content :: pict.StaticPict]:
+        Pict.from_handle(
+          bln.#{balloon-note}(content.handle,
+                              #{#:x-margin}: hmargin,
+                              #{#:y-margin}: vmargin,
+                              #{#:corner-radius}: corner_radius,
+                              #{#:thought?}: thought,
+                              ~color: (color && as_color(color)) || current_color(),
+                              #{#:line-color}: line_color,
+                              #{#:line-width}: line_width)
+        )
+    | ~else:
+        animate_map(content,
+                    ~epoch: epoch,
+                    ~duration: duration,
+                    ~combine: retry,
+                    ~non_sustain_combine:
+                      fun ([content :~ Pict]):
+                        let cg = content.ghost()
+                        let b :~ Pict = retry([cg])
+                        let b = b.ghost()
+                        pict.pin(b, Find.left_top(cg), content))
+
+fun as_color(color):
+  match color
+  | #'inherit: #false
+  | s :: String: s
+  | c :: Color: c.handle

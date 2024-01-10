@@ -1,0 +1,212 @@
+#lang rhombus/static/and_meta
+
+import:
+  draw
+  pict:
+    expose Pict
+  lib("pict/main.rkt") as rkt_pict
+  lib("racket/string.rkt")
+  "private/para.rkt" as rkt
+
+export:
+  current_font
+  current_para_width
+  current_line_sep
+
+  // these flatten nested lists of mixtures of strings and picts
+  // and convert only the strings, combining all with `beside`;
+  // so, they work well with `@` notation
+  t
+  bold
+  italic
+  tt
+  roman
+  title
+  subscript
+  superscript
+
+  // `ly` variants are syntactic forms that `parameterize`
+  // the argument expressions, so that `italic` can be nested in
+  // `boldly` to get bold italic, etc.
+  boldly
+  italicly
+  ttly
+  romanly
+  titlely
+
+  // like `above`, but with the current line separation
+  lines
+
+  // these flatten nested lists, so they work well with `@` notation;
+  // unlike Racket slideshow, the default is that the result pict is
+  // only as wide as needed, with the intent that `align` is used to
+  // make blocks of paragraphs and bullets
+  para
+  item
+  subitem
+
+  verbatim
+
+Parameter.def current_font :: draw.Font:
+  draw.Font()
+
+fun flatten_string(who, c, font) :~ Pict:
+  match c
+  | s :: String: pict.text(s, ~font: font)
+  | p :: Pict: p
+  | [c, ...]: pict.beside(~vert: #'topline, flatten_string(who, c, font), ...)
+  | ~else:
+      error(who, "bad text content: " +& to_string(c, ~mode: #'expr))
+
+fun t(~font: font :: draw.Font = current_font(),
+      s, ...) :~ Pict:
+  flatten_string(#'t, [s, ...], font)
+
+fun current_font_as_bold():
+   (current_font() :~ draw.Font) with (weight = #'bold)
+
+fun current_font_as_italic():
+   (current_font() :~ draw.Font) with (style = #'italic)
+
+fun current_font_as_tt():
+   (current_font() :~ draw.Font) with (kind = #'modern, name = #false)
+
+fun current_font_as_roman():
+   (current_font() :~ draw.Font) with (kind = #'roman, name = #false)
+
+fun current_font_as_title():
+   (current_font() :~ draw.Font) with (size = 40)
+
+defn.macro 'ly $ly: $expr':
+  '«
+     macro
+     | '$ly($('$')args)':
+         '(parameterize { current_font: $expr }:
+             t($('$')args)) :~ Pict'
+     | '$ly: $('$')body':
+         'parameterize { current_font: $expr }:
+            $('$')body'
+   »'
+
+ly boldly: current_font_as_bold()
+ly italicly: current_font_as_italic()
+ly ttly: current_font_as_tt()
+ly romanly: current_font_as_roman()
+ly titlely: current_font_as_title()
+
+fun bold(a, ...) :~ Pict:
+  boldly(a, ...)
+
+fun italic(a, ...) :~ Pict:
+  italicly(a, ...)
+
+fun tt(a, ...) :~ Pict:
+  ttly(a, ...)
+
+fun roman(a, ...) :~ Pict:
+  romanly(a, ...)
+
+fun title(a, ...) :~ Pict:
+  titlely(a, ...)
+
+fun subscript(arg, ...) :~ Pict:
+  let p = t(arg, ...)
+  p.lift(-15).scale(0.75)
+
+fun superscript(arg, ...) :~ Pict:
+  let p = t(arg, ...)
+  p.lift(10).scale(0.75)
+
+// ----------------------------------------
+
+Parameter.def current_line_sep :: Real = 5
+
+fun lines(~horiz: align :: matching(#'left || #'center || #'right) = #'left,
+          p :: Pict, ...) :~ Pict:
+  pict.above(~sep: current_line_sep(),
+             ~horiz: align,
+             p, ...)
+
+Parameter.def current_para_width :: Real:
+  990
+
+fun mstr_t(s :: ReadableString.to_string): t(s).snapshot().handle
+
+fun flatten_para_content(who, c) :~ List:
+  match c
+  | s :: String:
+      let PairList[str, ...] = string.#{string-split}(s)
+      [rkt.para(~t: mstr_t, ~width: #inf, str),
+       ...]
+  | p :: Pict: [p.snapshot().handle]
+  | [c, ...]: List.append(flatten_para_content(who, c), ...)
+  | ~else:
+      error(who, "bad paragraph content: " +& to_string(c, ~mode: #'expr))
+
+
+fun para(~width: width = current_para_width(),
+         ~horiz: align :: pict.HorizAlignment = #'left,
+         ~at_max: at_max = #false,
+         content, ...) :~ Pict:
+  Pict.from_handle(rkt.para(~t: mstr_t,
+                            #{#:line-sep}: current_line_sep(),
+                            #{#:fill?}: at_max,
+                            ~width: width,
+                            ~align: align,
+                            & flatten_para_content(#'slide, [content, ...])))
+
+fun item(~width: width = current_para_width(),
+         ~at_max: at_max = #false,
+         ~horiz: align :: pict.HorizAlignment = #'left,
+         ~bullet: bullet :: maybe(Pict) = #false,
+         content, ...) :~ Pict:
+  let bullet :~ Pict = bullet || t("\u2022")
+  pict.beside(~sep: bullet.width,
+              ~vert: #'topline,
+              bullet,
+              para(~width: width - 2*bullet.width,
+                   ~at_max: at_max,
+                   ~horiz: align,
+                   content, ...))
+
+fun subitem(~width: width = current_para_width(),
+            ~at_max: at_max = #false,
+            ~horiz: align :: pict.HorizAlignment = #'left,
+            ~bullet: bullet :: maybe(Pict) = #false,
+            content, ...) :~ Pict:
+  let bullet :~ Pict = bullet || t("\u25E6")
+  pict.beside(~sep: bullet.width,
+              ~vert: #'topline,
+              pict.blank(bullet.width),
+              bullet,
+              para(~width: width - 4*bullet.width,
+                   ~at_max: at_max,
+                   ~horiz: align,
+                   content, ...))
+
+// ----------------------------------------
+
+fun flatten_content(who, c) :~ List:
+  match c
+  | s :: String: [s]
+  | p :: Pict: [p]
+  | [c, ...]: List.append(flatten_content(who, c), ...)
+  | ~else:
+      error(who, "bad content: " +& to_string(c, ~mode: #'expr))
+
+fun verbatim(content, ...) :~ Pict:
+  let content = flatten_content(#'verbatim, [content, ...])
+  let [row, ...]:
+    recur loop(content = content) :~ List:
+      match content
+      | []: []
+      | ["\n", & content]:
+          loop(content).insert(0, [])
+      | [p, & content]:
+          let rows = loop(content)
+          match rows
+          | []: [[p]]
+          | [row :~ List, & rows]: [row.insert(0, p), & rows]
+  fun tt_maybe_empty(row):
+    if row == [] | tt("") | tt(row)
+  lines(tt_maybe_empty(row), ...)

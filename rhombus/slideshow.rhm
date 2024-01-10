@@ -1,0 +1,160 @@
+#lang rhombus/static/and_meta
+
+import:
+  draw
+  pict:
+    expose Pict
+  pict/text
+  slideshow/config
+  lib("slideshow/main.rkt") as rkt
+  lib("pict/main.rkt") as rkt_pict
+  lib("slideshow/play.rkt") as rkt_play
+  lib("racket/string.rkt")
+
+export:
+  Pict
+  all_from(.text)
+
+  // flattens nested lists in arguments:
+  slide
+  slide_content
+
+  pause
+  alts
+  align
+  in_align
+
+  interactive
+
+  start_at_recent_slide
+  retract_recent_slide
+
+// ----------------------------------------
+
+class Pause():
+  implements Printable
+  override describe(mode, recur):
+    "pause"
+def pause = Pause()
+
+class Alts(alts :~ List.of(List)):
+  implements Printable
+  override describe(mode, recur):
+    PrintDesc.list("alts(", alts.map(recur), ")")
+
+fun alts(contents, ...):
+  Alts([flatten_slide_content(#'Alts, contents),
+        ...])
+
+fun gap(): 24
+
+fun flatten_slide_content(who, c, ~in_align = #false) :~ List:
+  match c
+  | [c, ...]: List.append(flatten_slide_content(who, c, ~in_align: in_align), ...)
+  | p :: Pict: [p]
+  | p :: satisfying(rkt_pict.#{pict?}): [Pict.from_handle(p)]
+  | p :: Pause: [p]
+  | Alts([]): []
+  | Alts([alt]): alt
+  | p :: Alts: [p]
+  | (p :: InAlign) when in_align: [p]
+  | ~else:
+      error(who, "bad slide content: " +& to_string(c, ~mode: #'expr))
+
+fun pause_to_anim(contents) :~ Pict:
+  recur loop (contents = contents, accum :~ List = []) :~ Pict:
+    match contents
+    | []:
+        pict.above(~sep: gap(), & accum)
+    | [p :: Pause, & contents]:
+        let pre = pict.above(~sep: gap(), & accum)
+        let post = loop(contents, [])
+        pict.above(~sep: gap(),
+                   pre.sustain(post.duration),
+                   post.pad_duration(pre.duration, 0))
+    | [Alts([alt, ...]), & contents]:
+        let alts = [pause_to_anim(alt), ...]
+        let p = pict.overlay(~vert: #'top,
+                             ~duration: #'ragged,
+                             & pict.sequential(& alts))
+        let pre = pict.above(~sep: gap(), & accum)
+        loop(contents, [pre, p])
+    | [c, & contents]:
+        loop(contents, accum.add(c))
+
+fun slide(~title: title :: maybe(String || Pict) = #false,
+          ~layout: layout :: matching(#'auto || #'center || #'top || #'tall) = #'auto,
+          ~intro: intro :: NonnegInt = 0,
+          content, ...):
+  let p = pause_to_anim(flatten_slide_content(#'slide, [content, ...]))
+  let title = match title | p :: Pict: p.snapshot(0, 0, MutableMap{}).handle | ~else: title
+  when intro == 1
+  | rkt_play.#{play-n}(~title: title,
+                       ~layout: layout,
+                       #{#:skip-first?}: #true,
+                       #{#:skip-last?}: #true,
+                       fun (n): p.snapshot(-1, n, MutableMap{}).handle)
+  for (i: 0..p.duration):
+    let extent = p.epoch_extent(i)
+    if extent .= 0
+    | rkt.slide(~title: title,
+                ~layout: layout,
+                & (if p == pict.nothing
+                   | []
+                   | [p.snapshot(i, 0, MutableMap{}).handle]))
+    | rkt_play.#{play-n}(~title: title,
+                         ~layout: layout,                         
+                         ~delay: extent / rkt_play.#{current-play-steps}(),
+                         #{#:skip-last?}: #true,
+                         fun (n): p.snapshot(i, n, MutableMap{}).handle)
+
+fun slide_content(content, ...) :~ Pict:
+  pause_to_anim(flatten_slide_content(#'slide_content, [content, ...]))
+
+// ----------------------------------------
+
+class InAlign(dir, cs :: List)
+
+fun align(~horiz: dir :: matching(#'left || #'center || #'right) = #'left,
+          content, ...):
+  let cs = flatten_slide_content(#'align, [content, ...], ~in_align: #true)
+  let width:
+    recur loop (cs :: List = cs):
+      for values(w = 0) (c: cs):
+        match c
+        | p :: Pict: math.max(w, p.width)
+        | Alts([alt, ...]):
+            math.max(loop(alt), ...)
+        | InAlign(dir, cs):
+            math.max(w, loop(cs))
+        | ~else: w
+  recur loop (dir = dir, cs :: List = cs):
+    List.append(
+      & for List (c: cs):
+        match c
+        | p :: Pict:
+            [match dir
+             | #'left: p.pad(0, 0, width - p.width, 0)
+             | #'center: p.pad((width - p.width) / 2, 0)
+             | #'right: p.pad(width - p.width, 0, 0, 0)]
+        | Alts([alt, ...]):
+            [Alts([loop(dir, alt), ...])]
+        | InAlign(dir, cs):
+            loop(dir, cs)
+        | ~else: [c]
+    )
+
+fun in_align(~horiz: dir :: matching(#'left || #'center || #'right) = #'left,
+             content, ...):
+  InAlign(dir, flatten_slide_content(#'in_align, [content, ...], ~in_align: #true))
+
+// ----------------------------------------
+
+fun interactive(p :: Pict, callback :: Function.of_arity(1)) :~ Pict:
+  Pict.from_handle(rkt.interactive(p.snapshot().handle, callback))
+
+fun start_at_recent_slide():
+  rkt.#{start-at-recent-slide}()
+
+fun retract_recent_slide():
+  rkt.#{retract-most-recent-slide}()
