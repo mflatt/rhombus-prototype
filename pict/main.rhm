@@ -66,9 +66,16 @@ class Pict(private _handle):
 
   method
   | scale(amt :: Real) :~ Pict:
-      _Pict(rkt.scale(handle, amt))
+      let p = rkt.scale(handle, amt)
+      let p = if amt .= 0 | rkt.ghost(p) | p
+      _Pict(p)
   | scale(h_amt :: Real, v_amt :: Real) :~ Pict:
-      _Pict(rkt.scale(handle, h_amt, v_amt))
+      let p = rkt.scale(handle, h_amt, v_amt)
+      let p = if h_amt .= 0 || v_amt .= 0 | rkt.ghost(p) | p
+      _Pict(p)
+
+  method rotate(radians :: Real) :~ Pict:
+    _Pict(rkt.rotate(handle, radians))
 
   method colorize(c :: (Color || String)) :~ Pict:
     _Pict(rkt.colorize(handle, as_color(c)))
