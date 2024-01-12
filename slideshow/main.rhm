@@ -6,6 +6,7 @@ import:
     expose Pict
   lib("slideshow/main.rkt") as rkt
   lib("pict/main.rkt") as rkt_pict
+  lib("slideshow/play.rkt") as rkt_play
   lib("racket/string.rkt")
 
 export:
@@ -17,6 +18,7 @@ export:
   // special values recognized by `slide`
   pause
   alts
+  Animated
 
   // finds all picts tat `slide` would (including flattening lists,
   // and going into `alts`) to get the maximum pict width, then makes
@@ -51,11 +53,23 @@ export:
   item
   subitem
 
+  table
+
   interactive
+
+  start_at_recent_slide
 
 // Rhombus should have a short way to write this, and one that
 // gives current_font() the right static info
-def current_font = Parameter.make(draw.Font(~size: 32),
+def current_font = Parameter.make(block:
+                                    let init = rkt.#{current-main-font}()
+                                    fun find_one(a, pred):
+                                      match a
+                                      | Pair(a, d): find_one(a, pred) || find_one(d, pred)
+                                      | ~else: pred(a) && a
+                                    draw.Font(~size: 32,
+                                              ~name: find_one(init, fun (x): x is_a String),
+                                              ~kind: find_one(init, fun (x): x is_a Symbol) || #'default),
                                   ~guard:
                                     block:
                                       fun current_font(font :: draw.Font):
@@ -82,10 +96,10 @@ fun current_font_as_italic():
    (current_font() :~ draw.Font) with (style = #'italic)
 
 fun current_font_as_tt():
-   (current_font() :~ draw.Font) with (kind = #'modern)
+   (current_font() :~ draw.Font) with (kind = #'modern, name = #false)
 
 fun current_font_as_roman():
-   (current_font() :~ draw.Font) with (kind = #'roman)
+   (current_font() :~ draw.Font) with (kind = #'roman, name = #false)
 
 macro 'boldly($arg, ...)':
   '(parameterize { current_font: current_font_as_bold() }:
@@ -117,10 +131,19 @@ fun roman(a, ...) :~ Pict:
 
 // ----------------------------------------
 
+fun gap(): 24
+
 class Pause()
 
 class Alts(elems :~ List):
   opaque
+
+class Animated(proc,
+               ~skip_first: skip_first = #false,
+               ~skip_last: skip_last = #false):
+  opaque
+  method pict(n :: Real.in(0, 1)) :~ Pict:
+    proc(rkt_play.#{fast-middle}(n))
 
 def pause = Pause()
 
@@ -128,6 +151,7 @@ def pause = Pause()
 fun flatten_slide_content(who, c, convert) :~ List:
   match c
   | p :: Pict: [if convert | p.handle | p]
+  | p :: Animated: [p]
   | p :: satisfying(rkt_pict.#{pict?}): [if convert | p | Pict.from_handle(p)]
   | [c, ...]: List.append(flatten_slide_content(who, c, convert), ...)
   | p :: Pause: [if convert | #'next | p]
@@ -138,6 +162,35 @@ fun flatten_slide_content(who, c, convert) :~ List:
   | ~else:
       error(who, "bad slide content: " +& to_string(c, ~mode: #'expr))
 
+fun drop_final_slide_content(contents):
+  match contents
+  | []: #false
+  | [#'next, & contents]:
+      let rest = drop_final_slide_content(contents)
+      if rest
+      | [#'next, & rest]
+      | if contents == []
+        | []
+        | [ rkt_pict.ghost(rkt_pict.#{vc-append}(gap(), & contents)) ]
+  | [#'alts, contentss :~ PairList,  & contents]:
+      let rest = drop_final_slide_content(contents)
+      if rest
+      | [#'alts, contentss, & rest]
+      | [& contentss.drop_right(1),  & contents]
+  | [c, & contents]:
+      let rest = drop_final_slide_content(contents)
+      rest && [c, & rest]
+
+fun final_slide_content(contents):
+  match contents
+  | []: []
+  | [#'next, & contents]:
+      final_slide_content(contents)
+  | [#'alts, contentss :~ PairList,  & contents]:
+      final_slide_content([& contentss.reverse().first(), & contents])
+  | [c, & contents]:
+      [c, & final_slide_content(contents)]
+
 fun alts(alt, ...):
   // flattens for checking, but does not convert
   Alts([flatten_slide_content(#'alts, alt, #false),
@@ -146,10 +199,44 @@ fun alts(alt, ...):
 fun slide(~title: title :: maybe(String || Pict) = #false,
           ~layout: layout :: matching(#'auto || #'center || #'top || #'tall) = #'auto,      
           content, ...):
-  rkt.slide(~title: title,
-            ~layout: layout,
-            // conversion happens here:
-            & flatten_slide_content(#'slide, [content, ...], #true))
+  let contents = flatten_slide_content(#'slide, [content, ...], #true)
+  recur render(contents = contents, accum :~ List = [], static = #false):
+    match contents
+    | []:
+        if static
+        | accum
+        | rkt.slide(~title: title,
+                    ~layout: layout,
+                    & accum)
+    | [content :: Animated, & contents]:
+        cond
+        | static:
+            render(contents, accum.add(content.pict(0).handle), #true)
+        | ~else:
+            let so_far :~ List = drop_final_slide_content(accum)        
+            when so_far
+            | render(contents, so_far.add(content.pict(0).handle), #false)
+            let rest = render(contents, [], #true)
+            rkt_play.#{play-n}(~title: title,
+                               ~layout: layout,
+                               #{#:skip-first?}: content.skip_first,
+                               #{#:skip-last?}: content.skip_last,
+                               fun (n): rkt_pict.#{vc-append}(gap(),
+                                                              & final_slide_content(accum),
+                                                              content.pict(n).handle,
+                                                              & rest))
+    | [content :: satisfying(rkt_pict.#{pict?}), & contents]:
+        render(contents, accum.add(content), static)
+    | [#'next, & contents]:
+        render(contents, if static | accum | accum.add(#'next), static)
+    | [#'alts, alt_contentss && PairList[alt_contents_0, & _], & contents]:
+        if static
+        | render([& alt_contents_0, & contents], accum, #true)
+        | rkt.slide(~title: title,
+                    ~layout: layout,
+                    & render(contents, accum.add(#'alts).add(alt_contentss), #true))
+    | [content, & _]:
+        error(#'slide, "unrecognized slide content: " +& to_string(content, ~mode: #'expr))
 
 // flattens, but does not convert
 fun align(~align: dir :: matching(#'left || #'center || #'right) = #'left,
@@ -189,7 +276,9 @@ def current_para_width = rkt.#{current-para-width}
 
 fun flatten_para_content(who, c) :~ List:
   match c
-  | s :: String: [& string.#{string-split}(s)]
+  | s :: String:
+      let PairList[str, ...] = string.#{string-split}(s)
+      [rkt.para(#{#:fill?}: #false, str), ...]
   | p :: Pict: [p.handle]
   | [c, ...]: List.append(flatten_para_content(who, c), ...)
   | ~else:
@@ -219,5 +308,23 @@ fun subitem(~width: width = current_para_width(),
 
 // ----------------------------------------
 
+fun table(rows :: List.of(List)) :~ Pict:
+  let [[elem, ...], ...] = rows
+  fun convert(elem):
+    match elem
+    | elem :: String: t(elem).handle
+    | elem :: Pict: elem.handle
+  Pict.from_handle(rkt.table(rows[0].length(),
+                             PairList[convert(elem), ..., ...],
+                             rkt.#{ltl-superimpose},
+                             rkt.#{ltl-superimpose},
+                             gap(),
+                             rkt.#{current-line-sep}()))
+
+// ----------------------------------------
+
 fun interactive(p :: Pict, callback :: Function.of_arity(1)) :~ Pict:
   Pict.from_handle(rkt.interactive(p.handle, callback))
+
+fun start_at_recent_slide():
+  rkt.#{start-at-recent-slide}()
