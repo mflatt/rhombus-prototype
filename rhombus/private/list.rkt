@@ -620,6 +620,7 @@
 (define/method List.append
   #:inline
   #:primitive (treelist-append)
+  #:static-infos ((#%call-result #,treelist-static-infos))
   (case-lambda
     [() (treelist-append)]
     [(a) (treelist-append a)]
