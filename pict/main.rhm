@@ -1,4 +1,4 @@
-#lang rhombus/static
+#lang rhombus/static/and_meta
 
 import:
   rhombus/draw:
@@ -9,6 +9,8 @@ import:
 
 export:
   Color
+  HorizontalAlignment
+  VerticalAlignment
   
   Pict
 
@@ -85,8 +87,22 @@ fun from_handle(p :: satisfying(#{pict?})) :~ Pict:
 
 def default_font = draw.Font()
 
+annot.macro 'HorizontalAlignment':
+  annot_meta.pack_predicate('is_horiz_aign', '()')
+fun is_horiz_aign(v):
+  match v
+  | #'left || #'center || #'right: #true
+  | ~else: #false
+
+annot.macro 'VerticalAlignment':
+  annot_meta.pack_predicate('is_vert_aign', '()')
+fun is_vert_aign(v):
+  match v
+  | #'top || #'topline || #'center || #'baseline || #'bottom: #true
+  | ~else: #false
+
 fun beside(~sep: sep = 0,
-           ~align: align :: matching(#'top || #'topline || #'center || #'baseline || #'bottom) = #'center,
+           ~align: align :: VerticalAlignment = #'center,
            p :: Pict, ...) :~ Pict:
   match align
   | #'top: _Pict(rkt.#{ht-append}(sep, p.handle, ...))
@@ -96,15 +112,15 @@ fun beside(~sep: sep = 0,
   | #'bottom: _Pict(rkt.#{hb-append}(sep, p.handle, ...))
 
 fun above(~sep: sep = 0,
-          ~align: align :: matching(#'left || #'center || #'right) = #'center,
+          ~align: align :: HorizontalAlignment = #'center,
           p :: Pict, ...) :~ Pict:
   match align
   | #'left: _Pict(rkt.#{vl-append}(sep, p.handle, ...))
   | #'center: _Pict(rkt.#{vc-append}(sep, p.handle, ...))
   | #'right: _Pict(rkt.#{vr-append}(sep, p.handle, ...))
 
-fun overlay(~halign: halign :: matching(#'left || #'center || #'right) = #'center,
-            ~valign: valign :: matching(#'top || #'topline || #'center || #'baseline || #'bottom) = #'center,
+fun overlay(~halign: halign :: HorizontalAlignment = #'center,
+            ~valign: valign :: VerticalAlignment = #'center,
             p :: Pict, ...) :~ Pict:
   let [p, ...] = [p.handle, ...]
   _Pict(
