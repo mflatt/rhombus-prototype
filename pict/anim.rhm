@@ -9,6 +9,12 @@ export:
   Box
   AnimPict
   static
+  sequential
+  concurrent
+  together
+  above
+  beside
+  overlay
 
 class Box(width, height, ascent, descent)
 
@@ -19,10 +25,17 @@ fun is_concurrent(v):
   | #'early || #'middle || #'stretch || #'late: #true
   | ~else: #false
 
-annot.macro 'Order': '(Concurrency || matching(#'sequential))'
+annot.macro 'Sequencing':
+  annot_meta.pack_predicate('is_sequencing', '()')
+fun is_sequencing(v):
+  match v
+  | #'append || #'squash: #true
+  | ~else: #false
+
+annot.macro 'Order': '(Concurrency || Sequencing)'
 
 class AnimPict(private get_pict,
-               epochs :~ List.of(Real),
+               epoch_durations :~ List.of(Real),
                start_epoch :~ Int,
                start_box :~ Box,
                end_box :~ Box,
@@ -30,11 +43,14 @@ class AnimPict(private get_pict,
                max_box :~ Box):
   internal _AnimPict
 
+  property epochs:
+    math.max(0, epoch_durations.length() - start_epoch)
+
   constructor
   | (p :: Pict):
       let box = Box(p.width, p.height, p.ascent, p.descent)
       super(fun (epoch, n):
-              if epoch < 0 | p.launder().ghost() | p,
+              p,
             [0],
             0,
             box, box, box, box)
@@ -44,56 +60,147 @@ class AnimPict(private get_pict,
       let final :: Pict = proc(1)
       super(fun (epoch, n):
               cond
-              | epoch < 0 || n <= 0: initial.ghost()
-              | epoch > 1 || n >= 1: final
+              | epoch < 0: initial
+              | epoch >= 1 || n >= 1: final
+              | n <= 0: initial
               | ~else: proc(n),
             [duration],
             0,
             Box(initial.width, initial.height, initial.ascent, initial.descent),
             Box(final.width, final.height, final.ascent, final.descent),            
             Box(math.min(final.width, initial.width),
-                math.min(final.width, initial.width),
+                math.min(final.height, initial.height),
                 math.min(final.ascent, initial.ascent),
                 math.min(final.descent, initial.descent)),
             Box(math.max(final.width, initial.width),
-                math.max(final.width, initial.width),
+                math.max(final.height, initial.height),
                 math.max(final.ascent, initial.ascent),
                 math.max(final.descent, initial.descent)))
   
-  method pict(epoch :: Int, n :: Real.in(0, 1)):
+  method pict(epoch :: Int, n :: Real.in(0, 1)) :~ Pict:
     get_pict(epoch, n)
+
+  method
+  | inset(amt :: Real) :~ AnimPict:
+      inset(amt, amt, amt, amt)
+  | inset(horiz :: Real, vert :: Real) :~ AnimPict:
+      inset(horiz, vert, horiz, vert)
+  | inset(left :: Real, top :: Real, right :: Real, bottom :: Real) :~ AnimPict:
+      fun adjust(box :~ Box):
+        Box(box.width + left + right,
+            box.height + top + bottom,
+            box.ascent + top,
+            box.descent + bottom)
+      _AnimPict(fun (epoch, n):
+                  let p :~ Pict = get_pict(epoch, n)
+                  p.inset(left, top, right, bottom),              
+                epoch_durations, start_epoch,
+                adjust(start_box), adjust(end_box), adjust(min_box), adjust(max_box))
+
+  method timeclip(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ AnimPict:
+    _AnimPict(fun (epoch, n):
+                let p :~ Pict = get_pict(epoch, n)
+                cond
+                | (epoch < 0) && keep != #'before:
+                    p.ghost()
+                | (epoch > 0) && keep != #'after:
+                    p.ghost()
+                | ~else:
+                    p,
+              epoch_durations, start_epoch,
+              start_box, end_box, min_box, max_box)
 
 fun static(p :~ Pict) :~ AnimPict:
   AnimPict(p)
 
 fun merge_epochs([p :~ AnimPict, ...]):
-  let min_epoch = math.min(-p.start_epoch, ...)
-  let max_epoch = math.max(math.max(0, p.epochs.length() - p.start_epoch - 1), ...)
-  let num_epochs = min_epoch - max_epoch + 1
+  let min_epoch = math.min(p.start_epoch, ...)
+  let max_epoch = math.max(math.max(0, (p.epoch_durations.length() + p.start_epoch) - 1), ...)
+  let num_epochs = max_epoch + 1 - min_epoch
   let all_epochs:
     for List (i: min_epoch .. min_epoch + num_epochs):
       fun get(p :~ AnimPict):
-        if i < p.start_epoch || i >= p.start_epoch + p.epochs.length()
+        if i < p.start_epoch || i >= p.start_epoch + p.epoch_durations.length()
         | 0
-        | p.epochs[i-p.start_epoch]
+        | p.epoch_durations[i-p.start_epoch]
       math.max(get(p), ...)
   values (min_epoch, max_epoch, num_epochs, all_epochs)
 
-fun sequential(ps :: List.of(AnimPict)) :~ List.of(AnimPict):
-  let (accum, t):
-    for values(accum :~ List = [],
-               t = 0):
-      each p: ps
-      let _AnimPict(get, epochs, start_epoch, sb, eb, nb, xb) = p
-      values(accum.add(_AnimPict(fun (epoch, n): get(epoch - t, n),
-                                 epochs,
-                                 start_epoch + t,
-                                 sb, eb, nb, xb)),
-             t + math.max(0, epochs.length() - start_epoch))
-  accum
+fun sequential(ps :: List.of(AnimPict),
+               ~mode: mode :: Sequencing = #'append) :~ List.of(AnimPict):
+  fun later(p :~ AnimPict, dt):
+    if dt == 0
+    | p
+    | let _AnimPict(get, epochs, start_epoch, sb, eb, nb, xb) = p
+      _AnimPict(fun (epoch, n): get(epoch - dt, n),
+                epochs,
+                start_epoch + dt,
+                sb, eb, nb, xb)
+  fun refocus(p :~ AnimPict, at_epoch, total, used):
+    let index = at_epoch - p.start_epoch
+    cond
+    | index < 0 || index >= p.epoch_durations.length():
+        p
+    | total == p.epoch_durations[index]:
+        p
+    | ~else:
+        let orig = p.epoch_durations[index]
+        let ratio = orig / total
+        let begin_ratio = used / total
+        let _AnimPict(get, epochs, start_epoch, sb, eb, nb, xb) = p
+        _AnimPict(fun (epoch, n):
+                    cond
+                    | epoch != at_epoch: get(epoch, n)
+                    | n < begin_ratio: get(epoch - 1, 1)
+                    | n >= begin_ratio + ratio: get(epoch, 1)
+                    | ~else: get(epoch, (n - begin_ratio) / ratio),
+                  epochs.delete(index).insert(index, total),
+                  start_epoch,
+                  sb, eb, nb, xb)
+  match mode
+  | #'append:
+      let (accum, t):
+        for values(accum :~ List = [],
+                   dt = 0):
+          each p: ps
+          values(accum.add(later(p, dt)),
+                 dt + math.max(0, p.epochs))
+      accum
+  | #'squash:
+      let durations = MutableMap{}
+      fun bump_durations(p :~ AnimPict, offset, durations :~ MutableMap):
+        let start_index = -p.start_epoch
+        let end_index = (p.epochs - p.start_epoch) - 1
+        fun bump(index, offset):
+          when index >= 0 && index < p.epoch_durations.length()
+          | durations[offset] := durations.get(offset, 0) + p.epoch_durations[index]
+        bump(start_index, offset)
+        when start_index != end_index
+        | bump(end_index, offset + p.epochs - 1)
+        offset + math.max(0, p.epochs - 1)        
+      for values(offset = 0) (p: ps):
+        bump_durations(p, offset, durations)
+      let used_durations = MutableMap{}
+      let (accum, t):
+        for values(accum :~ List = [], offset = 0):          
+          each p: ps
+          let start_total = durations.get(offset, 0)
+          let start_used = used_durations.get(offset, 0)
+          let new_p:
+            let new_p = refocus(p, 0, start_total, start_used)
+            if p.epochs <= 1
+            | new_p
+            | let end = offset + p.epochs - 1
+              let end_total = durations.get(end, 0)
+              let end_used = used_durations.get(end, 0)
+              refocus(new_p, p.epochs - 1, end_total, end_used)          
+          let new_offset = bump_durations(p, offset, used_durations)
+          values(accum.add(later(new_p, offset)),
+                 new_offset)
+      accum
 
 fun concurrent(ps :: List.of(AnimPict),
-               ~align: align :: Concurrency = #'stretch) :~ List.of(AnimPict):
+               ~align: align :: Concurrency = #'middle) :~ List.of(AnimPict):
   match ps
   | []: []
   | [p :~ AnimPict, ...]:
@@ -117,35 +224,30 @@ fun concurrent(ps :: List.of(AnimPict),
                             | #'middle: cond
                                         | n < (1 - ratio) / 2: 0
                                         | n >= 1 - ((1 - ratio) / 2): 1
-                                        | ~else: (n - ratio) / ratio
+                                        | ~else: (n - ((1 - ratio) / 2)) / ratio
                             | #'stretch: if ratio .= 0
                                          | 1
                                          | n / ratio),
-                  for (i: 0..epochs.length()):
+                  for List (i: 0..epochs.length()):
                     all_epochs[start_epoch - min_epoch],
                   start_epoch,
                   sb, eb, nb, xb)
 
-fun above(~align: align :: pict.HorizontalAlignment = #'center,
-          ~order: order :: Concurrency = #'middle,
-          p :~ AnimPict,
-          ...):
-  let [p :~ AnimPict, ...] = (match order
-                              | #'sequential: sequential([p, ...])
-                              | ~else: concurrent(~align: order, [p, ...]))
+fun together(~order: order :: Order = #'middle,
+             [p, ...]) :~ List.of(AnimPict):
+  match order
+  | #'append || #'squash: sequential(~mode: order, [p, ...])
+  | ~else: concurrent(~align: order, [p, ...])
+
+fun combine(~order: order,
+            ps,
+            stack_picts,
+            stack_boxes) :~ AnimPict:
+  let [p :~ AnimPict, ...] = together(~order: order, ps)
   let (min_epoch, max_epoch, num_epochs, all_epochs):
     merge_epochs([p, ...])
-  fun stack_boxes((boxes :~ List.of(Box)) && [b :~ Box, ...]):
-    if boxes == []
-    | Box(0, 0, 0, 0)
-    | Box(math.sum(b.height, ...),
-          math.max(b.width, ...),
-          boxes[0].ascent,
-          boxes[boxes.length()-1].descent)
   _AnimPict(fun (epoch, n):
-              pict.above(~align: align,
-                         p.pict(epoch, n),
-                         ...),            
+              stack_picts([p.pict(epoch, n), ...]),
             all_epochs,
             min_epoch,
             stack_boxes([p.start_box, ...]),
@@ -153,5 +255,94 @@ fun above(~align: align :: pict.HorizontalAlignment = #'center,
             stack_boxes([p.min_box, ...]),
             stack_boxes([p.max_box, ...]))
 
-let plain = AnimPict(pict.blank(10))
-concurrent([plain, plain])
+fun above(~sep: sep = 0,
+          ~align: align :: pict.HorizontalAlignment = #'center,
+          ~order: order :: Order = #'middle,
+          p :~ AnimPict,
+          ...) :~ AnimPict:
+  fun stack_picts(ps):
+    pict.above(~sep: sep,
+               ~align: align,
+               & ps)
+  fun stack_boxes((boxes :~ List.of(Box)) && [b :~ Box, ...]):
+    if boxes == []
+    | Box(0, 0, 0, 0)
+    | Box(math.sum(b.height, ...) + boxes.length() * sep,
+          math.max(b.width, ...),
+          boxes[0].ascent,
+          boxes[boxes.length()-1].descent)
+  combine(~order: order,
+          [p, ...],
+          stack_picts,
+          stack_boxes) 
+
+fun align_boxes((boxes :~ List.of(Box)) && [b :~ Box, ...],
+                sep, align,
+                horiz_overlay):
+  if boxes == []
+  | Box(0, 0, 0, 0)
+  | let width:
+      if horiz_overlay
+      | math.max(b.width, ...)
+      | math.sum(b.width, ...) + boxes.length() * sep        
+    match align
+    | #'top:
+        let height = math.max(b.height, ...)
+        Box(height,
+            width,
+            math.min(b.ascent, ...),
+            math.min(height - (b.height - b.descent), ...))
+    | #'topline:
+        let ascent = math.max(b.ascent, ...)
+        let height = math.max(ascent + (b.height - b.ascent), ...)
+        Box(height,
+            width,
+            ascent,
+            math.min(b.descent + (height - b.height), ...))
+    | #'bottom:
+        let height = math.max(b.height, ...)
+        Box(math.max(b.height, ...),
+            width,
+            math.min(height - (b.height - b.ascent), ...),
+            math.min(b.descent, ...))
+    | #'baseline:
+        let descent = math.max(b.descent, ...)
+        let height = math.max(descent + (b.height - b.descent), ...)
+        Box(height,
+            width,
+            math.min(b.ascent + (height - b.height), ...),
+            descent)
+    | #'center:
+        let height = math.max(b.height, ...)
+        Box(height,
+            width,
+            math.min(b.ascent + ((height - b.height) / 2), ...),
+            math.min(b.descent - ((height - b.height) / 2), ...))
+
+fun beside(~sep: sep = 0,
+           ~align: align :: pict.VerticalAlignment = #'center,
+           ~order: order :: Order = #'middle,
+           p :~ AnimPict,
+           ...) :~ AnimPict:
+  fun stack_picts(ps):
+    pict.beside(~sep: sep,
+                ~align: align,
+                & ps)
+  combine(~order: order,
+          [p, ...],
+          stack_picts,
+          fun (boxes): align_boxes(boxes, sep, align, #false))
+
+fun overlay(~halign: halign :: pict.HorizontalAlignment = #'center,
+            ~valign: valign :: pict.VerticalAlignment = #'center,
+            ~order: order :: Order = #'middle,
+            p :~ AnimPict,
+            ...) :~ AnimPict:
+  fun stack_picts(ps):
+    pict.overlay(~halign: halign,
+                 ~valign: valign,
+                 & ps)
+  combine(~order: order,
+          [p, ...],
+          stack_picts,
+          fun (boxes): align_boxes(boxes, 0, valign, #true))

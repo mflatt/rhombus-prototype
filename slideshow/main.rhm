@@ -4,6 +4,8 @@ import:
   rhombus/draw
   pict:
     expose Pict
+  pict/anim:
+    expose AnimPict
   lib("slideshow/main.rkt") as rkt
   lib("pict/main.rkt") as rkt_pict
   lib("slideshow/play.rkt") as rkt_play
@@ -15,14 +17,8 @@ export:
   // flattens nested lists in arguments:
   slide
 
-  // special values recognized by `slide`
   Pause
   Alts
-  Animated
-
-  // finds all picts tat `slide` would (including flattening lists,
-  // and going into `alts`) to get the maximum pict width, then makes
-  // all picts that wide; use this to align a subsequence within `slide`
   align
 
   // these flatten nested lists of mixtures of strings and picts
@@ -131,147 +127,71 @@ fun roman(a, ...) :~ Pict:
 
 // ----------------------------------------
 
-fun gap(): 24
-
 class Pause()
 
-class Alts(alts :~ List):
-  opaque
-  constructor (alt, ...):
-    super([flatten_slide_content(#'Alts, alt),
+class Alts(alts :~ List.of(List)):
+  internal _Alts
+  constructor (contents, ...):
+    super([flatten_slide_content(#'Alts, contents),
            ...])
 
-class Animated(proc,
-               ~skip_first: skip_first = #false,
-               ~skip_last: skip_last = #false):
-  opaque
-  method pict(n :: Real.in(0, 1)) :~ Pict:
-    proc(rkt_play.#{fast-middle}(n))
-
-class PrefixSize(w, h)
+fun gap(): 24
 
 fun flatten_slide_content(who, c) :~ List:
   match c
   | [c, ...]: List.append(flatten_slide_content(who, c), ...)
-  | p :: Pict: [p]
-  | p :: satisfying(rkt_pict.#{pict?}): [Pict.from_handle(p)]
+  | p :: Pict: [AnimPict(p)]
+  | p :: satisfying(rkt_pict.#{pict?}): [AnimPict(Pict.from_handle(p))]
+  | p :: AnimPict: [p]
   | p :: Pause: [p]
-  | Alts([]): []
-  | p :: Alts: [p]
-  | p :: Animated: [p]
+  | _Alts([]): []
+  | _Alts([alt]): alt
+  | p :: _Alts: [p]
   | ~else:
       error(who, "bad slide content: " +& to_string(c, ~mode: #'expr))
 
-class Plan(procs :~ List, suffix :~ maybe(Pict))
+fun pause_to_anim(contents) :~ anim.AnimPict:
+  recur loop (contents = contents, accum :~ List = []) :~ anim.AnimPict:
+    match contents
+    | []: anim.above(~sep: gap(), & accum)
+    | [p :: Pause, & contents]:
+        anim.above(~sep: gap(),
+                   ~order: #'append,
+                   anim.above(~sep: gap(), & accum),
+                   loop(contents, []).timeclip(~keep: #'after))
+    | [_Alts([alt, ...]), & contents]:
+        let alts = [pause_to_anim(alt),
+                    ...]
+        let alt0 = alts[0]
+        let altN = alts[alts.length() - 1]
+        let [alt :~ anim.AnimPict, ...] = alts.drop_left(1).drop_right(1)
+        let p = anim.overlay(~order: #'append,
+                             alt0.timeclip(~keep: #'before),
+                             alt.timeclip(),
+                             ...,
+                             altN.timeclip(~keep: #'after))
+        loop(contents, accum.add(p))
+    | [c, & contents]:
+        loop(contents, accum.add(c))
 
 fun slide(~title: title :: maybe(String || Pict) = #false,
           ~layout: layout :: matching(#'auto || #'center || #'top || #'tall) = #'auto,      
           content, ...):
-  let contents = flatten_slide_content(#'slide, [content, ...])
-  fun emit(p):
-    rkt.slide(~title: title,
-              ~layout: layout,
-              & (if p | [Pict.handle(p)] | []))
-  fun
-  | combine(#false, other): other
-  | combine(other, #false): other
-  | combine(a, b): pict.above(~sep: gap(), a, b)                            
-  fun pin_size(alt_p :~ Pict, w, h):
-    let dw = math.max(0, (w - alt_p.width) / 2)
-    alt_p.inset(dw, 0, dw, math.max(0, h - alt_p.height))
-  fun show(v, x): println([v, x]); v
-  // returns two values:
-  //   a list of functions
-  //   a initial pict or #f for empty
-  fun render_plan(contents = contents, prefix = #false, static = #false):
-    match contents
-    | []:
-        if static
-        | prefix
-        | Plan([fun (): emit(prefix)],
-               prefix)
-    | [p :: Pict, & contents]:
-        render_plan(contents, combine(prefix, p), static)
-    | [PrefixSize(w, h), & contents]:
-        render_plan(contents, prefix && pin_size(prefix, w, h), static)
-    | [_ :: Pause, & contents]:
-        if static
-        | let suffix = render_plan(contents, prefix, #true)
-          suffix && Pict.ghost(suffix)
-        | let Plan(rest, suffix) = render_plan(contents, prefix, #false)
-          let ghost_suffix = suffix && Pict.ghost(suffix)
-          Plan([fun ():
-                  match [prefix, suffix]
-                  | [#false, #false]: emit(#false)
-                  | [#false, _]: emit(ghost_suffix)
-                  | [_, ghost_suffix :: Pict]:
-                      emit(pin_size(prefix, ghost_suffix.width, ghost_suffix.height)),
-                & rest],
-               ghost_suffix)
-    | [Alts(alts), & contents]:
-        let suffix = render_plan(contents, #false, #true)
-        let [alt, ...] = alts
-        // get pict to determine the size of each alternative:
-        let alt_ps = [render_plan(alt, #false, #true), ...]
-        let (w, h) = (for values(w = #false, h = #false) (alt_p: alt_ps):
-                        match alt_p
-                        | alt_p :: Pict:
-                            values(math.max(w || 0, alt_p.width),
-                                   math.max(h || 0, alt_p.height))
-                        | ~else:
-                            values(w, h))
-        cond
-        | !w:
-              // no picts from any alt, so suffix or plan is unchanged
-              if static
-              | suffix
-              | render_plan(contents, prefix, #false)
-        | ~else:
-            // drop alts that do not contribute
-            let alts = (for List (alt: alts,
-                                  alt_p: alt_ps):
-                          keep_when alt_p
-                          alt)
-            if static
-            | combine(prefix, combine(pin_size(alt_ps[0], w, h), suffix))
-            | let [alt0 :~ List, ...] = alts.drop_right(1)
-              let alt_last :~ List = alts[alts.length() - 1]
-              // rendering instruction to grow the prefix, if needed
-              let prefix_size = (match prefix
-                                 | prefix :: Pict: PrefixSize(math.max(prefix.width, w),
-                                                              prefix.height + gap() + h)
-                                 | ~else: PrefixSize(w, h))
-              let alt_rest = [prefix_size, & (if suffix | [suffix] | [])]
-              let [Plan([proc0, ...], _), ...] = [render_plan(alt0 ++ alt_rest, prefix, #false),
-                                                  ...]
-              let Plan(procs, new_suffix) = render_plan(alt_last ++ [prefix_size] ++ contents, prefix, #false)
-              Plan([proc0, ..., ..., &procs],
-                   new_suffix)
-    | [content :: Animated, & contents]:
-        let first_p = content.pict(0)          
-        if static
-        | render_plan(contents, combine(prefix, first_p), #true)
-        | let last_p = content.pict(1)
-          let suffix = render_plan(contents, #false, #true)
-          let Plan(rest, full_suffix) = render_plan(contents, combine(prefix, last_p), #false)
-          Plan([fun ():
-                  rkt_play.#{play-n}(~title: title,
-                                     ~layout: layout,
-                                     #{#:skip-first?}: content.skip_first,
-                                     #{#:skip-last?}: content.skip_last,
-                                     fun (n):
-                                       Pict.handle(combine(prefix,
-                                                           combine(content.pict(n),
-                                                                   suffix)))),
-                & rest],
-               combine(combine(prefix, first_p), suffix))
-    | [content, & _]:
-        error(#'slide, "unrecognized slide content: " +& to_string(content, ~mode: #'expr))
-  let Plan(procs, _) = render_plan(contents, #false, #false)
-  for (proc: procs):
-    proc()
+  let p = pause_to_anim(flatten_slide_content(#'slide, [content, ...]))
+  for (i: 0..p.epochs):
+    let duration = (if i < p.start_epoch
+                    | 0
+                    | p.epoch_durations[i - p.start_epoch])
+    if duration .= 0
+    | rkt.slide(~title: title,
+                ~layout: layout,
+                p.pict(i, 1).handle)
+    | rkt_play.#{play-n}(~title: title,
+                         ~layout: layout,
+                         fun (n): p.pict(i, n).handle)
 
-// flattens, but does not convert
+// ----------------------------------------
+
 fun align(~align: dir :: matching(#'left || #'center || #'right) = #'left,
           content, ...):
   let cs = flatten_slide_content(#'align, [content, ...])
@@ -279,23 +199,22 @@ fun align(~align: dir :: matching(#'left || #'center || #'right) = #'left,
     recur loop (cs :~ List = cs):
       for values(w = 0) (c: cs):
         match c
-        | p :: Pict: math.max(w, p.width)
+        | p :: anim.AnimPict: math.max(w, p.max_box.width)
         | a :: Alts:
-            for values(w = 0) (elem: a.alts):
-              math.max(w, loop(elem))
+            for values(w = 0) (alt: a.alts):
+              math.max(w, loop(alt))
         | ~else: w
   recur loop (cs :~ List = cs):
     for List (c: cs):
-        match c
-        | p :: Pict:
-            match dir
-            | #'left: p.inset(0, 0, width - p.width, 0)
-            | #'center: p.inset((width - p.width) / 2, 0)
-            | #'right: p.inset(width - p.width, 0, 0, 0)
-        | a :: Alts:
-            Alts(for List (elem: a.alts):
-                   loop(elem))
-        | ~else: c
+      match c
+      | p :: anim.AnimPict:
+          match dir
+          | #'left: p.inset(0, 0, width - p.max_box.width, 0)
+          | #'center: p.inset((width - p.max_box.width) / 2, 0)
+          | #'right: p.inset(width - p.max_box.width, 0, 0, 0)
+      | _Alts([alt, ...]):
+          _Alts([loop(alt), ...])
+      | ~else: c
 
 // ----------------------------------------
 
@@ -361,15 +280,3 @@ fun interactive(p :: Pict, callback :: Function.of_arity(1)) :~ Pict:
 
 fun start_at_recent_slide():
   rkt.#{start-at-recent-slide}()
-
-slide(pict.text("hello"),
-      Pause(),
-      Alts(pict.text("first"),
-           pict.text("second").scale(2)),
-      Pause(),
-      Animated(fun (n): pict.text("flower").scale(n+1)),
-      Pause(),
-      pict.text("done!"))
-
-
-           
