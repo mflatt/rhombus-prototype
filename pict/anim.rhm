@@ -6,17 +6,13 @@ import:
       Pict
 
 export:
-  Box
   AnimPict
-  static
   sequential
   concurrent
   together
   above
   beside
   overlay
-
-class Box(width, height, ascent, descent)
 
 annot.macro 'Concurrency':
   annot_meta.pack_predicate('is_concurrent', '()')
@@ -34,48 +30,54 @@ fun is_sequencing(v):
 
 annot.macro 'Order': '(Concurrency || Sequencing)'
 
+fun freshen(p :~ Pict): p.inset(0)
+
 class AnimPict(private get_pict,
                epoch_durations :~ List.of(Real),
                start_epoch :~ Int,
-               start_box :~ Box,
-               end_box :~ Box,
-               min_box :~ Box,
-               max_box :~ Box):
+               before :~ Pict,
+               after :~ Pict):
   internal _AnimPict
 
   property epochs:
     math.max(0, epoch_durations.length() - start_epoch)
 
+  property width: before.width
+  property height: before.height
+  property ascent: before.ascent
+  property descent: before.descent
+
+  property min_width: math.min(before.width, after.width)
+  property min_height: math.min(before.height, after.height)
+  property min_ascent: math.min(before.ascent, after.ascent)
+  property min_descent: math.min(before.descent, after.descent)
+
+  property max_width: math.max(before.width, after.width)
+  property max_height: math.max(before.height, after.height)
+  property max_ascent: math.max(before.ascent, after.ascent)
+  property max_descent: math.max(before.descent, after.descent)
+
   constructor
   | (p :: Pict):
-      let box = Box(p.width, p.height, p.ascent, p.descent)
       super(fun (epoch, n):
               p,
             [0],
             0,
-            box, box, box, box)
+            p, p)
   | (proc :: Function.of_arity(1),
      ~duration: duration :: PosReal):
-      let initial :: Pict = proc(0)
-      let final :: Pict = proc(1)
+      let before :: Pict = proc(0)
+      let after :: Pict = proc(1)
       super(fun (epoch, n):
               cond
-              | epoch < 0: initial
-              | epoch >= 1 || n >= 1: final
-              | n <= 0: initial
+              | epoch < 0: before
+              | epoch >= 1 || n >= 1: after
+              | n <= 0: before
               | ~else: proc(n),
             [duration],
             0,
-            Box(initial.width, initial.height, initial.ascent, initial.descent),
-            Box(final.width, final.height, final.ascent, final.descent),            
-            Box(math.min(final.width, initial.width),
-                math.min(final.height, initial.height),
-                math.min(final.ascent, initial.ascent),
-                math.min(final.descent, initial.descent)),
-            Box(math.max(final.width, initial.width),
-                math.max(final.height, initial.height),
-                math.max(final.ascent, initial.ascent),
-                math.max(final.descent, initial.descent)))
+            before,
+            after)
   
   method pict(epoch :: Int, n :: Real.in(0, 1)) :~ Pict:
     get_pict(epoch, n)
@@ -86,16 +88,12 @@ class AnimPict(private get_pict,
   | inset(horiz :: Real, vert :: Real) :~ AnimPict:
       inset(horiz, vert, horiz, vert)
   | inset(left :: Real, top :: Real, right :: Real, bottom :: Real) :~ AnimPict:
-      fun adjust(box :~ Box):
-        Box(box.width + left + right,
-            box.height + top + bottom,
-            box.ascent + top,
-            box.descent + bottom)
       _AnimPict(fun (epoch, n):
                   let p :~ Pict = get_pict(epoch, n)
-                  p.inset(left, top, right, bottom),              
+                  p.inset(left, top, right, bottom),
                 epoch_durations, start_epoch,
-                adjust(start_box), adjust(end_box), adjust(min_box), adjust(max_box))
+                before.inset(left, top, right, bottom),
+                after.inset(left, top, right, bottom))
 
   method timeclip(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ AnimPict:
     _AnimPict(fun (epoch, n):
@@ -103,15 +101,12 @@ class AnimPict(private get_pict,
                 cond
                 | (epoch < 0) && keep != #'before:
                     p.ghost()
-                | (epoch > 0) && keep != #'after:
+                | (epoch >= epochs) && keep != #'after:
                     p.ghost()
                 | ~else:
                     p,
               epoch_durations, start_epoch,
-              start_box, end_box, min_box, max_box)
-
-fun static(p :~ Pict) :~ AnimPict:
-  AnimPict(p)
+              freshen(before), freshen(after))
 
 fun merge_epochs([p :~ AnimPict, ...]):
   let min_epoch = math.min(p.start_epoch, ...)
@@ -131,11 +126,11 @@ fun sequential(ps :: List.of(AnimPict),
   fun later(p :~ AnimPict, dt):
     if dt == 0
     | p
-    | let _AnimPict(get, epochs, start_epoch, sb, eb, nb, xb) = p
+    | let _AnimPict(get, epochs, start_epoch, before, after) = p
       _AnimPict(fun (epoch, n): get(epoch - dt, n),
                 epochs,
                 start_epoch + dt,
-                sb, eb, nb, xb)
+                freshen(before), freshen(after))
   fun refocus(p :~ AnimPict, at_epoch, total, used):
     let index = at_epoch - p.start_epoch
     cond
@@ -147,7 +142,7 @@ fun sequential(ps :: List.of(AnimPict),
         let orig = p.epoch_durations[index]
         let ratio = orig / total
         let begin_ratio = used / total
-        let _AnimPict(get, epochs, start_epoch, sb, eb, nb, xb) = p
+        let _AnimPict(get, epochs, start_epoch, before, after) = p
         _AnimPict(fun (epoch, n):
                     cond
                     | epoch != at_epoch: get(epoch, n)
@@ -156,7 +151,7 @@ fun sequential(ps :: List.of(AnimPict),
                     | ~else: get(epoch, (n - begin_ratio) / ratio),
                   epochs.delete(index).insert(index, total),
                   start_epoch,
-                  sb, eb, nb, xb)
+                  before, after)
   match mode
   | #'append:
       let (accum, t):
@@ -207,7 +202,7 @@ fun concurrent(ps :: List.of(AnimPict),
       let (min_epoch, max_epoch, num_epochs, all_epochs :~ List):
         merge_epochs([p, ...])
       for List (p: ps):        
-        let _AnimPict(get, epochs, start_epoch, sb, eb, nb, xb) = p
+        let _AnimPict(get, epochs, start_epoch, before, after) = p
         let num_epochs = epochs.length()
         _AnimPict(fun (epoch, n):
                     let e = epoch - start_epoch
@@ -231,7 +226,7 @@ fun concurrent(ps :: List.of(AnimPict),
                   for List (i: 0..epochs.length()):
                     all_epochs[start_epoch - min_epoch],
                   start_epoch,
-                  sb, eb, nb, xb)
+                  freshen(before), freshen(after))
 
 fun together(~order: order :: Order = #'middle,
              [p, ...]) :~ List.of(AnimPict):
@@ -241,8 +236,7 @@ fun together(~order: order :: Order = #'middle,
 
 fun combine(~order: order,
             ps,
-            stack_picts,
-            stack_boxes) :~ AnimPict:
+            stack_picts) :~ AnimPict:
   let [p :~ AnimPict, ...] = together(~order: order, ps)
   let (min_epoch, max_epoch, num_epochs, all_epochs):
     merge_epochs([p, ...])
@@ -250,10 +244,8 @@ fun combine(~order: order,
               stack_picts([p.pict(epoch, n), ...]),
             all_epochs,
             min_epoch,
-            stack_boxes([p.start_box, ...]),
-            stack_boxes([p.start_box, ...]),
-            stack_boxes([p.min_box, ...]),
-            stack_boxes([p.max_box, ...]))
+            stack_picts([_AnimPict.before(p), ...]),
+            stack_picts([_AnimPict.after(p), ...]))
 
 fun above(~sep: sep = 0,
           ~align: align :: pict.HorizontalAlignment = #'center,
@@ -264,60 +256,9 @@ fun above(~sep: sep = 0,
     pict.above(~sep: sep,
                ~align: align,
                & ps)
-  fun stack_boxes((boxes :~ List.of(Box)) && [b :~ Box, ...]):
-    if boxes == []
-    | Box(0, 0, 0, 0)
-    | Box(math.sum(b.height, ...) + boxes.length() * sep,
-          math.max(b.width, ...),
-          boxes[0].ascent,
-          boxes[boxes.length()-1].descent)
   combine(~order: order,
           [p, ...],
-          stack_picts,
-          stack_boxes) 
-
-fun align_boxes((boxes :~ List.of(Box)) && [b :~ Box, ...],
-                sep, align,
-                horiz_overlay):
-  if boxes == []
-  | Box(0, 0, 0, 0)
-  | let width:
-      if horiz_overlay
-      | math.max(b.width, ...)
-      | math.sum(b.width, ...) + boxes.length() * sep        
-    match align
-    | #'top:
-        let height = math.max(b.height, ...)
-        Box(height,
-            width,
-            math.min(b.ascent, ...),
-            math.min(height - (b.height - b.descent), ...))
-    | #'topline:
-        let ascent = math.max(b.ascent, ...)
-        let height = math.max(ascent + (b.height - b.ascent), ...)
-        Box(height,
-            width,
-            ascent,
-            math.min(b.descent + (height - b.height), ...))
-    | #'bottom:
-        let height = math.max(b.height, ...)
-        Box(math.max(b.height, ...),
-            width,
-            math.min(height - (b.height - b.ascent), ...),
-            math.min(b.descent, ...))
-    | #'baseline:
-        let descent = math.max(b.descent, ...)
-        let height = math.max(descent + (b.height - b.descent), ...)
-        Box(height,
-            width,
-            math.min(b.ascent + (height - b.height), ...),
-            descent)
-    | #'center:
-        let height = math.max(b.height, ...)
-        Box(height,
-            width,
-            math.min(b.ascent + ((height - b.height) / 2), ...),
-            math.min(b.descent - ((height - b.height) / 2), ...))
+          stack_picts) 
 
 fun beside(~sep: sep = 0,
            ~align: align :: pict.VerticalAlignment = #'center,
@@ -330,8 +271,7 @@ fun beside(~sep: sep = 0,
                 & ps)
   combine(~order: order,
           [p, ...],
-          stack_picts,
-          fun (boxes): align_boxes(boxes, sep, align, #false))
+          stack_picts)
 
 fun overlay(~halign: halign :: pict.HorizontalAlignment = #'center,
             ~valign: valign :: pict.VerticalAlignment = #'center,
@@ -344,5 +284,4 @@ fun overlay(~halign: halign :: pict.HorizontalAlignment = #'center,
                  & ps)
   combine(~order: order,
           [p, ...],
-          stack_picts,
-          fun (boxes): align_boxes(boxes, 0, valign, #true))
+          stack_picts)

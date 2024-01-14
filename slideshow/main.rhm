@@ -17,8 +17,8 @@ export:
   // flattens nested lists in arguments:
   slide
 
-  Pause
-  Alts
+  pause
+  alts
   align
 
   // these flatten nested lists of mixtures of strings and picts
@@ -127,13 +127,20 @@ fun roman(a, ...) :~ Pict:
 
 // ----------------------------------------
 
-class Pause()
+class Pause():
+  implements Printable
+  override describe(mode, recur):
+    "pause"
+def pause = Pause()
 
 class Alts(alts :~ List.of(List)):
-  internal _Alts
-  constructor (contents, ...):
-    super([flatten_slide_content(#'Alts, contents),
-           ...])
+  implements Printable
+  override describe(mode, recur):
+    PrintDesc.list("alts(", alts.map(recur), ")")
+
+fun alts(contents, ...):
+  Alts([flatten_slide_content(#'Alts, contents),
+        ...])
 
 fun gap(): 24
 
@@ -144,9 +151,9 @@ fun flatten_slide_content(who, c) :~ List:
   | p :: satisfying(rkt_pict.#{pict?}): [AnimPict(Pict.from_handle(p))]
   | p :: AnimPict: [p]
   | p :: Pause: [p]
-  | _Alts([]): []
-  | _Alts([alt]): alt
-  | p :: _Alts: [p]
+  | Alts([]): []
+  | Alts([alt]): alt
+  | p :: Alts: [p]
   | ~else:
       error(who, "bad slide content: " +& to_string(c, ~mode: #'expr))
 
@@ -159,7 +166,7 @@ fun pause_to_anim(contents) :~ anim.AnimPict:
                    ~order: #'append,
                    anim.above(~sep: gap(), & accum),
                    loop(contents, []).timeclip(~keep: #'after))
-    | [_Alts([alt, ...]), & contents]:
+    | [Alts([alt, ...]), & contents]:
         let alts = [pause_to_anim(alt),
                     ...]
         let alt0 = alts[0]
@@ -199,7 +206,7 @@ fun align(~align: dir :: matching(#'left || #'center || #'right) = #'left,
     recur loop (cs :~ List = cs):
       for values(w = 0) (c: cs):
         match c
-        | p :: anim.AnimPict: math.max(w, p.max_box.width)
+        | p :: anim.AnimPict: math.max(w, p.max_width)
         | a :: Alts:
             for values(w = 0) (alt: a.alts):
               math.max(w, loop(alt))
@@ -209,11 +216,11 @@ fun align(~align: dir :: matching(#'left || #'center || #'right) = #'left,
       match c
       | p :: anim.AnimPict:
           match dir
-          | #'left: p.inset(0, 0, width - p.max_box.width, 0)
-          | #'center: p.inset((width - p.max_box.width) / 2, 0)
-          | #'right: p.inset(width - p.max_box.width, 0, 0, 0)
-      | _Alts([alt, ...]):
-          _Alts([loop(alt), ...])
+          | #'left: p.inset(0, 0, width - p.max_width, 0)
+          | #'center: p.inset((width - p.max_width) / 2, 0)
+          | #'right: p.inset(width - p.max_width, 0, 0, 0)
+      | Alts([alt, ...]):
+          Alts([loop(alt), ...])
       | ~else: c
 
 // ----------------------------------------
