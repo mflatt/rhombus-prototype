@@ -1,0 +1,326 @@
+#lang rhombus/static/and_meta
+
+import:
+  rhombus/draw:
+    expose Color
+  "static.rhm" as pict:
+    expose:
+      Pict
+  "static.rhm"!private:
+    expose:
+      StaticPict
+
+export:
+  AnimPict
+  sequential
+  concurrent
+
+annot.macro 'Sequencing':
+  annot_meta.pack_predicate('is_sequencing', '()')
+fun is_sequencing(v):
+  match v
+  | #'step || #'splice: #true
+  | ~else: #false
+
+fun freshen(p :~ Pict): p.inset(0)
+
+class AnimPict(private get_pict,
+               _epoch_durations :~ List.of(Real),
+               _start_epoch :~ Int,
+               before :~ StaticPict,
+               after :~ StaticPict):
+  extends Pict
+  internal _AnimPict
+
+  override property width: before.width
+  override property height: before.height
+  override property ascent: before.ascent
+  override property descent: before.descent
+
+  override property epochs:
+    math.max(0, epoch_durations.length() - start_epoch)
+  override property start_epoch: _start_epoch
+  override property epoch_durations: _epoch_durations
+
+  override property min_width: math.min(before.width, after.width)
+  override property min_height: math.min(before.height, after.height)
+  override property min_ascent: math.min(before.ascent, after.ascent)
+  override property min_descent: math.min(before.descent, after.descent)
+
+  override property max_width: math.max(before.width, after.width)
+  override property max_height: math.max(before.height, after.height)
+  override property max_ascent: math.max(before.ascent, after.ascent)
+  override property max_descent: math.max(before.descent, after.descent)
+
+  constructor
+  | (p :: Pict):
+      super()(fun (epoch, n, instances):
+                p,
+              [0],
+              0,
+              p, p)
+  | (proc :: Function.of_arity(1),
+     ~duration: duration :: PosReal):
+      let before :: Pict = proc(0)
+      let after :: Pict = proc(1)
+      super()(fun (epoch, n, instances):              
+                cond
+                | epoch < 0: before
+                | epoch >= 1 || n >= 1: after
+                | n <= 0: before
+                | ~else: proc(n),
+              [duration],
+              0,
+              before,
+              after)
+  
+  override method
+  | snapshot() :~ Pict: snapshot(0, 0, MutableMap{})
+  | snapshot(epoch :: Int, n :: Real.in(0, 1), instances :~ MutableMap) :~ Pict:
+      let key = [this, epoch, n]
+      instances.get(key, #false)
+        || (block:
+              let p = get_pict(epoch, n, instances)
+              instances[key] := p
+              p)
+
+  override method
+  | inset(amt :: Real) :~ AnimPict:
+      inset(amt, amt, amt, amt)
+  | inset(horiz :: Real, vert :: Real) :~ AnimPict:
+      inset(horiz, vert, horiz, vert)
+  | inset(left :: Real, top :: Real, right :: Real, bottom :: Real) :~ AnimPict:
+      anim_pict_like(this,
+                     ~get_pict: fun (epoch, n, instances):
+                                  snapshot(epoch, n, instances).inset(left, top, right, bottom),
+                     ~before: before.inset(left, top, right, bottom),
+                     ~after: after.inset(left, top, right, bottom))
+
+  override method timecrop(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ AnimPict:
+    anim_pict_like(this,
+                   ~get_pict: fun (epoch, n, instances):
+                                let p = snapshot(epoch, n, instances)
+                                cond
+                                | (epoch < 0) && keep != #'before:
+                                    p.ghost()
+                                | (epoch >= epochs) && keep != #'after:
+                                    p.ghost()
+                                | ~else:
+                                    p)
+
+  override method launder() :~ AnimPict:
+    anim_pict_like(this,
+                   ~get_pict: fun (epoch, n, instances):
+                                snapshot(epoch, n, instances).launder())
+    
+  override method ghost() :~ AnimPict:
+    anim_pict_like(this,
+                   ~get_pict: fun (epoch, n, instances):
+                                snapshot(epoch, n, instances).ghost())
+    
+  override method refocus(to_p :: Pict) :~ AnimPict:
+    this
+    
+  override method lift(amt :: Real) :~ Pict:
+    anim_pict_like(this,
+                   ~get_pict: fun (epoch, n, instances):
+                                snapshot(epoch, n, instances).lift(amt),
+                   ~before: before.lift(amt),
+                   ~after: after.lift(amt))
+
+  override method
+  | scale(amt :: Real) :~ Pict:
+      anim_pict_like(this,
+                     ~get_pict: fun (epoch, n, instances):
+                                  snapshot(epoch, n, instances).scale(amt),
+                     ~before: before.scale(amt),
+                     ~after: after.scale(amt))
+  | scale(h_amt :: Real, v_amt :: Real) :~ Pict:
+      anim_pict_like(this,
+                     ~get_pict: fun (epoch, n, instances):
+                                  snapshot(epoch, n, instances).scale(h_amt, v_amt),
+                     ~before: before.scale(h_amt, v_amt),
+                     ~after: after.scale(h_amt, v_amt))
+
+  override method rotate(radians :: Real) :~ Pict:
+    anim_pict_like(this,
+                   ~get_pict: fun (epoch, n, instances):
+                                snapshot(epoch, n, instances).scale(radians),
+                   ~before: before.rotate(radians),
+                   ~after: after.rotate(radians))
+
+  override method colorize(c :: (Color || String)) :~ Pict:
+    anim_pict_like(this,
+                   ~get_pict: fun (epoch, n, instances):
+                                snapshot(epoch, n, instances).colorize(c))
+
+fun anim_pict(get_pict, epoch_durations, start_epoch, before, after) :~ AnimPict:
+  _AnimPict()(get_pict, epoch_durations, start_epoch, before, after)
+
+fun anim_pict_like(this :~ _AnimPict,
+                   ~get_pict: get_pict = this.get_pict,
+                   ~epoch_durations: epoch_durations = this._epoch_durations,
+                   ~start_epoch: start_epoch = this._start_epoch,
+                   ~before: before = this.before,
+                   ~after: after = this.after) :~ AnimPict:
+  _AnimPict()(get_pict, epoch_durations, start_epoch, before, after)
+
+fun merge_epochs([p :~ AnimPict, ...]):
+  let min_epoch = math.min(p.start_epoch, ...)
+  let max_epoch = math.max(math.max(0, (p.epoch_durations.length() + p.start_epoch) - 1), ...)
+  let num_epochs = max_epoch + 1 - min_epoch
+  let all_epochs:
+    for List (i: min_epoch .. min_epoch + num_epochs):
+      fun get(p :~ AnimPict):
+        if i < p.start_epoch || i >= p.start_epoch + p.epoch_durations.length()
+        | 0
+        | p.epoch_durations[i-p.start_epoch]
+      math.max(get(p), ...)
+  values (min_epoch, max_epoch, num_epochs, all_epochs)
+
+fun sequential(~join: mode :: Sequencing = #'step,
+               p :: Pict, ...) :~ List.of(AnimPict):
+  make_sequential(for List (p: [p, ...]):
+                    if p is_a StaticPict
+                    | AnimPict(p)
+                    | p,
+                  ~join: mode)
+
+fun make_sequential(ps :~ List.of(AnimPict),
+                    ~join: mode) :~ List.of(AnimPict):
+  fun later(p :~ AnimPict, dt):
+    if dt == 0
+    | p
+    | let _AnimPict(get, epochs, start_epoch, before, after) = p
+      anim_pict(fun (epoch, n, instances): get(epoch - dt, n, instances),
+                epochs,
+                start_epoch + dt,
+                freshen(before), freshen(after))
+  fun refocus(p :~ AnimPict, at_epoch, total, used):
+    let index = at_epoch - p.start_epoch
+    cond
+    | index < 0 || index >= p.epoch_durations.length():
+        p
+    | total == p.epoch_durations[index]:
+        p
+    | ~else:
+        let orig = p.epoch_durations[index]
+        let ratio = orig / total
+        let begin_ratio = used / total
+        let _AnimPict(get, epochs, start_epoch, before, after) = p
+        anim_pict(fun (epoch, n, instances):
+                    cond
+                    | epoch != at_epoch: get(epoch, n, instances)
+                    | n < begin_ratio: get(epoch - 1, 1, instances)
+                    | n >= begin_ratio + ratio: get(epoch, 1, instances)
+                    | ~else: get(epoch, (n - begin_ratio) / ratio, instances),
+                  epochs.delete(index).insert(index, total),
+                  start_epoch,
+                  before, after)
+  match mode
+  | #'step:
+      let (accum, t):
+        for values(accum :~ List = [],
+                   dt = 0):
+          each p: ps
+          values(accum.add(later(p, dt)),
+                 dt + math.max(0, p.epochs))
+      accum
+  | #'splice:
+      let durations = MutableMap{}
+      fun bump_durations(p :~ AnimPict, offset, durations :~ MutableMap):
+        let start_index = -p.start_epoch
+        let end_index = (p.epochs - p.start_epoch) - 1
+        fun bump(index, offset):
+          when index >= 0 && index < p.epoch_durations.length()
+          | durations[offset] := durations.get(offset, 0) + p.epoch_durations[index]
+        bump(start_index, offset)
+        when start_index != end_index
+        | bump(end_index, offset + p.epochs - 1)
+        offset + math.max(0, p.epochs - 1)        
+      for values(offset = 0) (p: ps):
+        bump_durations(p, offset, durations)
+      let used_durations = MutableMap{}
+      let (accum, t):
+        for values(accum :~ List = [], offset = 0):          
+          each p: ps
+          let start_total = durations.get(offset, 0)
+          let start_used = used_durations.get(offset, 0)
+          let new_p:
+            let new_p = refocus(p, 0, start_total, start_used)
+            if p.epochs <= 1
+            | new_p
+            | let end = offset + p.epochs - 1
+              let end_total = durations.get(end, 0)
+              let end_used = used_durations.get(end, 0)
+              refocus(new_p, p.epochs - 1, end_total, end_used)          
+          let new_offset = bump_durations(p, offset, used_durations)
+          values(accum.add(later(new_p, offset)),
+                 new_offset)
+      accum
+
+fun concurrent(~talign: align :: pict.TimeAlignment = #'center,
+               p :: Pict, ...) :~ List.of(Pict):
+  let ps = [p, ...]
+  if (for all (p: ps):
+        p is_a StaticPict)
+  | ps
+  | make_concurrent(for List (p: ps):
+                      if p is_a StaticPict
+                      | AnimPict(p)
+                      | p,
+                    ~talign: align)
+
+fun make_concurrent(ps :~ List.of(AnimPict),
+                    ~talign: align) :~ List.of(AnimPict):
+  match ps
+  | []: []
+  | [p :~ AnimPict, ...]:
+      let (min_epoch, max_epoch, num_epochs, all_epochs :~ List):
+        merge_epochs([p, ...])
+      for List (p: ps):        
+        let _AnimPict(get, epochs, start_epoch, before, after) = p
+        let num_epochs = epochs.length()
+        anim_pict(fun (epoch, n, instances):
+                    let e = epoch - start_epoch
+                    get(epoch,                        
+                        if epoch < 0 || epoch >= num_epochs
+                        | n
+                        | let duration = all_epochs[epoch - min_epoch]
+                          if duration .= 0
+                          | n
+                          | let ratio = epochs[e] / duration
+                            match align
+                            | #'early: (if n < ratio | n / ratio | 1)
+                            | #'late: (if n < 1 - ratio | 0 | (n - ratio) / ratio)
+                            | #'center: cond
+                                        | n < (1 - ratio) / 2: 0
+                                        | n >= 1 - ((1 - ratio) / 2): 1
+                                        | ~else: (n - ((1 - ratio) / 2)) / ratio
+                            | #'stretch: if ratio .= 0
+                                         | 1
+                                         | n / ratio,
+                        instances),
+                  for List (i: 0..epochs.length()):
+                    all_epochs[start_epoch - min_epoch],
+                  start_epoch,
+                  before, after)
+
+private.set_convert(
+  fun (ps :~ List, talign, combine):
+    let [p :~ AnimPict, ...]:
+      make_concurrent(for List (p: ps):
+                        if p is_a StaticPict
+                        | AnimPict(p)
+                        | p,
+                      ~talign: talign)
+    let (min_epoch, max_epoch, num_epochs, all_epochs): merge_epochs([p, ...])
+    anim_pict(fun (epoch, n, instances):
+                combine([p.snapshot(epoch, n, instances), ...]),
+              all_epochs,
+              min_epoch,
+              combine([_AnimPict.before(p), ...]),
+              combine([_AnimPict.after(p), ...]))
+)
+
+  

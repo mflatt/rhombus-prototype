@@ -4,8 +4,6 @@ import:
   rhombus/draw
   pict:
     expose Pict
-  pict/anim:
-    expose AnimPict
   lib("slideshow/main.rkt") as rkt
   lib("pict/main.rkt") as rkt_pict
   lib("slideshow/play.rkt") as rkt_play
@@ -77,7 +75,7 @@ fun flatten_string(who, c, font) :~ Pict:
   match c
   | s :: String: pict.text(s, ~font: font)
   | p :: Pict: p
-  | [c, ...]: Pict.from_handle(rkt.#{htl-append}(flatten_string(who, c, font).handle, ...))
+  | [c, ...]: pict.beside(~valign: #'topline, flatten_string(who, c, font), ...)
   | ~else:
       error(who, "bad text content: " +& to_string(c, ~mode: #'expr))
 
@@ -147,9 +145,8 @@ fun gap(): 24
 fun flatten_slide_content(who, c) :~ List:
   match c
   | [c, ...]: List.append(flatten_slide_content(who, c), ...)
-  | p :: Pict: [AnimPict(p)]
-  | p :: satisfying(rkt_pict.#{pict?}): [AnimPict(Pict.from_handle(p))]
-  | p :: AnimPict: [p]
+  | p :: Pict: [p]
+  | p :: satisfying(rkt_pict.#{pict?}): [Pict.from_handle(p)]
   | p :: Pause: [p]
   | Alts([]): []
   | Alts([alt]): alt
@@ -157,26 +154,27 @@ fun flatten_slide_content(who, c) :~ List:
   | ~else:
       error(who, "bad slide content: " +& to_string(c, ~mode: #'expr))
 
-fun pause_to_anim(contents) :~ anim.AnimPict:
-  recur loop (contents = contents, accum :~ List = []) :~ anim.AnimPict:
+fun pause_to_anim(contents) :~ Pict:
+  recur loop (contents = contents, accum :~ List = []) :~ Pict:
     match contents
-    | []: anim.above(~sep: gap(), & accum)
+    | []:
+        pict.above(~sep: gap(), & accum)
     | [p :: Pause, & contents]:
-        anim.above(~sep: gap(),
-                   ~order: #'append,
-                   anim.above(~sep: gap(), & accum),
-                   loop(contents, []).timeclip(~keep: #'after))
+        pict.above(~sep: gap(),
+                   & pict.sequential(pict.above(~sep: gap(), & accum),
+                                     loop(contents, []).timecrop(~keep: #'after)))
     | [Alts([alt, ...]), & contents]:
         let alts = [pause_to_anim(alt),
                     ...]
         let alt0 = alts[0]
         let altN = alts[alts.length() - 1]
-        let [alt :~ anim.AnimPict, ...] = alts.drop_left(1).drop_right(1)
-        let p = anim.overlay(~order: #'append,
-                             alt0.timeclip(~keep: #'before),
-                             alt.timeclip(),
-                             ...,
-                             altN.timeclip(~keep: #'after))
+        let [alt :~ Pict, ...] = alts.drop_left(1).drop_right(1)
+        let p = pict.overlay(& pict.sequential(
+                               alt0.timecrop(~keep: #'before),
+                               alt.timecrop(),
+                               ...,
+                               altN.timecrop(~keep: #'after)
+                             ))
         loop(contents, accum.add(p))
     | [c, & contents]:
         loop(contents, accum.add(c))
@@ -192,10 +190,10 @@ fun slide(~title: title :: maybe(String || Pict) = #false,
     if duration .= 0
     | rkt.slide(~title: title,
                 ~layout: layout,
-                p.pict(i, 1).handle)
+                p.snapshot(i, 1, MutableMap{}).handle)
     | rkt_play.#{play-n}(~title: title,
                          ~layout: layout,
-                         fun (n): p.pict(i, n).handle)
+                         fun (n): p.snapshot(i, n, MutableMap{}).handle)
 
 // ----------------------------------------
 
@@ -206,7 +204,7 @@ fun align(~align: dir :: matching(#'left || #'center || #'right) = #'left,
     recur loop (cs :~ List = cs):
       for values(w = 0) (c: cs):
         match c
-        | p :: anim.AnimPict: math.max(w, p.max_width)
+        | p :: Pict: math.max(w, p.max_width)
         | a :: Alts:
             for values(w = 0) (alt: a.alts):
               math.max(w, loop(alt))
@@ -214,7 +212,7 @@ fun align(~align: dir :: matching(#'left || #'center || #'right) = #'left,
   recur loop (cs :~ List = cs):
     for List (c: cs):
       match c
-      | p :: anim.AnimPict:
+      | p :: Pict:
           match dir
           | #'left: p.inset(0, 0, width - p.max_width, 0)
           | #'center: p.inset((width - p.max_width) / 2, 0)
@@ -225,10 +223,10 @@ fun align(~align: dir :: matching(#'left || #'center || #'right) = #'left,
 
 // ----------------------------------------
 
-fun lines(~align: align :: matching(#'left || #'center || #'right) = #'left,
+fun lines(~halign: align :: matching(#'left || #'center || #'right) = #'left,
           p :: Pict, ...) :~ Pict:
   pict.above(~sep: rkt.#{current-line-sep}(),
-             ~align: align,
+             ~halign: align,
              p, ...)
 
 def current_para_width = rkt.#{current-para-width}
@@ -238,7 +236,7 @@ fun flatten_para_content(who, c) :~ List:
   | s :: String:
       let PairList[str, ...] = string.#{string-split}(s)
       [rkt.para(#{#:fill?}: #false, str), ...]
-  | p :: Pict: [p.handle]
+  | p :: Pict: [p.snapshot().handle]
   | [c, ...]: List.append(flatten_para_content(who, c), ...)
   | ~else:
       error(who, "bad paragraph content: " +& to_string(c, ~mode: #'expr))
@@ -271,8 +269,8 @@ fun table(rows :: List.of(List)) :~ Pict:
   let [[elem, ...], ...] = rows
   fun convert(elem):
     match elem
-    | elem :: String: t(elem).handle
-    | elem :: Pict: elem.handle
+    | elem :: String: t(elem).snapshot().handle
+    | elem :: Pict: elem.snapshot().handle
   Pict.from_handle(rkt.table(rows[0].length(),
                              PairList[convert(elem), ..., ...],
                              rkt.#{ltl-superimpose},
@@ -283,7 +281,7 @@ fun table(rows :: List.of(List)) :~ Pict:
 // ----------------------------------------
 
 fun interactive(p :: Pict, callback :: Function.of_arity(1)) :~ Pict:
-  Pict.from_handle(rkt.interactive(p.handle, callback))
+  Pict.from_handle(rkt.interactive(p.snapshot().handle, callback))
 
 fun start_at_recent_slide():
   rkt.#{start-at-recent-slide}()
