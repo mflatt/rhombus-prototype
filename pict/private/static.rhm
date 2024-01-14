@@ -69,8 +69,7 @@ class Pict():
   property min_descent: descent
 
   abstract property epochs :~ Int
-  abstract property start_epoch :~ Int
-  abstract property epoch_durations :~ List.of(Real)
+  abstract method epoch_duration(i :: Int) :~ Real
   abstract method
   | snapshot() :~ SnapshotPict
   | snapshot(epoch :: Int,
@@ -115,8 +114,7 @@ class StaticPict(private _handle):
   override property descent: rkt.#{pict-descent}(_handle)
 
   override property epochs: 1
-  override property start_epoch: 0
-  override property epoch_durations: [0]
+  override method epoch_duration(i): 0
 
   override property splices_before: #false
   override property splices_after: #false

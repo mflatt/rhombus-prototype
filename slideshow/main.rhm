@@ -166,15 +166,7 @@ fun pause_to_anim(contents) :~ Pict:
     | [Alts([alt, ...]), & contents]:
         let alts = [pause_to_anim(alt),
                     ...]
-        let alt0 = alts[0]
-        let altN = alts[alts.length() - 1]
-        let [alt :~ Pict, ...] = alts.drop_left(1).drop_right(1)
-        let p = pict.overlay(& pict.sequential(
-                               alt0.timecrop(~keep: #'before),
-                               alt.timecrop(),
-                               ...,
-                               altN.timecrop(~keep: #'after)
-                             ))
+        let p = pict.transition(&alts)
         loop(contents, accum.add(p))
     | [c, & contents]:
         loop(contents, accum.add(c))
@@ -184,9 +176,7 @@ fun slide(~title: title :: maybe(String || Pict) = #false,
           content, ...):
   let p = pause_to_anim(flatten_slide_content(#'slide, [content, ...]))
   for (i: 0..p.epochs):
-    let duration = (if i < p.start_epoch
-                    | 0
-                    | p.epoch_durations[i - p.start_epoch])
+    let duration = p.epoch_duration(i)
     if duration .= 0
     | rkt.slide(~title: title,
                 ~layout: layout,
