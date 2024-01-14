@@ -166,7 +166,15 @@ fun pause_to_anim(contents) :~ Pict:
     | [Alts([alt, ...]), & contents]:
         let alts = [pause_to_anim(alt),
                     ...]
-        let p = pict.transition(&alts)
+        let alt0 = alts[0]
+        let altN = alts[alts.length() - 1]
+        let [alt :~ Pict, ...] = alts.drop_left(1).drop_right(1)
+        let p = pict.overlay(& pict.sequential(
+                               alt0.timecrop(~keep: #'before),
+                               alt.timecrop(),
+                               ...,
+                               altN.timecrop(~keep: #'after)
+                             ))
         loop(contents, accum.add(p))
     | [c, & contents]:
         loop(contents, accum.add(c))
