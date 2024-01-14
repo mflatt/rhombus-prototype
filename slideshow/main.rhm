@@ -193,6 +193,8 @@ fun slide(~title: title :: maybe(String || Pict) = #false,
                 p.snapshot(i, 1, MutableMap{}).handle)
     | rkt_play.#{play-n}(~title: title,
                          ~layout: layout,
+                         #{#:skip-first?}: p.splices_before,
+                         #{#:skip-last?}: (i < p.epochs-1) || p.splices_after,
                          fun (n): p.snapshot(i, n, MutableMap{}).handle)
 
 // ----------------------------------------

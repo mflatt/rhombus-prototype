@@ -28,7 +28,8 @@ class AnimPict(private get_pict,
                _epoch_durations :~ List.of(Real),
                _start_epoch :~ Int,
                before :~ StaticPict,
-               after :~ StaticPict):
+               after :~ StaticPict,
+               _splicing :~ matching(#'both || #'after || #'before || #'none)):
   extends Pict
   internal _AnimPict
 
@@ -41,6 +42,9 @@ class AnimPict(private get_pict,
     math.max(0, epoch_durations.length() - start_epoch)
   override property start_epoch: _start_epoch
   override property epoch_durations: _epoch_durations
+
+  override property splices_before: _splicing == #'both || _splicing == #'before
+  override property splices_after: _splicing == #'both || _splicing == #'after
 
   override property min_width: math.min(before.width, after.width)
   override property min_height: math.min(before.height, after.height)
@@ -58,7 +62,8 @@ class AnimPict(private get_pict,
                 p,
               [0],
               0,
-              p, p)
+              p, p,
+              #'none)
   | (proc :: Function.of_arity(1),
      ~duration: duration :: PosReal):
       let before :: Pict = proc(0)
@@ -72,7 +77,8 @@ class AnimPict(private get_pict,
               [duration],
               0,
               before,
-              after)
+              after,
+              #'none)
   
   override method
   | snapshot() :~ Pict: snapshot(0, 0, MutableMap{})
@@ -107,6 +113,10 @@ class AnimPict(private get_pict,
                                     p.ghost()
                                 | ~else:
                                     p)
+
+  override method splicing(dir :: maybe(matching(#'before || #'after || #'both || #'none)) = #false) :~ AnimPict:
+    anim_pict_like(this,
+                   ~splicing: dir)
 
   override method launder() :~ AnimPict:
     anim_pict_like(this,
@@ -154,16 +164,17 @@ class AnimPict(private get_pict,
                    ~get_pict: fun (epoch, n, instances):
                                 snapshot(epoch, n, instances).colorize(c))
 
-fun anim_pict(get_pict, epoch_durations, start_epoch, before, after) :~ AnimPict:
-  _AnimPict()(get_pict, epoch_durations, start_epoch, before, after)
+fun anim_pict(get_pict, epoch_durations, start_epoch, before, after, splicing) :~ AnimPict:
+  _AnimPict()(get_pict, epoch_durations, start_epoch, before, after, splicing)
 
 fun anim_pict_like(this :~ _AnimPict,
                    ~get_pict: get_pict = this.get_pict,
                    ~epoch_durations: epoch_durations = this._epoch_durations,
                    ~start_epoch: start_epoch = this._start_epoch,
                    ~before: before = this.before,
-                   ~after: after = this.after) :~ AnimPict:
-  _AnimPict()(get_pict, epoch_durations, start_epoch, before, after)
+                   ~after: after = this.after,
+                   ~splicing: splicing = this._splicing) :~ AnimPict:
+  _AnimPict()(get_pict, epoch_durations, start_epoch, before, after, splicing)
 
 fun merge_epochs([p :~ AnimPict, ...]):
   let min_epoch = math.min(p.start_epoch, ...)
@@ -176,7 +187,24 @@ fun merge_epochs([p :~ AnimPict, ...]):
         | 0
         | p.epoch_durations[i-p.start_epoch]
       math.max(get(p), ...)
-  values (min_epoch, max_epoch, num_epochs, all_epochs)
+  let splicing:
+    for values (splicing = #'both) (p: [p, ...]):
+      let start = p.start_epoch
+      let end = math.max(0, p.epoch_durations.length() + start - 1)
+      let splicing = (if (start <= 0) && (end >= 0) && !p.splices_before
+                      | match splicing
+                        | #'both: #'after
+                        | #'before: #'none
+                        | ~else: splicing
+                      | splicing)
+      let splicing = (if end == max_epoch && !p.splices_after
+                      | match splicing
+                        | #'both: #'before
+                        | #'after: #'none
+                        | ~else: splicing
+                      | splicing)
+      splicing
+  values (min_epoch, max_epoch, num_epochs, splicing, all_epochs)
 
 fun sequential(~join: mode :: Sequencing = #'step,
                p :: Pict, ...) :~ List.of(AnimPict):
@@ -191,11 +219,12 @@ fun make_sequential(ps :~ List.of(AnimPict),
   fun later(p :~ AnimPict, dt):
     if dt == 0
     | p
-    | let _AnimPict(get, epochs, start_epoch, before, after) = p
+    | let _AnimPict(get, epochs, start_epoch, before, after, splicing) = p
       anim_pict(fun (epoch, n, instances): get(epoch - dt, n, instances),
                 epochs,
                 start_epoch + dt,
-                freshen(before), freshen(after))
+                before, after,
+                splicing)
   fun refocus(p :~ AnimPict, at_epoch, total, used):
     let index = at_epoch - p.start_epoch
     cond
@@ -207,7 +236,7 @@ fun make_sequential(ps :~ List.of(AnimPict),
         let orig = p.epoch_durations[index]
         let ratio = orig / total
         let begin_ratio = used / total
-        let _AnimPict(get, epochs, start_epoch, before, after) = p
+        let _AnimPict(get, epochs, start_epoch, before, after, splicing) = p
         anim_pict(fun (epoch, n, instances):
                     cond
                     | epoch != at_epoch: get(epoch, n, instances)
@@ -216,48 +245,47 @@ fun make_sequential(ps :~ List.of(AnimPict),
                     | ~else: get(epoch, (n - begin_ratio) / ratio, instances),
                   epochs.delete(index).insert(index, total),
                   start_epoch,
-                  before, after)
-  match mode
-  | #'step:
-      let (accum, t):
-        for values(accum :~ List = [],
-                   dt = 0):
-          each p: ps
-          values(accum.add(later(p, dt)),
-                 dt + math.max(0, p.epochs))
-      accum
-  | #'splice:
-      let durations = MutableMap{}
-      fun bump_durations(p :~ AnimPict, offset, durations :~ MutableMap):
-        let start_index = -p.start_epoch
-        let end_index = (p.epochs - p.start_epoch) - 1
-        fun bump(index, offset):
-          when index >= 0 && index < p.epoch_durations.length()
-          | durations[offset] := durations.get(offset, 0) + p.epoch_durations[index]
-        bump(start_index, offset)
-        when start_index != end_index
-        | bump(end_index, offset + p.epochs - 1)
-        offset + math.max(0, p.epochs - 1)        
-      for values(offset = 0) (p: ps):
-        bump_durations(p, offset, durations)
-      let used_durations = MutableMap{}
-      let (accum, t):
-        for values(accum :~ List = [], offset = 0):          
-          each p: ps
-          let start_total = durations.get(offset, 0)
-          let start_used = used_durations.get(offset, 0)
-          let new_p:
-            let new_p = refocus(p, 0, start_total, start_used)
-            if p.epochs <= 1
-            | new_p
-            | let end = offset + p.epochs - 1
-              let end_total = durations.get(end, 0)
-              let end_used = used_durations.get(end, 0)
-              refocus(new_p, p.epochs - 1, end_total, end_used)          
-          let new_offset = bump_durations(p, offset, used_durations)
-          values(accum.add(later(new_p, offset)),
-                 new_offset)
-      accum
+                  before, after,
+                  splicing)
+  fun adjust_offset(p :~ AnimPict, offset, can_splice):
+    if can_splice && (p._splicing == #'before || p._splicing == #'both)
+    | offset - 1
+    | offset
+  let durations = MutableMap{}
+  fun bump_durations(p :~ AnimPict, offset, durations :~ MutableMap):
+    let start_index = -p.start_epoch
+    let end_index = (p.epochs - p.start_epoch) - 1
+    fun bump(index, offset):
+      when index >= 0 && index < p.epoch_durations.length()
+      | durations[offset] := durations.get(offset, 0) + p.epoch_durations[index]
+    bump(start_index, offset)
+    when start_index != end_index
+    | bump(end_index, offset + p.epochs - 1)
+    let next_splice = mode == #'splice || p._splicing == #'after || (p._splicing == #'both)
+    values(offset + math.max(0, p.epochs - (if next_splice | 1 | 0)),
+           !next_splice)
+  for values(offset = 0, splice = #false) (p: ps):
+    bump_durations(p, adjust_offset(p, offset, splice), durations)
+  let used_durations = MutableMap{}
+  let (accum, t, _):
+    for values(accum :~ List = [], offset = 0, splice = #false):          
+      each p: ps
+      let offset = adjust_offset(p, offset, splice)
+      let start_total = durations.get(offset, 0)
+      let start_used = used_durations.get(offset, 0)
+      let new_p:
+        let new_p = refocus(p, 0, start_total, start_used)
+        if p.epochs <= 1
+        | new_p
+        | let end = offset + p.epochs - 1
+          let end_total = durations.get(end, 0)
+          let end_used = used_durations.get(end, 0)
+          refocus(new_p, p.epochs - 1, end_total, end_used)          
+      let (new_offset, new_splice) = bump_durations(p, offset, used_durations)
+      values(accum.add(later(new_p, offset)),
+             new_offset,
+             new_splice)
+  accum
 
 fun concurrent(~talign: align :: pict.TimeAlignment = #'center,
                p :: Pict, ...) :~ List.of(Pict):
@@ -276,15 +304,15 @@ fun make_concurrent(ps :~ List.of(AnimPict),
   match ps
   | []: []
   | [p :~ AnimPict, ...]:
-      let (min_epoch, max_epoch, num_epochs, all_epochs :~ List):
+      let (min_epoch, max_epoch, num_epochs, splicing, all_epochs :~ List):
         merge_epochs([p, ...])
       for List (p: ps):        
-        let _AnimPict(get, epochs, start_epoch, before, after) = p
+        let _AnimPict(get, epochs, start_epoch, before, after, splicing) = p
         let num_epochs = epochs.length()
         anim_pict(fun (epoch, n, instances):
                     let e = epoch - start_epoch
-                    get(epoch,                        
-                        if epoch < 0 || epoch >= num_epochs
+                    get(epoch,
+                        if e < 0 || e >= num_epochs
                         | n
                         | let duration = all_epochs[epoch - min_epoch]
                           if duration .= 0
@@ -304,7 +332,8 @@ fun make_concurrent(ps :~ List.of(AnimPict),
                   for List (i: 0..epochs.length()):
                     all_epochs[start_epoch - min_epoch],
                   start_epoch,
-                  before, after)
+                  before, after,
+                  splicing)
 
 private.set_convert(
   fun (ps :~ List, talign, combine):
@@ -314,13 +343,14 @@ private.set_convert(
                         | AnimPict(p)
                         | p,
                       ~talign: talign)
-    let (min_epoch, max_epoch, num_epochs, all_epochs): merge_epochs([p, ...])
+    let (min_epoch, max_epoch, num_epochs, splicing, all_epochs): merge_epochs([p, ...])
     anim_pict(fun (epoch, n, instances):
                 combine([p.snapshot(epoch, n, instances), ...]),
               all_epochs,
               min_epoch,
               combine([_AnimPict.before(p), ...]),
-              combine([_AnimPict.after(p), ...]))
+              combine([_AnimPict.after(p), ...]),
+              splicing)
 )
 
   

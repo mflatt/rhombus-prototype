@@ -77,6 +77,9 @@ class Pict():
              n :: Real.in(0, 1),
              instances :: MutableMap) :~ SnapshotPict
 
+  abstract property splices_before
+  abstract property splices_after
+
   abstract method launder() :~ Pict
   abstract method ghost() :~ Pict
   abstract method refocus(to_p :: Pict) :~ Pict
@@ -97,7 +100,8 @@ class Pict():
   abstract method colorize(c :: (Color || String)) :~ Pict
 
   abstract method timecrop(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict    
-
+  abstract method splicing(dir :: maybe(matching(#'before || #'after || #'both || #'none)) = #false) :~ Pict
+  
 class StaticPict(private _handle):
   extends Pict
   opaque
@@ -113,6 +117,9 @@ class StaticPict(private _handle):
   override property epochs: 1
   override property start_epoch: 0
   override property epoch_durations: [0]
+
+  override property splices_before: #false
+  override property splices_after: #false
 
   override method
   | snapshot(): this
@@ -159,6 +166,9 @@ class StaticPict(private _handle):
 
   override method timecrop(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict:
     convert([this], #'center, fun (ps :~ List): ps[0]).timecrop(~keep: keep)
+
+  override method splicing(dir :: maybe(matching(#'before || #'after || #'both || #'none)) = #false) :~ Pict:
+    convert([this], #'center, fun (ps :~ List): ps[0]).splicing(dir)
 
 annot.delayed_complete SnapshotPict: StaticPict
 
