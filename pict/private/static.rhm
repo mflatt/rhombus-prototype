@@ -15,6 +15,8 @@ export:
   
   Pict
 
+  nothing
+
   text
   
   beside
@@ -39,6 +41,8 @@ module private:
     set_convert
     _Pict
     StaticPict
+    NothingPict
+    remove_nothings
 
 annot.delayed_declare SnapshotPict
 
@@ -58,26 +62,13 @@ class Pict():
   abstract property ascent
   abstract property descent
 
-  property max_width: width
-  property max_height: height
-  property max_ascent: ascent
-  property max_descent: descent
-
-  property min_width: width
-  property min_height: height
-  property min_ascent: ascent
-  property min_descent: descent
-
-  abstract property epochs :~ Int
+  abstract property sustain_length :~ Int
   abstract method epoch_duration(i :: Int) :~ Real
   abstract method
   | snapshot() :~ SnapshotPict
   | snapshot(epoch :: Int,
              n :: Real.in(0, 1),
              instances :: MutableMap) :~ SnapshotPict
-
-  abstract property splices_before
-  abstract property splices_after
 
   abstract method launder() :~ Pict
   abstract method ghost() :~ Pict
@@ -99,10 +90,9 @@ class Pict():
   abstract method colorize(c :: (Color || String)) :~ Pict
 
   abstract method timecrop(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict    
-  abstract method splicing(dir :: maybe(matching(#'before || #'after || #'both || #'none)) = #false) :~ Pict
 
   abstract method delay(n :: NonnegInt) :~ Pict
-  abstract method sustain(n :: NonnegInt) :~ Pict
+  abstract method sustain(n :: NonnegInt = 1) :~ Pict
   
 class StaticPict(private _handle):
   extends Pict
@@ -116,11 +106,8 @@ class StaticPict(private _handle):
   override property ascent: rkt.#{pict-ascent}(_handle)
   override property descent: rkt.#{pict-descent}(_handle)
 
-  override property epochs: 1
+  override property sustain_length: 1
   override method epoch_duration(i): 0
-
-  override property splices_before: #false
-  override property splices_after: #false
 
   override method
   | snapshot(): this
@@ -168,14 +155,11 @@ class StaticPict(private _handle):
   override method timecrop(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict:
     convert([this], #'center, fun (ps :~ List): ps[0]).timecrop(~keep: keep)
 
-  override method splicing(dir :: maybe(matching(#'before || #'after || #'both || #'none)) = #false) :~ Pict:
-    convert([this], #'center, fun (ps :~ List): ps[0]).splicing(dir)
-
   override method delay(n :: NonnegInt) :~ Pict:
     if n == 0
     | this
     | convert([this], #'center, fun (ps :~ List): ps[0]).delay(n)
-  override method sustain(n :: NonnegInt) :~ Pict:  
+  override method sustain(n :: NonnegInt = 1) :~ Pict:  
     if n == 0
     | this
     | convert([this], #'center, fun (ps :~ List): ps[0]).sustain(n)
@@ -190,6 +174,58 @@ fun convert(p :~ List.of(Pict), valign, combine) :~ Pict:
   do_convert(p, valign, combine)
 fun set_convert(proc):
   do_convert := proc
+
+class NothingPict(_handle):
+  extends Pict
+  opaque
+  internal _NothingPict
+  constructor (): _NothingPict()(rkt.blank())
+
+  property handle: _handle
+  override property width: 0
+  override property height: 0
+  override property ascent: 0
+  override property descent: 0
+
+  override property sustain_length: 1
+  override method epoch_duration(i): 0
+
+  override method
+  | snapshot(): this
+  | snapshot(epoch, n, instances): this
+
+  override method launder(): this
+  override method ghost(): this
+  override method refocus(to_p :: Pict):
+    error(#'refocus, "cannot refocus nothing")
+
+  override method
+  | inset(amt :: Real): this
+  | inset(h_amt :: Real, v_amt :: Real): this
+  | inset(left_amt :: Real, top_amt :: Real,
+          right_amt :: Real, bottom_amt :: Real): this
+
+  override method lift(amt :: Real): this
+
+  override method
+  | scale(amt :: Real): this
+  | scale(h_amt :: Real, v_amt :: Real): this
+
+  override method rotate(radians :: Real): this
+
+  override method colorize(c :: (Color || String)): this
+
+  override method timecrop(~keep: keep :: maybe(matching(#'before || #'after)) = #false): this
+
+  override method delay(n :: NonnegInt): this
+  override method sustain(n :: NonnegInt = 1): this
+
+def nothing = _NothingPict()(rkt.blank())
+
+fun remove_nothings(ps :~ List):
+  for List (p: ps):
+    skip_when p == nothing
+    p
 
 fun from_handle(p :: satisfying(#{pict?})) :~ Pict:
   static_pict(p)
@@ -222,7 +258,9 @@ fun beside(~sep: sep = 0,
            ~talign: talign :: TimeAlignment = #'center,
            p :: Pict, ...) :~ Pict:
   recur retry (ps = [p, ...]):
-    match ps:
+    match remove_nothings(ps):
+    | []:
+        nothing
     | [p :: StaticPict, ...]:
         match align
         | #'top: static_pict(rkt.#{ht-append}(sep, p.handle, ...))
@@ -238,7 +276,9 @@ fun above(~sep: sep = 0,
           ~talign: talign :: TimeAlignment = #'center,
           p :: Pict, ...) :~ Pict:
   recur retry (ps = [p, ...]):
-    match ps:
+    match remove_nothings(ps):
+    | []:
+        nothing
     | [p :: StaticPict, ...]:
         match align
         | #'left: static_pict(rkt.#{vl-append}(sep, p.handle, ...))
@@ -252,7 +292,9 @@ fun overlay(~halign: halign :: HorizontalAlignment = #'center,
             ~talign: talign :: TimeAlignment = #'center,
             p :: Pict, ...) :~ Pict:
   recur retry (ps = [p, ...]):
-    match ps:
+    match remove_nothings(ps):
+    | []:
+        nothing
     | [p :: StaticPict, ...]:
         let [p, ...] = [p.handle, ...]
         static_pict(
@@ -332,6 +374,8 @@ fun rectangle(~around: around :: maybe(Pict) = #false,
               ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
   recur retry(around = around, width = width, height = height):
     match [around, width, height]
+    | [_ :: NothingPict, _, _]:
+        nothing
     | [_ :: False || StaticPict, _ :: Real || StaticPict, _ :: Real || StaticPict]:
         let width = match width | w :: Pict: w.width | ~else: width
         let height = match height | h :: Pict: h.height | ~else: height
@@ -388,6 +432,8 @@ fun ellipse(~around: around :: maybe(Pict) = #false,
             ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
   recur retry(around = around, width = width, height = height):
     match [around, width, height]
+    | [_ :: NothingPict, _, _]:
+        nothing
     | [_ :: False || StaticPict, _ :: Real || StaticPict, _ :: Real || StaticPict]:
         let width = match width | w :: Pict: w.width | ~else: width
         let height = match height | h :: Pict: h.height | ~else: height
@@ -473,6 +519,7 @@ fun offset(proc, dx, dy):
   if dx == 0 && dy == 0
   | proc
   | fun (p, q):
+      when q == nothing | error(#'Find, "cannot find nothing")
       let (x, y) = proc(p, q)
       values(x + dx, y + dy)
 
@@ -542,6 +589,8 @@ fun connect(p :: Pict,
             ~label_dx: label_dx :: Real = 0,
             ~label_dy: label_dy :: Real = 0) :~ Pict:
   match p
+  | _ :: NothingPict:
+      nothing
   | p :: StaticPict:
       let (from_x, from_y) = from.in(p)
       let (to_x, to_y) = to.in(p)
@@ -589,6 +638,8 @@ fun balloon(p :: Pict,
             ~line_color: line_color :: maybe(Color || String) = #false,
             ~line_width: line_width :: Real = 0) :~ Pict:
   match [p, content]:
+  | [_ :: NothingPict, _]:
+      nothing
   | [p :: StaticPict, content :: StaticPict]:
       let (at_x, at_y) = at.in(p)
       static_pict(

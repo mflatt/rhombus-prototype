@@ -163,20 +163,11 @@ fun pause_to_anim(contents) :~ Pict:
         let pre = pict.above(~sep: gap(), & accum)
         let post = loop(contents, []).timecrop(~keep: #'after)
         pict.above(~sep: gap(),
-                   pre.sustain(post.epochs),
-                   post.delay(pre.epochs))
+                   pre.sustain(post.sustain_length),
+                   post.delay(pre.sustain_length))
     | [Alts([alt, ...]), & contents]:
-        let alts = [pause_to_anim(alt),
-                    ...]
-        let alt0 = alts[0]
-        let altN = alts[alts.length() - 1]
-        let [alt :~ Pict, ...] = alts.drop_left(1).drop_right(1)
-        let p = pict.overlay(& pict.sequential(
-                               alt0.timecrop(~keep: #'before),
-                               alt.timecrop(),
-                               ...,
-                               altN.timecrop(~keep: #'after)
-                             ))
+        let alts = [pause_to_anim(alt), ...]
+        let p = pict.overlay(& pict.sequential(& alts))
         loop(contents, accum.add(p))
     | [c, & contents]:
         loop(contents, accum.add(c))
@@ -185,7 +176,7 @@ fun slide(~title: title :: maybe(String || Pict) = #false,
           ~layout: layout :: matching(#'auto || #'center || #'top || #'tall) = #'auto,      
           content, ...):
   let p = pause_to_anim(flatten_slide_content(#'slide, [content, ...]))
-  for (i: 0..p.epochs):
+  for (i: 0..p.sustain_length):
     let duration = p.epoch_duration(i)
     if duration .= 0
     | rkt.slide(~title: title,
@@ -193,8 +184,7 @@ fun slide(~title: title :: maybe(String || Pict) = #false,
                 p.snapshot(i, 1, MutableMap{}).handle)
     | rkt_play.#{play-n}(~title: title,
                          ~layout: layout,
-                         #{#:skip-first?}: p.splices_before,
-                         #{#:skip-last?}: (i < p.epochs-1) || p.splices_after,
+                         #{#:skip-last?}: #true,
                          fun (n): p.snapshot(i, n, MutableMap{}).handle)
 
 // ----------------------------------------
@@ -206,7 +196,7 @@ fun align(~align: dir :: matching(#'left || #'center || #'right) = #'left,
     recur loop (cs :~ List = cs):
       for values(w = 0) (c: cs):
         match c
-        | p :: Pict: math.max(w, p.max_width)
+        | p :: Pict: math.max(w, p.width)
         | a :: Alts:
             for values(w = 0) (alt: a.alts):
               math.max(w, loop(alt))
@@ -216,9 +206,9 @@ fun align(~align: dir :: matching(#'left || #'center || #'right) = #'left,
       match c
       | p :: Pict:
           match dir
-          | #'left: p.inset(0, 0, width - p.max_width, 0)
-          | #'center: p.inset((width - p.max_width) / 2, 0)
-          | #'right: p.inset(width - p.max_width, 0, 0, 0)
+          | #'left: p.inset(0, 0, width - p.width, 0)
+          | #'center: p.inset((width - p.width) / 2, 0)
+          | #'right: p.inset(width - p.width, 0, 0, 0)
       | Alts([alt, ...]):
           Alts([loop(alt), ...])
       | ~else: c
