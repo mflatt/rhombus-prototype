@@ -100,6 +100,9 @@ class Pict():
 
   abstract method timecrop(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict    
   abstract method splicing(dir :: maybe(matching(#'before || #'after || #'both || #'none)) = #false) :~ Pict
+
+  abstract method delay(n :: NonnegInt) :~ Pict
+  abstract method sustain(n :: NonnegInt) :~ Pict
   
 class StaticPict(private _handle):
   extends Pict
@@ -167,6 +170,15 @@ class StaticPict(private _handle):
 
   override method splicing(dir :: maybe(matching(#'before || #'after || #'both || #'none)) = #false) :~ Pict:
     convert([this], #'center, fun (ps :~ List): ps[0]).splicing(dir)
+
+  override method delay(n :: NonnegInt) :~ Pict:
+    if n == 0
+    | this
+    | convert([this], #'center, fun (ps :~ List): ps[0]).delay(n)
+  override method sustain(n :: NonnegInt) :~ Pict:  
+    if n == 0
+    | this
+    | convert([this], #'center, fun (ps :~ List): ps[0]).sustain(n)
 
 annot.delayed_complete SnapshotPict: StaticPict
 

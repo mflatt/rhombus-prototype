@@ -65,7 +65,9 @@ class AnimPict(private get_pict,
   constructor
   | (p :: Pict):
       super()(fun (epoch, n, instances):
-                p,
+                if epoch .= 0
+                | p
+                | p.ghost(),
               [0],
               0,
               0,
@@ -77,9 +79,11 @@ class AnimPict(private get_pict,
       let after :: Pict = proc(1)
       super()(fun (epoch, n, instances):              
                 cond
-                | epoch < 0: before
-                | epoch >= 1 || n >= 1: after
+                | epoch < 0: before.ghost()
+                | epoch >= 2: after.ghost()
+                | epoch >= 1: after
                 | n <= 0: before
+                | n >= 1: after
                 | ~else: proc(n),
               [duration],
               0,
@@ -125,6 +129,26 @@ class AnimPict(private get_pict,
   override method splicing(dir :: maybe(matching(#'before || #'after || #'both || #'none)) = #false) :~ AnimPict:
     anim_pict_like(this,
                    ~splicing: dir)
+
+  override method delay(amt :: NonnegInt) :~ AnimPict:
+    anim_pict_like(this,
+                   ~get_pict: fun (epoch, n, instances):
+                                snapshot(epoch - amt, n, instances),
+                   ~start_epoch: _start_epoch - amt)
+
+  override method sustain(amt :: NonnegInt) :~ AnimPict:
+    let old_end = epochs
+    anim_pict_like(this,
+                   ~get_pict: fun (epoch, n, instances):
+                                if epoch >= old_end
+                                | if epoch < old_end + amt
+                                  | snapshot(old_end - 1, 1, instances)
+                                  | snapshot(epoch - amt, n, instances)
+                                | snapshot(epoch, n, instances),
+                   ~epoch_durations:
+                     block:
+                       let keep = old_end + _start_epoch
+                       _epoch_durations.take_left(keep) ++ (for List (i: 0..amt): 0) ++ _epoch_durations.drop_left(keep))
 
   override method launder() :~ AnimPict:
     anim_pict_like(this,
@@ -337,7 +361,7 @@ fun make_concurrent(ps :~ List.of(AnimPict),
                                instances),
                        ~epoch_durations:
                          for List (i: 0..p._epoch_durations.length()):
-                           m_epoch_durations[i - p._start_epoch - m_start_epoch])
+                           m_epoch_durations[i - p._start_epoch + m_start_epoch])
 
 private.set_convert(
   fun (ps :~ List, talign, combine):

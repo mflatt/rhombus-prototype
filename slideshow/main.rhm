@@ -160,9 +160,11 @@ fun pause_to_anim(contents) :~ Pict:
     | []:
         pict.above(~sep: gap(), & accum)
     | [p :: Pause, & contents]:
+        let pre = pict.above(~sep: gap(), & accum)
+        let post = loop(contents, []).timecrop(~keep: #'after)
         pict.above(~sep: gap(),
-                   & pict.sequential(pict.above(~sep: gap(), & accum),
-                                     loop(contents, []).timecrop(~keep: #'after)))
+                   pre.sustain(post.epochs),
+                   post.delay(pre.epochs))
     | [Alts([alt, ...]), & contents]:
         let alts = [pause_to_anim(alt),
                     ...]
