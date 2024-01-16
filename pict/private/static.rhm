@@ -6,6 +6,8 @@ import:
   lib("pict/main.rkt") as rkt:
     expose #{pict?}
   lib("pict/balloon2.rkt") as bln
+  "pict-convertible.rkt" as convertible
+  lib("file/convertible.rkt") as fileconv
 
 export:
   Color
@@ -33,6 +35,7 @@ export:
 
   Find
   connect
+  pin
 
   balloon
 
@@ -57,6 +60,10 @@ class Pict():
   private override hash_code(recur):
     Equatable.identity_hash(this)
 
+  private implements convertible.Convertible
+  private override method handle_convert(req, defval):
+    fileconv.convert(snapshot().handle, req, defval)
+  
   abstract property width
   abstract property height
   abstract property ascent
@@ -618,6 +625,21 @@ fun connect(p :: Pict,
                        #{#:x-adjust-label}: label_dx,
                        #{#:y-adjust-label}: label_dy,
                        ~& kw_args))
+
+fun pin(p :: Pict,
+        at :: Find,
+        q :: Pict,
+        ~order: order :: matching(#'over || #'under) = #'over):
+  match [p, q]
+  | [_ :: NothingPict, _]:
+      error(#'pin, "cannot over nothing")
+  | [p :: StaticPict, q :: StaticPict]:
+      let (at_x, at_y) = at.in(p)
+      static_pict((if order == #'over
+                   | rkt.#{pin-over}
+                   | rkt.#{pin-under})(p.handle,
+                                       at_x, at_y,
+                                       q.handle))
 
 // ------------------------------------------------------------
 
