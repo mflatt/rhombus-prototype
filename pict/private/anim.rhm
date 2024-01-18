@@ -128,6 +128,22 @@ class CombinePictEpoch(combine,
     | CombinePictEpoch(combine, news)
     | CombinePictEpoch(combine, [force(new, orig), ...])
 
+class TransitionPictEpoch(zero :~ PictEpoch,
+                          rest :~ PictEpoch):
+  extends PictEpoch
+  override pict(n :: Real.in(0, 1)):
+    if n .= 0
+    | zero.pict(n)
+    | rest.pict(n)
+  override preferred_duration() :~ NonnegReal:
+    rest.preferred_duration()
+  override before() :~ PictEpoch:
+    zero.before()
+  override after() :~ PictEpoch:
+    rest.after()
+  override sustain_after() :~ maybe(PictEpoch):
+    rest.sustain_after()
+
 class AnimPict(_epochs :~ List.of(PictEpoch),
                _epoch_durations :~ List.of(Real), // parallel to `_epochs`
                _sustain_start :~ Int,  // index into `_epoch` for initial sustain epoch
@@ -488,7 +504,8 @@ private.set_convert(
 
 fun transition(~valign: valign :: pict.VerticalAlignment = #'center,
                ~halign: halign :: pict.HorizontalAlignment = #'center,
-               ~join: join :: SequentialJoin = #'step,
+               ~splice: splice :: maybe(matching(#'before || #'after)) = #false,
+               ~join: join :: SequentialJoin = if splice | #'splice | #'step,
                p :: Pict, ...) :~ Pict:
   let ps = (for List (p: [p, ...]):
               skip_when p == nothing
@@ -498,7 +515,7 @@ fun transition(~valign: valign :: pict.VerticalAlignment = #'center,
   if ps == []
   | nothing
   | let (ps, starts :~ List) = make_sequential(ps, ~join: join, ~keep_nothing: #false)
-    let (ps :~ List, m_sustain_start, m_sustain_length, m_epoch_durations :~ List) = merge_epochs(ps)
+    let (ps :~ List.of(_AnimPict), m_sustain_start, m_sustain_length, m_epoch_durations :~ List) = merge_epochs(ps)
     anim_pict(recur loop(i = 0,
                          start_i = 0,
                          accum :~ List = []):
@@ -506,11 +523,14 @@ fun transition(~valign: valign :: pict.VerticalAlignment = #'center,
                 | i == m_epoch_durations.length():
                     accum
                 | start_i == starts.length():
-                    loop(i + 1, start_i, accum.add(ps[start_i]))
+                    loop(i + 1, start_i, accum.add(ps[start_i]._epochs[i]))
                 | (i - m_sustain_start) >= starts[start_i+1]:
-                    loop(i + 1, start_i + 1, accum.add(ps[start_i + 1]))
+                    loop(i + 1, start_i + 1, accum.add(if join == #'splice && splice == #'before
+                                                       | TransitionPictEpoch(ps[start_i]._epochs[i],
+                                                                             ps[start_i + 1]._epochs[i])
+                                                       | ps[start_i + 1]._epochs[i]))
                 | ~else:
-                    loop(i + 1, start_i, accum.add(ps[start_i])),              
+                    loop(i + 1, start_i, accum.add(ps[start_i]._epochs[i])),
               m_epoch_durations,
               m_sustain_start,
               m_sustain_length,

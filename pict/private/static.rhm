@@ -631,7 +631,7 @@ fun connect(p :: Pict,
 fun pin(p :: Pict,
         at :: Find,
         q :: Pict,
-        ~order: order :: matching(#'over || #'under) = #'over):
+        ~order: order :: matching(#'over || #'under) = #'over) :~ Pict:
   match [p, q]
   | [_ :: NothingPict, _]:
       error(#'pin, "cannot over nothing")
