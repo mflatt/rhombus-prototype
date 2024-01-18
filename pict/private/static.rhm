@@ -180,8 +180,8 @@ fun static_pict(handle) :~ StaticPict:
   _StaticPict()(handle)
 
 def mutable do_convert = (fun (p): error("convert not ready"))
-fun convert(p :~ List.of(Pict), talign, combine) :~ Pict:
-  do_convert(p, talign, combine)
+fun convert(p :~ List.of(Pict), talign, combine, non_sustain_combine = combine) :~ Pict:
+  do_convert(p, talign, combine, non_sustain_combine)
 fun set_convert(proc):
   do_convert := proc
 
@@ -382,14 +382,14 @@ fun rectangle(~around: around :: maybe(Pict) = #false,
               ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
               ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
               ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
-  recur retry(around = around, width = width, height = height):
+  recur retry(around = around, width = width, height = height, ghosted = #false):
     match [around, width, height]
     | [_ :: NothingPict, _, _]:
         nothing
     | [_ :: False || StaticPict, _ :: Real || StaticPict, _ :: Real || StaticPict]:
         let width = match width | w :: Pict: w.width | ~else: width
         let height = match height | h :: Pict: h.height | ~else: height
-        def r:
+        let r :~ Pict:
           cond
           | fill:
               rkt.#{filled-rectangle}(width,
@@ -406,6 +406,7 @@ fun rectangle(~around: around :: maybe(Pict) = #false,
           | ~else:
               rkt.blank(width,
                         height)
+        let r = if ghosted | r.ghost() | r
         static_pict(if around
                     | rkt.#{cc-superimpose}(r, StaticPict.handle(around))
                     | r)
@@ -416,12 +417,15 @@ fun convert_some([around, width, height], retry):
   let ps = [around,
             & (if width is_a Pict | [width] | []),
             & (if height is_a Pict | [height] | [])]
+  fun retry_g(ps :~ List, ghosted):
+    retry(ps[0],
+          if width is_a Pict | ps[1] | width,
+          if height is_a Pict | ps[if width is_a Pict | 2 | 1] | height,
+          ghosted)
   convert(ps,
           #'center,
-          fun (ps :~ List):
-            retry(ps[0],
-                  if width is_a Pict | ps[1] | width,
-                  if height is_a Pict | ps[if width is_a Pict | 2 | 1] | height))
+          fun (ps): retry_g(ps, #false),
+          fun (ps): retry_g(ps, #true))
         
 fun square(~around: around :: maybe(Pict) = #false,
            size :: Real || Pict: around || 32,
@@ -440,14 +444,14 @@ fun ellipse(~around: around :: maybe(Pict) = #false,
             ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
             ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
             ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
-  recur retry(around = around, width = width, height = height):
+  recur retry(around = around, width = width, height = height, ghosted = #false):
     match [around, width, height]
     | [_ :: NothingPict, _, _]:
         nothing
     | [_ :: False || StaticPict, _ :: Real || StaticPict, _ :: Real || StaticPict]:
         let width = match width | w :: Pict: w.width | ~else: width
         let height = match height | h :: Pict: h.height | ~else: height
-        def r:
+        let r :~ Pict:
           cond
           | fill:
               rkt.#{filled-ellipse}(width,
@@ -464,6 +468,7 @@ fun ellipse(~around: around :: maybe(Pict) = #false,
           | ~else:
               rkt.blank(width,
                         height)
+        let r = if ghosted | r.ghost() | r
         static_pict(if around
                     | rkt.#{cc-superimpose}(r, StaticPict.handle(around))
                     | r)
@@ -719,7 +724,16 @@ fun balloon(p :: Pict,
                              #{#:line-width}: line_width)
         )
     | [p, content]:
-        convert([p, content], #'center, retry)
+        convert([p, content], #'center,
+                retry,
+                fun ([p :~ Pict, content :~ Pict]):
+                  let pg = p.ghost()
+                  let cg = content.ghost()
+                  let b :~ Pict = retry([pg, cg])
+                  let b = b.ghost()
+                  pin(pin(b, Find.left_top(pg), p),
+                      Find.left_top(cg),
+                      content))
 
 fun balloon_note(content :: Pict,
                  ~margin: margin :: maybe(Real) = #false,
@@ -746,4 +760,10 @@ fun balloon_note(content :: Pict,
                               #{#:line-width}: line_width)
         )
     | ~else:
-        convert(content, #'center, retry)
+        convert(content, #'center,
+                retry,
+                fun ([content :~ Pict]):
+                  let cg = content.ghost()
+                  let b :~ Pict = retry([cg])
+                  let b = b.ghost()
+                  pin(b, Find.left_top(cg), content))

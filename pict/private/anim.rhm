@@ -106,6 +106,7 @@ class ReframePictEpoch(orig :~ PictEpoch,
     orig.sustain_after()
 
 class CombinePictEpoch(combine,
+                       non_sustain_combine,
                        origs :~ List.of(PictEpoch)):
   extends PictEpoch
   override pict(n :: Real.in(0, 1)):
@@ -116,17 +117,17 @@ class CombinePictEpoch(combine,
     math.max(& [orig.preferred_duration(), ...])
   override before() :~ PictEpoch:
     let [orig :~ PictEpoch, ...] = origs
-    CombinePictEpoch(combine, [orig.before(), ...])
+    CombinePictEpoch(non_sustain_combine, non_sustain_combine, [orig.before(), ...])
   override after() :~ PictEpoch:
     let [orig :~ PictEpoch, ...] = origs
-    CombinePictEpoch(combine, [orig.after(), ...])
+    CombinePictEpoch(non_sustain_combine, non_sustain_combine, [orig.after(), ...])
   override sustain_after() :~ maybe(PictEpoch):
     let [orig :~ PictEpoch, ...] = origs
     let [new, ...] && news = [orig.sustain_after(), ...]
     fun force(orig :~ PictEpoch, new): new || orig.after()
     if (for all (new: news): new)
-    | CombinePictEpoch(combine, news)
-    | CombinePictEpoch(combine, [force(new, orig), ...])
+    | CombinePictEpoch(combine, non_sustain_combine, news)
+    | CombinePictEpoch(combine, non_sustain_combine, [force(new, orig), ...])
 
 class TransitionPictEpoch(zero :~ PictEpoch,
                           rest :~ PictEpoch):
@@ -485,7 +486,7 @@ fun make_concurrent(ps :~ List.of(AnimPict),
       values(ps, m_sustain_length)
 
 private.set_convert(
-  fun (ps :~ List, talign, combine):
+  fun (ps :~ List, talign, combine, non_sustain_combine):
     // can assume that `nothing`s have been filtered out and `ps` is non-empty
     let ([p :~ _AnimPict, ...] && [p0 :~ _AnimPict, & _], m_sustain_length):
       make_concurrent(for List (p: ps):
@@ -495,7 +496,7 @@ private.set_convert(
                         | p,
                       ~talign: talign)
     anim_pict(for List (i: 0..p0._epochs.length()):
-                CombinePictEpoch(combine, [p._epochs[i], ...]),
+                CombinePictEpoch(combine, non_sustain_combine, [p._epochs[i], ...]),
               p0._epoch_durations,
               p0._sustain_start,
               m_sustain_length,
