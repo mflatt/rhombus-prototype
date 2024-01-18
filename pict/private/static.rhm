@@ -13,8 +13,9 @@ export:
   Color
   HorizontalAlignment
   VerticalAlignment
-  TimeAlignment
-  
+  EpochAlignment
+  SustainAlignment
+
   Pict
 
   nothing
@@ -163,16 +164,16 @@ class StaticPict(private _handle):
     static_pict(rkt.colorize(handle, as_color(c)))
 
   override method timecrop(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict:
-    convert([this], #'center, fun (ps :~ List): ps[0]).timecrop(~keep: keep)
+    convert([this], #'center, #'ragged, fun (ps :~ List): ps[0]).timecrop(~keep: keep)
 
   override method delay(n :: NonnegInt) :~ Pict:
     if n == 0
     | this
-    | convert([this], #'center, fun (ps :~ List): ps[0]).delay(n)
+    | convert([this], #'center, #'ragged, fun (ps :~ List): ps[0]).delay(n)
   override method sustain(n :: NonnegInt = 1) :~ Pict:  
     if n == 0
     | this
-    | convert([this], #'center, fun (ps :~ List): ps[0]).sustain(n)
+    | convert([this], #'center, #'ragged, fun (ps :~ List): ps[0]).sustain(n)
 
 annot.delayed_complete SnapshotPict: StaticPict
 
@@ -180,8 +181,8 @@ fun static_pict(handle) :~ StaticPict:
   _StaticPict()(handle)
 
 def mutable do_convert = (fun (p): error("convert not ready"))
-fun convert(p :~ List.of(Pict), talign, combine, non_sustain_combine = combine) :~ Pict:
-  do_convert(p, talign, combine, non_sustain_combine)
+fun convert(p :~ List.of(Pict), ealign, salign, combine, non_sustain_combine = combine) :~ Pict:
+  do_convert(p, ealign, salign, combine, non_sustain_combine)
 fun set_convert(proc):
   do_convert := proc
 
@@ -256,16 +257,24 @@ fun is_vert_aign(v):
   | #'top || #'topline || #'center || #'baseline || #'bottom: #true
   | ~else: #false
 
-annot.macro 'TimeAlignment':
-  annot_meta.pack_predicate('is_time_align', '()')
-fun is_time_align(v):
+annot.macro 'EpochAlignment':
+  annot_meta.pack_predicate('is_epoch_align', '()')
+fun is_epoch_align(v):
   match v
   | #'early || #'center || #'stretch || #'late: #true
   | ~else: #false
 
+annot.macro 'SustainAlignment':
+  annot_meta.pack_predicate('is_sustain_align', '()')
+fun is_sustain_align(v):
+  match v
+  | #'sustain || #'ragged: #true
+  | ~else: #false
+
 fun beside(~sep: sep = 0,
            ~valign: align :: VerticalAlignment = #'center,
-           ~talign: talign :: TimeAlignment = #'center,
+           ~ealign: ealign :: EpochAlignment = #'center,
+           ~salign: salign :: SustainAlignment = #'ragged,
            p :: Pict, ...) :~ Pict:
   recur retry (ps = [p, ...]):
     match remove_nothings(ps):
@@ -279,11 +288,12 @@ fun beside(~sep: sep = 0,
         | #'baseline: static_pict(rkt.#{hbl-append}(sep, p.handle, ...))
         | #'bottom: static_pict(rkt.#{hb-append}(sep, p.handle, ...))
     | ps:
-        convert(ps, talign, retry)
+        convert(ps, ealign, salign, retry)
 
 fun above(~sep: sep = 0,
           ~halign: align :: HorizontalAlignment = #'center,
-          ~talign: talign :: TimeAlignment = #'center,
+          ~ealign: ealign :: EpochAlignment = #'center,
+          ~salign: salign :: SustainAlignment = #'ragged,
           p :: Pict, ...) :~ Pict:
   recur retry (ps = [p, ...]):
     match remove_nothings(ps):
@@ -295,11 +305,12 @@ fun above(~sep: sep = 0,
         | #'center: static_pict(rkt.#{vc-append}(sep, p.handle, ...))
         | #'right: static_pict(rkt.#{vr-append}(sep, p.handle, ...))
     | ps:
-        convert(ps, talign, retry)
+        convert(ps, ealign, salign, retry)
 
 fun overlay(~halign: halign :: HorizontalAlignment = #'center,
             ~valign: valign :: VerticalAlignment = #'center,
-            ~talign: talign :: TimeAlignment = #'center,
+            ~ealign: ealign :: EpochAlignment = #'center,
+            ~salign: salign :: SustainAlignment = #'ragged,
             p :: Pict, ...) :~ Pict:
   recur retry (ps = [p, ...]):
     match remove_nothings(ps):
@@ -332,7 +343,7 @@ fun overlay(~halign: halign :: HorizontalAlignment = #'center,
               | #'bottom: rkt.#{rb-superimpose}(p, ...)
         )
     | ps:
-        convert(ps, talign, retry)
+        convert(ps, ealign, salign, retry)
 
 fun text(content :: String,
          ~font: font :: draw.Font = default_font) :~ Pict:
@@ -381,7 +392,9 @@ fun rectangle(~around: around :: maybe(Pict) = #false,
               height :: Real || Pict: around || 32,
               ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
               ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
-              ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
+              ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+              ~ealign: ealign :: EpochAlignment = #'center,
+              ~salign: salign :: SustainAlignment = #'ragged) :~ Pict:
   recur retry(around = around, width = width, height = height, ghosted = #false):
     match [around, width, height]
     | [_ :: NothingPict, _, _]:
@@ -411,9 +424,9 @@ fun rectangle(~around: around :: maybe(Pict) = #false,
                     | rkt.#{cc-superimpose}(r, StaticPict.handle(around))
                     | r)
     | ~else:
-        convert_some([around, width, height], retry)
+        convert_some([around, width, height], ealign, salign, retry)
 
-fun convert_some([around, width, height], retry):
+fun convert_some([around, width, height], ealign, salign, retry):
   let ps = [around,
             & (if width is_a Pict | [width] | []),
             & (if height is_a Pict | [height] | [])]
@@ -423,7 +436,8 @@ fun convert_some([around, width, height], retry):
           if height is_a Pict | ps[if width is_a Pict | 2 | 1] | height,
           ghosted)
   convert(ps,
-          #'center,
+          ealign,
+          salign,
           fun (ps): retry_g(ps, #false),
           fun (ps): retry_g(ps, #true))
         
@@ -431,19 +445,25 @@ fun square(~around: around :: maybe(Pict) = #false,
            size :: Real || Pict: around || 32,
            ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
            ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
-           ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
+           ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+           ~ealign: ealign :: EpochAlignment = #'center,
+           ~salign: salign :: SustainAlignment = #'ragged) :~ Pict:
   rectangle(~around: around,
             size, size,
             ~line: line,
             ~fill: fill,
-            ~line_width: line_width)
+            ~line_width: line_width,
+            ~ealign: ealign,
+            ~salign: salign)
 
 fun ellipse(~around: around :: maybe(Pict) = #false,
             width :: Real || Pict: around || 32,
             height :: Real || Pict: around || 32,
             ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
             ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
-            ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
+            ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+            ~ealign: ealign :: EpochAlignment = #'center,
+            ~salign: salign :: SustainAlignment = #'ragged) :~ Pict:
   recur retry(around = around, width = width, height = height, ghosted = #false):
     match [around, width, height]
     | [_ :: NothingPict, _, _]:
@@ -473,19 +493,23 @@ fun ellipse(~around: around :: maybe(Pict) = #false,
                     | rkt.#{cc-superimpose}(r, StaticPict.handle(around))
                     | r)
     | ~else:
-        convert_some([around, width, height], retry)
+        convert_some([around, width, height], ealign, salign, retry)
 
 fun circle(~around: around :: maybe(Pict) = #false,
            size :: Real || Pict: around || 32,
            ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
            ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
-           ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
+           ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+           ~ealign: ealign :: EpochAlignment = #'center,
+           ~salign: salign :: SustainAlignment = #'ragged) :~ Pict:
   let size = match size | p :: Pict: math.max(p.width, p.height) | ~else: size
   ellipse(~around: around,
           size, size,
           ~line: line,
           ~fill: fill,
-          ~line_width: line_width)
+          ~line_width: line_width,
+          ~ealign: ealign,
+          ~salign: salign)
 
 fun polygon([pt :: draw.PointLike.to_point, ...],
             ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
@@ -629,7 +653,9 @@ fun connect(p :: Pict,
             ~end_pull: end_pull :: maybe(Real) = #false,
             ~label: label :: maybe(Pict) = #false,
             ~label_dx: label_dx :: Real = 0,
-            ~label_dy: label_dy :: Real = 0) :~ Pict:
+            ~label_dy: label_dy :: Real = 0,
+            ~ealign: ealign :: EpochAlignment = #'center,
+            ~salign: salign :: SustainAlignment = #'ragged) :~ Pict:
   match p
   | _ :: NothingPict:
       nothing
@@ -664,7 +690,9 @@ fun connect(p :: Pict,
 fun pin(p :: Pict,
         at :: Find,
         q :: Pict,
-        ~order: order :: matching(#'over || #'under) = #'over) :~ Pict:
+        ~order: order :: matching(#'over || #'under) = #'over,
+        ~ealign: ealign :: EpochAlignment = #'center,
+        ~salign: salign :: SustainAlignment = #'ragged) :~ Pict:
   match [p, q]
   | [_ :: NothingPict, _]:
       error(#'pin, "cannot over nothing")
@@ -699,7 +727,9 @@ fun balloon(p :: Pict,
             ~thought: thought = #false,
             ~color: color :: maybe(Color || String) = #false,
             ~line_color: line_color :: maybe(Color || String) = #false,
-            ~line_width: line_width :: Real = 0) :~ Pict:
+            ~line_width: line_width :: Real = 0,
+            ~ealign: ealign :: EpochAlignment = #'center,
+            ~salign: salign :: SustainAlignment = #'sustain) :~ Pict:
   recur retry(ps = [p, content]):
     match ps:
     | [_ :: NothingPict, _]:
@@ -724,7 +754,7 @@ fun balloon(p :: Pict,
                              #{#:line-width}: line_width)
         )
     | [p, content]:
-        convert([p, content], #'center,
+        convert([p, content], ealign, salign,
                 retry,
                 fun ([p :~ Pict, content :~ Pict]):
                   let pg = p.ghost()
@@ -743,7 +773,9 @@ fun balloon_note(content :: Pict,
                  ~thought: thought = #false,
                  ~color: color :: maybe(Color || String) = #false,
                  ~line_color: line_color :: maybe(Color || String) = #false,
-                 ~line_width: line_width :: Real = 0) :~ Pict:
+                 ~line_width: line_width :: Real = 0,
+                 ~ealign: ealign :: EpochAlignment = #'center,
+                 ~salign: salign :: SustainAlignment = #'sustain) :~ Pict:
   recur retry(contents = [content]):
     match contents:
     | [_ :: NothingPict]:
@@ -760,7 +792,7 @@ fun balloon_note(content :: Pict,
                               #{#:line-width}: line_width)
         )
     | ~else:
-        convert(content, #'center,
+        convert(content, ealign, salign,
                 retry,
                 fun ([content :~ Pict]):
                   let cg = content.ghost()
