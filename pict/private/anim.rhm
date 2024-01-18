@@ -323,11 +323,17 @@ fun anim_pict_adjust(this :~ AnimPict,
                  ~before:
                    adjust(this._before))
 
-fun merge_epochs([p :~ _AnimPict, ...]):
-  let min_epoch = math.min(math.min(0, -p._sustain_start), ...)
+fun merge_epochs([p :~ Pict, ...]):
+  fun | sustain_start(_ :: private.NothingPict): 0
+      | sustain_start(p :: _AnimPict): p._sustain_start
+  fun | epochs_length(_ :: private.NothingPict): 1
+      | epochs_length(p :: _AnimPict): p._epochs.length()
+  fun | reify_epochs(p :: private.NothingPict, start, end): p
+      | reify_epochs(p :: _AnimPict, start, end): p.reify_epochs(start, end)
+  let min_epoch = math.min(math.min(0, -sustain_start(p)), ...)
   let max_sustain_epoch = math.max(math.max(0, p.sustain_length - 1), ...)
-  let max_epoch = math.max(math.max(0, p._epochs.length() + p._sustain_start - 1), ...)
-  let ps && [p :~ AnimPict, ...] = [p.reify_epochs(min_epoch, max_epoch), ...]
+  let max_epoch = math.max(math.max(0, epochs_length(p) + sustain_start(p) - 1), ...)
+  let ps && [p :~ AnimPict, ...] = [reify_epochs(p, min_epoch, max_epoch), ...]
   let all_epochs:
     for List (i: min_epoch .. max_epoch + 1):
       math.max(p.epoch_duration(i), ...)
@@ -467,6 +473,7 @@ private.set_convert(
     // can assume that `nothing`s have been filtered out and `ps` is non-empty
     let ([p :~ _AnimPict, ...] && [p0 :~ _AnimPict, & _], m_sustain_length):
       make_concurrent(for List (p: ps):
+                        when p == nothing | error("nothing in convert!")
                         if p is_a StaticPict
                         | AnimPict(p)
                         | p,

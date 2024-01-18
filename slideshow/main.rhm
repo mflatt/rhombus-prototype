@@ -14,6 +14,7 @@ export:
 
   // flattens nested lists in arguments:
   slide
+  slide_content
 
   pause
   alts
@@ -27,6 +28,7 @@ export:
   italic
   tt
   roman
+  title
 
   // `ly` variants are syntactic forms that `parameterize`
   // the argument expressions, so that `italic` can be nested in
@@ -35,6 +37,7 @@ export:
   italicly
   ttly
   romanly
+  titlely
 
   // like `above`, but with the current line separation
   lines
@@ -46,6 +49,8 @@ export:
   para
   item
   subitem
+
+  verbatim
 
   table
 
@@ -69,7 +74,6 @@ def current_font = Parameter.make(block:
                                       fun current_font(font :: draw.Font):
                                         font
                                       current_font)
-
 
 fun flatten_string(who, c, font) :~ Pict:
   match c
@@ -95,6 +99,9 @@ fun current_font_as_tt():
 fun current_font_as_roman():
    (current_font() :~ draw.Font) with (kind = #'roman, name = #false)
 
+fun current_font_as_title():
+   (current_font() :~ draw.Font) with (size = 40)
+
 macro 'boldly($arg, ...)':
   '(parameterize { current_font: current_font_as_bold() }:
       t($arg, ...)) :~ Pict'
@@ -111,6 +118,10 @@ macro 'romanly($arg, ...)':
   '(parameterize { current_font: current_font_as_roman() }:
       t($arg, ...)) :~ Pict'
 
+macro 'titlely($arg, ...)':
+  '(parameterize { current_font: current_font_as_title() }:
+      t($arg, ...)) :~ Pict'
+
 fun bold(a, ...) :~ Pict:
   boldly(a, ...)
 
@@ -122,6 +133,9 @@ fun tt(a, ...) :~ Pict:
 
 fun roman(a, ...) :~ Pict:
   romanly(a, ...)
+
+fun title(a, ...) :~ Pict:
+  titlely(a, ...)
 
 // ----------------------------------------
 
@@ -161,14 +175,15 @@ fun pause_to_anim(contents) :~ Pict:
         pict.above(~sep: gap(), & accum)
     | [p :: Pause, & contents]:
         let pre = pict.above(~sep: gap(), & accum)
-        let post = loop(contents, []).timecrop(~keep: #'after)
+        let post = loop(contents, [])
         pict.above(~sep: gap(),
                    pre.sustain(post.sustain_length),
                    post.delay(pre.sustain_length))
     | [Alts([alt, ...]), & contents]:
         let alts = [pause_to_anim(alt), ...]
         let p = pict.overlay(& pict.sequential(& alts))
-        loop(contents, accum.add(p))
+        let pre = pict.above(~sep: gap(), & accum)
+        loop(contents, [pre.sustain(math.max(p.sustain_length - pre.sustain_length, 0)), p])
     | [c, & contents]:
         loop(contents, accum.add(c))
 
@@ -176,16 +191,22 @@ fun slide(~title: title :: maybe(String || Pict) = #false,
           ~layout: layout :: matching(#'auto || #'center || #'top || #'tall) = #'auto,      
           content, ...):
   let p = pause_to_anim(flatten_slide_content(#'slide, [content, ...]))
+  let title = match title | p :: Pict: p.snapshot(0, 0, MutableMap{}).handle | ~else: title
   for (i: 0..p.sustain_length):
     let duration = p.epoch_duration(i)
     if duration .= 0
     | rkt.slide(~title: title,
                 ~layout: layout,
-                p.snapshot(i, 1, MutableMap{}).handle)
+                & (if p == pict.nothing
+                   | []
+                   | [p.snapshot(i, 0, MutableMap{}).handle]))
     | rkt_play.#{play-n}(~title: title,
                          ~layout: layout,
                          #{#:skip-last?}: #true,
                          fun (n): p.snapshot(i, n, MutableMap{}).handle)
+
+fun slide_content(content, ...) :~ Pict:
+  pause_to_anim(flatten_slide_content(#'slide_content, [content, ...]))
 
 // ----------------------------------------
 
@@ -254,6 +275,33 @@ fun subitem(~width: width = current_para_width(),
   Pict.from_handle(rkt.subitem(#{#:fill?}: at_max,
                                ~width: width,
                                & flatten_para_content(#'slide, [content, ...])))
+
+// ----------------------------------------
+
+fun flatten_content(who, c) :~ List:
+  match c
+  | s :: String: [s]
+  | p :: Pict: [p]
+  | [c, ...]: List.append(flatten_content(who, c), ...)
+  | ~else:
+      error(who, "bad content: " +& to_string(c, ~mode: #'expr))
+
+fun verbatim(content, ...) :~ Pict:
+  let content = flatten_content(#'verbatim, [content, ...])
+  let [row, ...]:
+    recur loop(content = content) :~ List:
+      match content
+      | []: []
+      | ["\n", & content]:
+          loop(content).insert(0, [])
+      | [p, & content]:
+          let rows = loop(content)
+          match rows
+          | []: [[p]]
+          | [row :~ List, & rows]: [row.insert(0, p), & rows]
+  fun tt_maybe_empty(row):
+    if row == [] | tt("") | tt(row)
+  lines(tt_maybe_empty(row), ...)
 
 // ----------------------------------------
 

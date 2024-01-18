@@ -24,6 +24,7 @@ export:
   beside
   above
   overlay
+  cellophane
 
   blank
   line
@@ -177,8 +178,8 @@ fun static_pict(handle) :~ StaticPict:
   _StaticPict()(handle)
 
 def mutable do_convert = (fun (p): error("convert not ready"))
-fun convert(p :~ List.of(Pict), valign, combine) :~ Pict:
-  do_convert(p, valign, combine)
+fun convert(p :~ List.of(Pict), talign, combine) :~ Pict:
+  do_convert(p, talign, combine)
 fun set_convert(proc):
   do_convert := proc
 
@@ -275,7 +276,7 @@ fun beside(~sep: sep = 0,
         | #'center: static_pict(rkt.#{hc-append}(sep, p.handle, ...))
         | #'baseline: static_pict(rkt.#{hbl-append}(sep, p.handle, ...))
         | #'bottom: static_pict(rkt.#{hb-append}(sep, p.handle, ...))
-    | ~else:
+    | ps:
         convert(ps, talign, retry)
 
 fun above(~sep: sep = 0,
@@ -291,7 +292,7 @@ fun above(~sep: sep = 0,
         | #'left: static_pict(rkt.#{vl-append}(sep, p.handle, ...))
         | #'center: static_pict(rkt.#{vc-append}(sep, p.handle, ...))
         | #'right: static_pict(rkt.#{vr-append}(sep, p.handle, ...))
-    | ~else:
+    | ps:
         convert(ps, talign, retry)
 
 fun overlay(~halign: halign :: HorizontalAlignment = #'center,
@@ -328,7 +329,7 @@ fun overlay(~halign: halign :: HorizontalAlignment = #'center,
               | #'baseline: rkt.#{rbl-superimpose}(p, ...)
               | #'bottom: rkt.#{rb-superimpose}(p, ...)
         )
-    | ~else:
+    | ps:
         convert(ps, talign, retry)
 
 fun text(content :: String,
@@ -472,6 +473,7 @@ fun circle(~around: around :: maybe(Pict) = #false,
            ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
            ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
            ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
+  let size = match size | p :: Pict: math.max(p.width, p.height) | ~else: size
   ellipse(~around: around,
           size, size,
           ~line: line,
@@ -621,7 +623,7 @@ fun connect(p :: Pict,
                        #{#:line-width}: as_width(width),
                        #{#:color}: as_color(color),
                        #{#:under?}: under,
-                       #{#:label}: label && StaticPict.handle(label),
+                       #{#:label}: label && (label != nothing) && StaticPict.handle(label),
                        #{#:x-adjust-label}: label_dx,
                        #{#:y-adjust-label}: label_dy,
                        ~& kw_args))
@@ -643,6 +645,12 @@ fun pin(p :: Pict,
 
 // ------------------------------------------------------------
 
+fun cellophane(p :: Pict, n :: Real.in(0, 1)) :~ Pict:
+  match p
+  | _ :: NothingPict: nothing
+  | p :: StaticPict:
+     static_pict(rkt.cellophane(p.handle, n))
+
 fun balloon(p :: Pict,
             at :: Find,
             content :: Pict,
@@ -659,25 +667,28 @@ fun balloon(p :: Pict,
             ~color: color :: maybe(Color || String) = #false,
             ~line_color: line_color :: maybe(Color || String) = #false,
             ~line_width: line_width :: Real = 0) :~ Pict:
-  match [p, content]:
-  | [_ :: NothingPict, _]:
-      nothing
-  | [p :: StaticPict, content :: StaticPict]:
-      let (at_x, at_y) = at.in(p)
-      static_pict(
-        bln.#{pin-balloon}(p.handle,
-                           p.handle, fun (p, q): values(at_x, at_y),
-                           content.handle,
-                           ~spike: spike,
-                           #{#:x-margin}: hmargin,
-                           #{#:y-margin}: vmargin,
-                           #{#:corner-radius}: corner_radius,
-                           #{#:spike-radius}: spike_radius,
-                           ~dx: dx,
-                           ~dy: dy,
-                           ~sprout: sprout,
-                           #{#:thought?}: thought,
-                           ~color: (color && as_color(color)) || bln.#{current-balloon-color}(),
-                           #{#:line-color}: line_color,
-                           #{#:line-width}: line_width)
-      )
+  recur retry(ps = [p, content]):
+    match ps:
+    | [_ :: NothingPict, _]:
+        nothing
+    | [p :: StaticPict, content :: StaticPict]:
+        let (at_x, at_y) = at.in(p)
+        static_pict(
+          bln.#{pin-balloon}(p.handle,
+                             p.handle, fun (p, q): values(at_x, at_y),
+                             content.handle,
+                             ~spike: spike,
+                             #{#:x-margin}: hmargin,
+                             #{#:y-margin}: vmargin,
+                             #{#:corner-radius}: corner_radius,
+                             #{#:spike-radius}: spike_radius,
+                             ~dx: dx,
+                             ~dy: dy,
+                             ~sprout: sprout,
+                             #{#:thought?}: thought,
+                             ~color: (color && as_color(color)) || bln.#{current-balloon-color}(),
+                             #{#:line-color}: line_color,
+                             #{#:line-width}: line_width)
+        )
+    | [p, content]:
+        convert([p, content], #'center, retry)
