@@ -32,6 +32,7 @@ export:
   square
   ellipse
   circle
+  polygon
   bitmap
 
   Find
@@ -480,6 +481,32 @@ fun circle(~around: around :: maybe(Pict) = #false,
           ~line: line,
           ~fill: fill,
           ~line_width: line_width)
+
+fun polygon([pt :: draw.PointLike.to_point, ...],
+            ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
+            ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
+            ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
+  static_pict(
+    rkt.dc(fun (dc_handle, dx, dy):
+             let dc = draw.DC.from_handle(dc_handle)
+             dc.save()
+             match line
+             | #'inherit:
+                 when line_width != #'inherit
+                 | dc.pen := dc.pen with (width = line_width)
+             | #false: dc.pen := draw.Pen.none
+             | ~else: dc.pen := draw.Pen(~color: line,
+                                         ~width: (if line_width == #'inherit
+                                                  | dc.pen.width
+                                                  | line_width))
+             match fill
+             | #false: dc.brush := draw.Brush.none
+             | ~else: dc.brush := draw.Brush(~color: fill)                    
+             dc.polygon([pt, ...], ~dx: dx, ~dy: dy)
+             dc.restore(),
+           math.max(pt.x, ...),
+           math.max(pt.y, ...))
+  )
 
 fun bitmap(path :: Path || String) :~ Pict:
   static_pict(rkt.bitmap(path))
