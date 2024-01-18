@@ -29,6 +29,7 @@ export:
   tt
   roman
   title
+  subscript
 
   // `ly` variants are syntactic forms that `parameterize`
   // the argument expressions, so that `italic` can be nested in
@@ -136,6 +137,10 @@ fun roman(a, ...) :~ Pict:
 
 fun title(a, ...) :~ Pict:
   titlely(a, ...)
+
+fun subscript(arg, ...) :~ Pict:
+  let p = t(arg, ...)
+  p.lift(-15).scale(0.75)
 
 // ----------------------------------------
 
@@ -305,16 +310,36 @@ fun verbatim(content, ...) :~ Pict:
 
 // ----------------------------------------
 
-fun table(rows :: List.of(List)) :~ Pict:
+fun table(rows :: List.of(List),
+          ~halign: halign :: pict.HorizontalAlignment || List.of(pict.HorizontalAlignment) = #'left,
+          ~valign: valign :: pict.VerticalAlignment || List.of(pict.VerticalAlignment) = #'topline) :~ Pict:
   let [[elem, ...], ...] = rows
   fun convert(elem):
     match elem
     | elem :: String: t(elem).snapshot().handle
     | elem :: Pict: elem.snapshot().handle
+  fun to_align(align):
+    match align
+    | [align, ...]:
+        [to_align(align), ...]
+    | #'left:
+        rkt.#{lc-superimpose}
+    | #'right:
+        rkt.#{rc-superimpose}
+    | #'center:
+        rkt.#{cc-superimpose}
+    | #'top:
+        rkt.#{ct-superimpose}
+    | #'topline:
+        rkt.#{ctl-superimpose}
+    | #'baseline:
+        rkt.#{cbl-superimpose}
+    | #'bottom:
+        rkt.#{cb-superimpose}
   Pict.from_handle(rkt.table(rows[0].length(),
                              PairList[convert(elem), ..., ...],
-                             rkt.#{ltl-superimpose},
-                             rkt.#{ltl-superimpose},
+                             to_align(halign),
+                             to_align(valign),
                              gap(),
                              rkt.#{current-line-sep}()))
 
