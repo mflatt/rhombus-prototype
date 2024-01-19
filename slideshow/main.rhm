@@ -263,23 +263,26 @@ fun flatten_para_content(who, c) :~ List:
 fun para(~width: width = current_para_width(),
          ~at_max: at_max = #false,
          content, ...) :~ Pict:
-  Pict.from_handle(rkt.para(#{#:fill?}: at_max,
-                            ~width: width,
-                            & flatten_para_content(#'slide, [content, ...])))
+  parameterize { rkt.#{current-main-font}: draw.Font.handle(current_font()) }:
+    Pict.from_handle(rkt.para(#{#:fill?}: at_max,
+                              ~width: width,
+                              & flatten_para_content(#'slide, [content, ...])))
 
 fun item(~width: width = current_para_width(),
          ~at_max: at_max = #false,
          content, ...) :~ Pict:
-  Pict.from_handle(rkt.item(#{#:fill?}: at_max,
-                            ~width: width,
-                            & flatten_para_content(#'slide, [content, ...])))
+  parameterize { rkt.#{current-main-font}: draw.Font.handle(current_font()) }:
+    Pict.from_handle(rkt.item(#{#:fill?}: at_max,
+                              ~width: width,
+                              & flatten_para_content(#'slide, [content, ...])))
 
 fun subitem(~width: width = current_para_width(),
             ~at_max: at_max = #false,
             content, ...) :~ Pict:
-  Pict.from_handle(rkt.subitem(#{#:fill?}: at_max,
-                               ~width: width,
-                               & flatten_para_content(#'slide, [content, ...])))
+  parameterize { rkt.#{current-main-font}: draw.Font.handle(current_font()) }:
+    Pict.from_handle(rkt.subitem(#{#:fill?}: at_max,
+                                 ~width: width,
+                                 & flatten_para_content(#'slide, [content, ...])))
 
 // ----------------------------------------
 
@@ -312,7 +315,9 @@ fun verbatim(content, ...) :~ Pict:
 
 fun table(rows :: List.of(List),
           ~halign: halign :: pict.HorizontalAlignment || List.of(pict.HorizontalAlignment) = #'left,
-          ~valign: valign :: pict.VerticalAlignment || List.of(pict.VerticalAlignment) = #'topline) :~ Pict:
+          ~valign: valign :: pict.VerticalAlignment || List.of(pict.VerticalAlignment) = #'topline,
+          ~hsep: hsep :: Real || List.of(Real) = gap(),
+          ~vsep: vsep :: Real || List.of(Real) = rkt.#{current-line-sep}()) :~ Pict:
   let [[elem, ...], ...] = rows
   fun convert(elem):
     match elem
@@ -340,8 +345,8 @@ fun table(rows :: List.of(List),
                              PairList[convert(elem), ..., ...],
                              to_align(halign),
                              to_align(valign),
-                             gap(),
-                             rkt.#{current-line-sep}()))
+                             hsep,
+                             vsep))
 
 // ----------------------------------------
 
