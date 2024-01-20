@@ -656,36 +656,41 @@ fun connect(p :: Pict,
             ~label_dy: label_dy :: Real = 0,
             ~ealign: ealign :: EpochAlignment = #'center,
             ~salign: salign :: SustainAlignment = #'ragged) :~ Pict:
-  match p
-  | _ :: NothingPict:
-      nothing
-  | p :: StaticPict:
-      let (from_x, from_y) = from.in(p)
-      let (to_x, to_y) = to.in(p)
-      let (proc, [pre, ...], kw_args):
-        match style
-        | #'line: values(rkt.#{pin-line}, [], {})
-        | #'arrow: values(rkt.#{pin-arrow-line},
-                          [arrow_size],
-                          { #'#{#:solid?}: solid, #'#{#:hide-arrowhead?}: hidden })
-        | #'arrows: values(rkt.#{pin-arrows-line},
-                           [arrow_size],
-                           { #'#{#:solid?}: solid, #'#{#:hide-arrowhead?}: hidden })
-      static_pict(proc(pre, ...,
-                       p.handle,
-                       p.handle, fun (p, q): values(from_x, from_y),
-                       p.handle, fun (p, q): values(to_x, to_y),
-                       #{#:start-angle}: start_angle,
-                       #{#:start-pull}: start_pull,    
-                       #{#:end-angle}: end_angle,
-                       #{#:end-pull}: end_pull,
-                       #{#:line-width}: as_width(width),
-                       #{#:color}: as_color(color),
-                       #{#:under?}: under,
-                       #{#:label}: label && (label != nothing) && StaticPict.handle(label),
-                       #{#:x-adjust-label}: label_dx,
-                       #{#:y-adjust-label}: label_dy,
-                       ~& kw_args))
+  recur retry(p = p):
+    match p
+    | _ :: NothingPict:
+        nothing
+    | p :: StaticPict:
+        let (from_x, from_y) = from.in(p)
+        let (to_x, to_y) = to.in(p)
+        let (proc, [pre, ...], kw_args):
+          match style
+          | #'line: values(rkt.#{pin-line}, [], {})
+          | #'arrow: values(rkt.#{pin-arrow-line},
+                            [arrow_size],
+                            { #'#{#:solid?}: solid, #'#{#:hide-arrowhead?}: hidden })
+          | #'arrows: values(rkt.#{pin-arrows-line},
+                             [arrow_size],
+                             { #'#{#:solid?}: solid, #'#{#:hide-arrowhead?}: hidden })
+        static_pict(proc(pre, ...,
+                         p.handle,
+                         p.handle, fun (p, q): values(from_x, from_y),
+                         p.handle, fun (p, q): values(to_x, to_y),
+                         #{#:start-angle}: start_angle,
+                         #{#:start-pull}: start_pull,    
+                         #{#:end-angle}: end_angle,
+                         #{#:end-pull}: end_pull,
+                         #{#:line-width}: as_width(width),
+                         #{#:color}: as_color(color),
+                         #{#:under?}: under,
+                         #{#:label}: label && (label != nothing) && StaticPict.handle(label),
+                         #{#:x-adjust-label}: label_dx,
+                         #{#:y-adjust-label}: label_dy,
+                         ~& kw_args))
+    | ~else:
+        convert([p], #'center, #'sustain,
+                fun ([p]): retry(p),
+                fun ([p]): p)
 
 fun pin(p :: Pict,
         at :: Find,
