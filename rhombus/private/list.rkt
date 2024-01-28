@@ -100,6 +100,7 @@
   #:methods
   (length
    get
+   set
    add
    insert
    delete
@@ -620,6 +621,11 @@
   #:inline
   #:primitive (treelist-ref)
   (treelist-ref l n))
+
+(define/method (List.set l n v)
+  #:inline
+  #:primitive (treelist-set)
+  (treelist-set l n v))
 
 (define/method List.append
   #:inline
