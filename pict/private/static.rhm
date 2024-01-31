@@ -108,10 +108,12 @@ class Pict():
 
   abstract method fade(n :: Real.in(0, 1)) :~ Pict
 
+  abstract method clip() :~ Pict
+
   abstract method timecrop(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict    
 
-  abstract method delay(n :: NonnegInt) :~ Pict
-  abstract method sustain(n :: NonnegInt = 1) :~ Pict
+  abstract method delay(n :: Int) :~ Pict
+  abstract method sustain(n :: Int = 1) :~ Pict
   
 class StaticPict(private _handle):
   extends Pict
@@ -176,14 +178,17 @@ class StaticPict(private _handle):
   override method fade(n :: Real.in(0, 1)) :~ Pict:
     static_pict(rkt.cellophane(handle, n))
 
+  override method clip() :~ Pict:
+    static_pict(rkt.clip(handle))
+  
   override method timecrop(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict:
     convert([this], #'center, #'ragged, fun (ps :~ List): ps[0]).timecrop(~keep: keep)
 
-  override method delay(n :: NonnegInt) :~ Pict:
+  override method delay(n :: Int) :~ Pict:
     if n == 0
     | this
     | convert([this], #'center, #'ragged, fun (ps :~ List): ps[0]).delay(n)
-  override method sustain(n :: NonnegInt = 1) :~ Pict:  
+  override method sustain(n :: Int = 1) :~ Pict:  
     if n == 0
     | this
     | convert([this], #'center, #'ragged, fun (ps :~ List): ps[0]).sustain(n)
@@ -242,10 +247,12 @@ class NothingPict(_handle):
 
   override method fade(n :: Real.in(0, 1)): this
 
+  override method clip(): this
+
   override method timecrop(~keep: keep :: maybe(matching(#'before || #'after)) = #false): this
 
-  override method delay(n :: NonnegInt): this
-  override method sustain(n :: NonnegInt = 1): this
+  override method delay(n :: Int): this
+  override method sustain(n :: Int = 1): this
 
 def nothing = _NothingPict()(rkt.blank())
 
@@ -410,6 +417,7 @@ fun rectangle(~around: around :: maybe(Pict) = #false,
               ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
               ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
               ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+              ~rounded: rounded :: maybe(Real || matching(#'default)) = #false,
               ~ealign: ealign :: EpochAlignment = #'center,
               ~salign: salign :: SustainAlignment = #'sustain) :~ Pict:
   recur retry(around = around, width = width, height = height, ghosted = #false):
@@ -422,17 +430,31 @@ fun rectangle(~around: around :: maybe(Pict) = #false,
         let r :~ Pict:
           cond
           | fill:
-              rkt.#{filled-rectangle}(width,
-                                      height,
-                                      #{#:color}: as_color(fill),
-                                      #{#:draw-border?}: line,
-                                      #{#:border-color}: line && as_color(line),
-                                      #{#:border-width}: as_width(line_width))
+              if rounded
+              | rkt.#{filled-rounded-rectangle}(width,
+                                                height,
+                                                if rounded == #'default | -0.25 | rounded,
+                                                #{#:color}: as_color(fill),
+                                                #{#:draw-border?}: line,
+                                                #{#:border-color}: line && as_color(line),
+                                                #{#:border-width}: as_width(line_width))
+              | rkt.#{filled-rectangle}(width,
+                                        height,
+                                        #{#:color}: as_color(fill),
+                                        #{#:draw-border?}: line,
+                                        #{#:border-color}: line && as_color(line),
+                                        #{#:border-width}: as_width(line_width))
           | line:
-              rkt.#{rectangle}(width,
-                               height,
-                               #{#:border-color}: as_color(line),
-                               #{#:border-width}: as_width(line_width))
+              if rounded
+              | rkt.#{rounded-rectangle}(width,
+                                         height,
+                                         if rounded == #'default | -0.25 | rounded,
+                                         #{#:border-color}: as_color(line),
+                                         #{#:border-width}: as_width(line_width))
+              | rkt.#{rectangle}(width,
+                                 height,
+                                 #{#:border-color}: as_color(line),
+                                 #{#:border-width}: as_width(line_width))
           | ~else:
               rkt.blank(width,
                         height)
@@ -864,7 +886,7 @@ fun table(rows :: List.of(List),
                     to_align(valign),
                     if hsep is_a List | PairList[& hsep] | hsep,
                     if vsep is_a List | PairList[& vsep] | vsep)
-  if !hline && !vline
+  if !hline && !vline && !line_c
   | Pict.from_handle(r).inset(& if ins is_a List | ins | [ins])
   | let picts = [& picts]
     let col_length = rows.length()

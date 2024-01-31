@@ -10,6 +10,7 @@ import:
   "static.rhm"!private:
     expose:
       StaticPict
+  lib("pict/main.rkt") as rkt
 
 export:
   AnimPict
@@ -229,7 +230,9 @@ class AnimPict(_epochs :~ List.of(PictEpoch),
      ~duration: duration :: PosReal):      
       let before :: Pict = proc(0)
       let after :: Pict = proc(1)
-      super()([ProcPictEpoch(proc, before, after, duration)],
+      super()([ProcPictEpoch(fun (n):
+                               proc(rkt.#{fast-middle}(n)),
+                             before, after, duration)],
               [duration],
               0,
               1,
@@ -269,49 +272,61 @@ class AnimPict(_epochs :~ List.of(PictEpoch),
                    ~sustain_start:
                      1)
 
-  override method delay(amt :: NonnegInt) :~ AnimPict:
-    if amt == 0
-    | this
-    | let ([new :~ PictEpoch, ...] && prefix, _):
-        for values(prefix :~ List = [], first :~ PictEpoch = _epochs[0]):
-          each i: 0 .. math.max(0, amt - _sustain_start)
-          let new = first.before()               
-          values(prefix.insert(0, new), new)
-      anim_pict_like(this,
-                     ~epochs:
-                       prefix ++ _epochs,
-                     ~epoch_durations:
-                       [new.preferred_duration(), ...] ++ _epoch_durations,
-                     ~sustain_length:
-                       _sustain_length + amt,
-                     ~sustain_start:
-                       _sustain_start - amt + prefix.length())
-
-  override method sustain(amt :: NonnegInt = 1) :~ AnimPict:
-    if amt == 0
-    | this
-    | let index = _sustain_start + _sustain_length - 1
-      fun add(new :~ PictEpoch):
+  override method delay(amt :: Int) :~ AnimPict:
+    cond
+    | amt == 0: this
+    | amt < 0:
+        anim_pict_like(this,
+                       ~sustain_start:
+                         _sustain_start - amt,
+                       ~sustain_length:
+                         math.max(0, _sustain_length + amt))
+    | ~else:
+        let ([new :~ PictEpoch, ...] && prefix, _):
+          for values(prefix :~ List = [], first :~ PictEpoch = _epochs[0]):
+            each i: 0 .. math.max(0, amt - _sustain_start)
+            let new = first.before()               
+            values(prefix.insert(0, new), new)
         anim_pict_like(this,
                        ~epochs:
-                         _epochs.insert(index+1, new),
+                         prefix ++ _epochs,
                        ~epoch_durations:
-                         _epoch_durations.insert(index+1, new.preferred_duration()),
+                         [new.preferred_duration(), ...] ++ _epoch_durations,
                        ~sustain_length:
-                         _sustain_length + 1)        
-      let end = _epochs[index]
-      let new = end.sustain_after()
-      let next :~ AnimPict:
-        cond
-        | new:
-            add(new)
-        | _epochs.length() > _sustain_start + sustain_length:
-            anim_pict_like(this,
-                           ~sustain_length:
-                             _sustain_length + 1)
-        | ~else:
-            add(end.after())
-      next.sustain(amt - 1)
+                         _sustain_length + amt,
+                       ~sustain_start:
+                         _sustain_start - amt + prefix.length())
+
+  override method sustain(amt :: Int = 1) :~ AnimPict:
+    cond
+    | amt == 0: this
+    | amt < 0:
+        anim_pict_like(this,
+                       ~sustain_length:
+                         math.max(0, _sustain_length + amt))
+    | ~else:
+        let index = _sustain_start + _sustain_length - 1
+        fun add(new :~ PictEpoch):
+          anim_pict_like(this,
+                         ~epochs:
+                           _epochs.insert(index+1, new),
+                         ~epoch_durations:
+                           _epoch_durations.insert(index+1, new.preferred_duration()),
+                         ~sustain_length:
+                           _sustain_length + 1)        
+        let end = _epochs[index]
+        let new = end.sustain_after()
+        let next :~ AnimPict:
+          cond
+          | new:
+              add(new)
+          | _epochs.length() > _sustain_start + sustain_length:
+              anim_pict_like(this,
+                             ~sustain_length:
+                               _sustain_length + 1)
+          | ~else:
+              add(end.after())
+        next.sustain(amt - 1)
 
   override method launder() :~ AnimPict:
     anim_pict_adjust(this, fun (p :~ StaticPict): p.launder())
@@ -341,6 +356,9 @@ class AnimPict(_epochs :~ List.of(PictEpoch),
 
   override method fade(n :: Real.in(0, 1)) :~ Pict:
     anim_pict_adjust(this, fun (p :~ StaticPict): p.fade(n))
+
+  override method clip() :~ Pict:
+    anim_pict_adjust(this, fun (p :~ StaticPict): p.clip())
 
 fun anim_pict(epochs, epoch_durations, sustain_start, sustain_length, before) :~ AnimPict:
   block:

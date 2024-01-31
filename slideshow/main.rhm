@@ -1,4 +1,4 @@
-#lang rhombus/static
+#lang rhombus/static/and_meta
 
 import:
   rhombus/draw
@@ -19,6 +19,7 @@ export:
   pause
   alts
   align
+  in_align
 
   // these flatten nested lists of mixtures of strings and picts
   // and convert only the strings, combining all with `beside`;
@@ -30,6 +31,7 @@ export:
   roman
   title
   subscript
+  superscript
 
   // `ly` variants are syntactic forms that `parameterize`
   // the argument expressions, so that `italic` can be nested in
@@ -102,25 +104,22 @@ fun current_font_as_roman():
 fun current_font_as_title():
    (current_font() :~ draw.Font) with (size = 40)
 
-macro 'boldly($arg, ...)':
-  '(parameterize { current_font: current_font_as_bold() }:
-      t($arg, ...)) :~ Pict'
+defn.macro 'ly $ly: $expr':
+  '«
+     macro
+     | '$ly($('$')args)':
+         '(parameterize { current_font: $expr }:
+             t($('$')args) :~ Pict)'
+     | '$ly: $('$')body':
+         'parameterize { current_font: $expr }:
+            $('$')body'
+   »'
 
-macro 'italicly($arg, ...)':
-  '(parameterize { current_font: current_font_as_italic() }:
-      t($arg, ...)) :~ Pict'
-
-macro 'ttly($arg, ...)':
-  '(parameterize { current_font: current_font_as_tt() }:
-      t($arg, ...)) :~ Pict'
-
-macro 'romanly($arg, ...)':
-  '(parameterize { current_font: current_font_as_roman() }:
-      t($arg, ...)) :~ Pict'
-
-macro 'titlely($arg, ...)':
-  '(parameterize { current_font: current_font_as_title() }:
-      t($arg, ...)) :~ Pict'
+ly boldly: current_font_as_bold()
+ly italicly: current_font_as_italic()
+ly ttly: current_font_as_tt()
+ly romanly: current_font_as_roman()
+ly titlely: current_font_as_title()
 
 fun bold(a, ...) :~ Pict:
   boldly(a, ...)
@@ -141,6 +140,10 @@ fun subscript(arg, ...) :~ Pict:
   let p = t(arg, ...)
   p.lift(-15).scale(0.75)
 
+fun superscript(arg, ...) :~ Pict:
+  let p = t(arg, ...)
+  p.lift(10).scale(0.75)
+
 // ----------------------------------------
 
 class Pause():
@@ -160,15 +163,16 @@ fun alts(contents, ...):
 
 fun gap(): 24
 
-fun flatten_slide_content(who, c) :~ List:
+fun flatten_slide_content(who, c, ~in_align = #false) :~ List:
   match c
-  | [c, ...]: List.append(flatten_slide_content(who, c), ...)
+  | [c, ...]: List.append(flatten_slide_content(who, c, ~in_align: in_align), ...)
   | p :: Pict: [p]
   | p :: satisfying(rkt_pict.#{pict?}): [Pict.from_handle(p)]
   | p :: Pause: [p]
   | Alts([]): []
   | Alts([alt]): alt
   | p :: Alts: [p]
+  | (p :: InAlign) when in_align: [p]
   | ~else:
       error(who, "bad slide content: " +& to_string(c, ~mode: #'expr))
 
@@ -194,10 +198,17 @@ fun pause_to_anim(contents) :~ Pict:
         loop(contents, accum.add(c))
 
 fun slide(~title: title :: maybe(String || Pict) = #false,
-          ~layout: layout :: matching(#'auto || #'center || #'top || #'tall) = #'auto,      
+          ~layout: layout :: matching(#'auto || #'center || #'top || #'tall) = #'auto,
+          ~intro: intro :: NonnegInt = 0,
           content, ...):
   let p = pause_to_anim(flatten_slide_content(#'slide, [content, ...]))
   let title = match title | p :: Pict: p.snapshot(0, 0, MutableMap{}).handle | ~else: title
+  when intro == 1
+  | rkt_play.#{play-n}(~title: title,
+                       ~layout: layout,
+                       #{#:skip-first?}: #true,
+                       #{#:skip-last?}: #true,
+                       fun (n): p.snapshot(-1, n, MutableMap{}).handle)
   for (i: 0..p.sustain_length):
     let duration = p.epoch_duration(i)
     if duration .= 0
@@ -216,29 +227,40 @@ fun slide_content(content, ...) :~ Pict:
 
 // ----------------------------------------
 
-fun align(~align: dir :: matching(#'left || #'center || #'right) = #'left,
+class InAlign(dir, cs :: List)
+
+fun align(~halign: dir :: matching(#'left || #'center || #'right) = #'left,
           content, ...):
-  let cs = flatten_slide_content(#'align, [content, ...])
+  let cs = flatten_slide_content(#'align, [content, ...], ~in_align: #true)
   let width:
-    recur loop (cs :~ List = cs):
+    recur loop (cs :: List = cs):
       for values(w = 0) (c: cs):
         match c
         | p :: Pict: math.max(w, p.width)
-        | a :: Alts:
-            for values(w = 0) (alt: a.alts):
-              math.max(w, loop(alt))
+        | Alts([alt, ...]):
+            math.max(loop(alt), ...)
+        | InAlign(dir, cs):
+            math.max(w, loop(cs))
         | ~else: w
-  recur loop (cs :~ List = cs):
-    for List (c: cs):
-      match c
-      | p :: Pict:
-          match dir
-          | #'left: p.inset(0, 0, width - p.width, 0)
-          | #'center: p.inset((width - p.width) / 2, 0)
-          | #'right: p.inset(width - p.width, 0, 0, 0)
-      | Alts([alt, ...]):
-          Alts([loop(alt), ...])
-      | ~else: c
+  recur loop (dir = dir, cs :: List = cs):
+    List.append(
+      & for List (c: cs):
+        match c
+        | p :: Pict:
+            [match dir
+             | #'left: p.inset(0, 0, width - p.width, 0)
+             | #'center: p.inset((width - p.width) / 2, 0)
+             | #'right: p.inset(width - p.width, 0, 0, 0)]
+        | Alts([alt, ...]):
+            [Alts([loop(dir, alt), ...])]
+        | InAlign(dir, cs):
+            loop(dir, cs)
+        | ~else: [c]
+    )
+
+fun in_align(~halign: dir :: matching(#'left || #'center || #'right) = #'left,
+             content, ...):
+  InAlign(dir, flatten_slide_content(#'in_align, [content, ...], ~in_align: #true))
 
 // ----------------------------------------
 
