@@ -356,6 +356,27 @@ output, while an @deftech{output port} is specifically for input.
 
 }
 
+@doc(  
+  fun PrintDesc.special(v :: Any,
+                        alt_pd :: PrintDesc,
+                        ~length: length :: NonnegInt = 1,
+                        ~mode: mode :: Any.of(#'#{write-special},
+                                              #'print,
+                                              #'write,
+                                              #'display)
+                                 = #'#{write-special})
+    :: PrintDesc
+){
+
+
+ Prints @rhombus(v) using Racket printing when the output port supports
+ ``special'' output, otherwise prints as the given @rhombus(alt_pd). For
+ the purposes of pretty printing, @rhombus(v) is counted as using
+ @rhombus(length) columns. The @rhombus(mode) argument indicates which
+ Racket printing function is used.
+
+}
+
 
 @doc(
   def Printable.current_pretty :: Parameter
