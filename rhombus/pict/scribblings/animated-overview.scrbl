@@ -32,10 +32,12 @@ all time before and after its time box. A static pict's rendering
 outside of its time box is a ghosted version of the static pict (in the
 sense of @rhombus(Pict.ghost)).
 
-Using the static rectangle pict @rhombus(rect) from before, we can show
-its rendering at different points in time on a timeline, where @math{t}
-is relative to the pict's time box, and the time box is shown in pink on
-the timeline:
+Using the static rectangle pict @rhombus(rect) from before, the
+following diagram shows its rendering at four different points on a
+timeline, where @math{t} is relative to the pict's time box, and the
+time box is shown in pink on the timeline. Nothing is drawn under
+@math{t = -1}, @math{t = 1}, or @math{t = 2} because the pict is ghosted
+at those times.
 
 @(def rect = rectangle(~width: 40, ~height: 20, ~fill: "lightblue"))
 @(def circ = circle(~size: 40, ~fill: "lightgreen"))
@@ -78,8 +80,8 @@ new animated pict---one with the same duration as the unpadded original.
 
 Time-box padding plus composite operations like @rhombus(stack) allow
 picts to be staged in an animation. If we pad @rhombus(circ)'s time box
-on the ``after'' side define @rhombus(early_circ), then
-@rhombus(early_circ) and @rhombus(late_rect) has the same timeboxes, and
+on the ``after'' side to define @rhombus(early_circ), then
+@rhombus(early_circ) and @rhombus(late_rect) have the same timeboxes, and
 combining them with @rhombus(stack) makes a composite pict
 @rhombus(ping_pong):
 
@@ -151,7 +153,7 @@ of @math{t} by @rhombus(1) as an @deftech{epoch}. A pict's duration is
 always measured in integer epochs.
 
 When an epoch advances (i.e., when the presenter hits the space bar to
-advance the slide), then animation functions receive a sequence of
+advance the slide), then an epoch-specific animation function receives a sequence of
 numbers between @rhombus(0) and @rhombus(1) to represent the
 intermediate transition points between the old slide and the new one.
 The rate at which those intermediate results are used is based the
@@ -160,21 +162,27 @@ can have a different extent for each of its epochs. A static pict's
 epochs all have extent @rhombus(0), meaning that it doesn't need to draw
 any transitions on the way out of the epoch.
 
-If we stretch a pict's conceptual timeline to match real time, then it
-might look something like this:
+Suppose that we have a pict whose duration is @rhombus(3) epochs and the
+epochs have extents @rhombus(0.5), @rhombus(1.0), and @rhombus(0.5)
+seconds, respectively. If we stretch that pict's conceptual timeline to
+match real time, then it might look something like this, dependeing on
+how fast the presenter advances each slide:
 
 @centered(stretched_timeline)
 
 The red dots to start epochs become ovals to represent a slide at rest.
 The right end end of a red oval is the start of a transition to a new
-slide, and the new slide arrives fully at the next red oval. The example
-timeline depicts a pict with different extents for epochs @rhombus(0)
-through @rhombus(2) within its time box, so the spaces between the red
-ovals vary accordingly. Epoch @rhombus(1) has an especially long-running
-transistion (i.e., a large extent).
+slide, and the new slide arrives fully at the left edge of the next red
+oval. The space between between red ovals for epoch @rhombus(1) is twice
+as large as the other spaces, because that epoch's extent is twice as
+long. During that middle animation, when the conceptual time is @math{t
+ = 1.5}, the animation function associated with the epoch receives the
+epoch-relative number @rhombus(0.5) (not a time-box-relative
+@rhombus(1.5)).
 
-To create an animated picture with a non-@rhombus(0) extent, use the
-@rhombus(animate) constructor:
+To create an animated picture with a duration of @rhombus(1) epoch and a
+non-@rhombus(0) extent for that epoch, use the @rhombus(animate)
+constructor:
 
 @examples(  
   ~eval: pict_eval

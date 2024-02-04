@@ -24,6 +24,7 @@
     "rackunit-lib"
     "scribble-doc"
     "draw-doc"
+    "pict-doc"
     "gui-easy"
     "compatibility"))
 

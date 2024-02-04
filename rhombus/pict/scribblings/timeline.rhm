@@ -33,6 +33,8 @@ fun time_at(t) :~ Pict:
 
 def epoch_dot_size = 10
 def epoch_dot_color = "red"
+def duration_box_color = "pink"
+def duration_box_pad = 4
 
 fun tl_arrows(p :~ Pict, dot :~ Pict):
   let q = p.pad(~horiz: 24)
@@ -71,8 +73,8 @@ fun timeline(p_in :~ Pict, [t, ...],
     let tb = beside(~sep: sep, keep(lt_dot, t >= 0 && t < p_in.duration), ...)
     beside(~sep: sep, beside(~sep: sep, keep(lt_dot, t < 0), ...),
            overlay(~vert: #'bottom,
-                   rectangle(~width: tb.width + sep, ~height: dot.height + 8,
-                             ~line: "pink").pad(~bottom: -4, ~left: sep/2 + 4).translate(sep/4-1, 0),
+                   rectangle(~width: tb.width + sep, ~height: dot.height + 2*duration_box_pad,
+                             ~line: duration_box_color).pad(~bottom: -4, ~left: sep/2 + 4).translate(sep/4-1, 0),
                    tb)
              .refocus(tb),
            beside(~sep: sep, keep(lt_dot, t >= p_in.duration), ...))
@@ -104,11 +106,11 @@ def stretched_timeline:
                      ~height: epoch_dot_size,
                      ~rounded: epoch_dot_size/2,
                      ~fill: epoch_dot_color)
-  let d2 = rectangle(~width: epoch_dot_size * 2,
+  let d2 = rectangle(~width: epoch_dot_size * 3,
                      ~height: epoch_dot_size,
                      ~rounded: epoch_dot_size/2,
                      ~fill: epoch_dot_color)
-  let d3 = rectangle(~width: epoch_dot_size * 3,
+  let d3 = rectangle(~width: epoch_dot_size * 4,
                      ~height: epoch_dot_size,
                      ~rounded: epoch_dot_size/2,
                      ~fill: epoch_dot_color)
@@ -116,12 +118,12 @@ def stretched_timeline:
                   ~fill: epoch_dot_color)
   let p:
     beside(stackx(time_at(0), d1),
-           blank(epoch_dot_size * 3),
+           blank(~width: epoch_dot_size * 4),
            stackx(time_at(1), d2),
-           blank(epoch_dot_size * 8),
+           blank(~width: epoch_dot_size * 8),
            stackx(time_at(2), d3),
-           blank(epoch_dot_size * 4),
-           stackx(time_at(3).ghost(), d4))
+           blank(~width: epoch_dot_size * 4),
+           stackx(time_at(3).ghost(), d4)).pad(~bottom: 8)
   fun pointy(p):
     let pt = blank()
     let q = stack(~sep: 10, pt, p)
@@ -133,5 +135,25 @@ def stretched_timeline:
                   ~label: pointy(time_at(1.5)))
   let p = connect(p, Find.right(d3), Find.left(d4),
                   ~label: pointy(time_at(2.5)))
+  let p :~ Pict:
+    let (sx, sy) = Find.left(d1).in(p)
+    let (ex, _) = Find.left(d4).in(p)
+    pin(~on: p,
+        ~at: Find.abs(sx, sy - epoch_dot_size/2 - duration_box_pad),
+        ~order: #'back,
+        rectangle(~width: ex-sx, ~height: epoch_dot_size + 2*duration_box_pad,
+                  ~line: duration_box_color))
+  fun elapsed(p, d1, d2, label):
+    let (sx, sy) = Find.right(d1).in(p)
+    let (ex, _) = Find.left(d2).in(p)
+    let b = text("{", ~font: draw.Font(~kind: #'roman)).rotate(math.pi * -1/2)
+    let b = b.scale((ex - sx) / b.width, 1)
+    let b = stack(text(label), b)
+    pin(~on: p,
+        ~at: Find.abs(sx, 0),
+        b)
+  let p: p.pad(~top: 12)
+  let p: elapsed(p, d1, d2, "0.5 sec")
+  let p: elapsed(p, d2, d3, "1.0 sec")
+  let p: elapsed(p, d3, d4, "0.5 sec")
   stack(tl_arrows(p, d1), time_at(2.5).ghost())
-
