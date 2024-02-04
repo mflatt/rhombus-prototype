@@ -81,7 +81,7 @@ annot.macro 'DurationAlignment':
   annot_meta.pack_predicate('is_sustain_align', '()')
 fun is_sustain_align(v):
   match v
-  | #'sustain || #'ragged: #true
+  | #'sustain || #'pad: #true
   | ~else: #false
 
 annot.delayed_declare SnapshotPict
@@ -127,21 +127,21 @@ class Pict():
   abstract method refocus(to_p :: Pict) :~ Pict
 
   abstract method
-  | pad(amt :: Real) :~ Pict
-  | pad(h_amt :: Real, v_amt :: Real) :~ Pict
-  | pad(left_amt :: Real, top_amt :: Real,
-        right_amt :: Real, bottom_amt :: Real) :~ Pict
-  method pad_at(~around: around :: Real = 0,
-                ~horiz: horiz :: Real = around,
-                ~vert: vert :: Real = around,
-                ~left: left :: Real = horiz,
-                ~top: top :: Real = vert,
-                ~right: right :: Real = horiz,
-                ~bottom: bottom :: Real = vert) :~ Pict:
-    pad(left, top, right, bottom)
+  | _pad(amt :: Real) :~ Pict
+  | _pad(h_amt :: Real, v_amt :: Real) :~ Pict
+  | _pad(left_amt :: Real, top_amt :: Real,
+         right_amt :: Real, bottom_amt :: Real) :~ Pict
+  method pad(~all: around :: Real = 0,
+             ~horiz: horiz :: Real = around,
+             ~vert: vert :: Real = around,
+             ~left: left :: Real = horiz,
+             ~top: top :: Real = vert,
+             ~right: right :: Real = horiz,
+             ~bottom: bottom :: Real = vert) :~ Pict:
+    _pad(left, top, right, bottom)
 
   method translate(dx :: Real, dy :: Real) :~ Pict:
-    pad(dx, dy, -dx, -dy)  
+    _pad(dx, dy, -dx, -dy)  
 
   abstract method lift(amt :: Real) :~ Pict
   abstract method drop(amt :: Real) :~ Pict
@@ -153,14 +153,21 @@ class Pict():
   abstract method rotate(radians :: Real) :~ Pict
 
   abstract method colorize(c :: (Color || String)) :~ Pict
+  abstract method line_width(w :: NonnegReal) :~ Pict
 
-  abstract method fade(n :: Real.in(0, 1)) :~ Pict
+  abstract method alpha(n :: Real.in(0, 1)) :~ Pict
 
   abstract method clip() :~ Pict
 
-  abstract method pad_duration(before :: Int, after :: Int) :~ Pict
-  abstract method clip_duration(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict    
+  abstract method _time_pad(before :: Int, after :: Int) :~ Pict
+  abstract method time_clip(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict    
   abstract method sustain(n :: Int = 1) :~ Pict
+  abstract method epoch_set_extent(i :: Int, extent :: NonnegReal) :~ Pict
+
+  method time_pad(~all: all :: Int = 0,
+                  ~before: before :: Int = all,
+                  ~after: after :: Int = all) :~ Pict:
+    _time_pad(before, after)
 
 class StaticPict(private _handle):
   extends Pict
@@ -176,11 +183,14 @@ class StaticPict(private _handle):
   override property descent: rkt.#{pict-descent}(_handle)
 
   override property duration: 1
-  override method epoch_extent(i): 0
+  override method epoch_extent(i :: Int): 0
 
   override method
   | snapshot(): this
-  | snapshot(epoch, n, instances): this
+  | snapshot(epoch, n, instances):
+      if epoch == 0
+      | this
+      | this.ghost()
 
   override method launder() :~ Pict:
     static_pict(rkt.launder(handle))
@@ -194,12 +204,12 @@ class StaticPict(private _handle):
         static_pict(rkt.refocus(handle, to_p.handle))
 
   override method
-  | pad(amt :: Real):
+  | _pad(amt :: Real):
       static_pict(rkt.inset(handle, amt))
-  | pad(h_amt :: Real, v_amt :: Real):
+  | _pad(h_amt :: Real, v_amt :: Real):
       static_pict(rkt.inset(handle, h_amt, v_amt))
-  | pad(left :: Real, top :: Real,
-        right :: Real, bottom :: Real):
+  | _pad(left :: Real, top :: Real,
+         right :: Real, bottom :: Real):
       static_pict(rkt.inset(handle, left, top, right, bottom))
 
   override method lift(amt :: Real) :~ Pict:
@@ -222,24 +232,29 @@ class StaticPict(private _handle):
 
   override method colorize(c :: (Color || String)) :~ Pict:
     static_pict(rkt.colorize(handle, as_color(c)))
+  override method line_width(w :: NonnegReal) :~ Pict:
+    static_pict(rkt.#{linewidth}(handle, w))
 
-  override method fade(n :: Real.in(0, 1)) :~ Pict:
+  override method alpha(n :: Real.in(0, 1)) :~ Pict:
     static_pict(rkt.cellophane(handle, n))
 
   override method clip() :~ Pict:
     static_pict(rkt.clip(handle))
   
-  override method clip_duration(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict:
-    convert([this], #'center, #'ragged, fun (ps :~ List): ps[0]).clip_duration(~keep: keep)
+  override method time_clip(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict:
+    convert([this], #'center, #'pad, fun (ps :~ List): ps[0]).time_clip(~keep: keep)
 
-  override method pad_duration(before :: Int, after :: Int) :~ Pict:
+  override method _time_pad(before :: Int, after :: Int) :~ Pict:
     if before == 0 && after == 0
     | this
-    | convert([this], #'center, #'ragged, fun (ps :~ List): ps[0]).pad_duration(before, after)
+    | convert([this], #'center, #'pad, fun (ps :~ List): ps[0])._time_pad(before, after)
   override method sustain(n :: Int = 1) :~ Pict:  
     if n == 0
     | this
-    | convert([this], #'center, #'ragged, fun (ps :~ List): ps[0]).sustain(n)
+    | convert([this], #'center, #'pad, fun (ps :~ List): ps[0]).sustain(n)
+
+  override method epoch_set_extent(i :: Int, extent :: NonnegReal):
+    convert([this], #'center, #'pad, fun ([p]): p).epoch_set_extent(i, extent)
 
 annot.delayed_complete SnapshotPict: StaticPict
 
@@ -269,7 +284,9 @@ class NothingPict():
   override property descent: 0
 
   override property duration: 1
-  override method epoch_extent(i): 0
+  override method
+  | epoch_extent(i :: Int): 0
+  | epoch_extent(i :: Int, extent :: NonnegReal): this
 
   override method
   | snapshot(): this
@@ -281,10 +298,10 @@ class NothingPict():
     error(#'refocus, "cannot refocus nothing")
 
   override method
-  | pad(amt :: Real): this
-  | pad(h_amt :: Real, v_amt :: Real): this
-  | pad(left_amt :: Real, top_amt :: Real,
-        right_amt :: Real, bottom_amt :: Real): this
+  | _pad(amt :: Real): this
+  | _pad(h_amt :: Real, v_amt :: Real): this
+  | _pad(left_amt :: Real, top_amt :: Real,
+         right_amt :: Real, bottom_amt :: Real): this
 
   override method lift(amt :: Real): this
   override method drop(amt :: Real): this
@@ -296,15 +313,18 @@ class NothingPict():
   override method rotate(radians :: Real): this
 
   override method colorize(c :: (Color || String)): this
-
-  override method fade(n :: Real.in(0, 1)): this
+  override method line_width(w :: NonnegReal): this
+  
+  override method alpha(n :: Real.in(0, 1)): this
 
   override method clip(): this
 
-  override method clip_duration(~keep: keep :: maybe(matching(#'before || #'after)) = #false): this
+  override method time_clip(~keep: keep :: maybe(matching(#'before || #'after)) = #false): this
 
-  override method pad_duration(before :: Int, after :: Int): this
+  override method _time_pad(before :: Int, after :: Int): this
   override method sustain(n :: Int = 1): this
+
+  override method epoch_set_extent(i :: Int, extent :: NonnegReal): this  
 
 def nothing = NothingPict()
 
@@ -318,7 +338,7 @@ fun from_handle(p :: satisfying(#{pict?})) :~ Pict:
 
 def default_font = draw.Font()
 
-fun beside(~sep: sep = 0,
+fun beside(~sep: sep ::Real = 0,
            ~vert: vert :: VertAlignment = #'center,
            ~epoch: epoch :: EpochAlignment = #'center,
            ~duration: duration :: DurationAlignment = #'sustain,
@@ -337,7 +357,7 @@ fun beside(~sep: sep = 0,
     | ps:
         convert(ps, epoch, duration, retry)
 
-fun above(~sep: sep = 0,
+fun above(~sep: sep :: Real = 0,
           ~horiz: horiz :: HorizAlignment = #'center,
           ~epoch: epoch :: EpochAlignment = #'center,
           ~duration: duration :: DurationAlignment = #'sustain,
@@ -397,9 +417,9 @@ fun text(content :: String,
   static_pict(rkt.text(content, font.handle))
 
 fun
-| blank() :~ Pict: static_pict(rkt.blank())
-| blank(size :: Real) :~ Pict: static_pict(rkt.blank(size))
-| blank(width :: Real, height :: Real) :~ Pict: static_pict(rkt.blank(width, height))
+| blank() :~ StaticPict: static_pict(rkt.blank())
+| blank(size :: Real) :~ StaticPict: static_pict(rkt.blank(size))
+| blank(width :: Real, height :: Real) :~ StaticPict: static_pict(rkt.blank(width, height))
 
 fun make_dc_pict(draw_it, w, h, a, d, line, line_width, fill):
   rkt.dc(fun (dc_handle, dx, dy):
@@ -462,6 +482,7 @@ fun rectangle(~around: around :: maybe(Pict) = #false,
               ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
               ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
               ~rounded: rounded :: maybe(Real || matching(#'default)) = #false,
+              ~refocus: refocus :: maybe(Pict || matching(#'around)) = #false,
               ~epoch: epoch :: EpochAlignment = #'center,
               ~duration: duration :: DurationAlignment = #'sustain) :~ Pict:
   recur retry(around = around, width = width, height = height, ghosted = #false):
@@ -503,9 +524,13 @@ fun rectangle(~around: around :: maybe(Pict) = #false,
               rkt.blank(width,
                         height)
         let r = if ghosted | rkt.ghost(r) | r
-        static_pict(if around
-                    | rkt.#{cc-superimpose}(r, StaticPict.handle(around))
-                    | r)
+        let r:
+          static_pict(if around
+                      | rkt.#{cc-superimpose}(r, StaticPict.handle(around))
+                      | r)
+        if refocus
+        | r.refocus(if refocus == #'around | around | refocus)
+        | r
     | ~else:
         convert_some([around, width, height], epoch, duration, retry)
 
@@ -529,14 +554,22 @@ fun square(~around: around :: maybe(Pict) = #false,
            ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
            ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
            ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+           ~refocus: refocus :: maybe(Pict || matching(#'around)) = #false,              
            ~epoch: epoch :: EpochAlignment = #'center,
            ~duration: duration :: DurationAlignment = #'sustain) :~ Pict:
+  let size:
+    match size
+    | p :: Pict:
+        math.max(p.width, p.height)
+    | ~else:
+        size
   rectangle(~around: around,
             ~width: size,
             ~height: size,
             ~line: line,
             ~fill: fill,
             ~line_width: line_width,
+            ~refocus: refocus,
             ~epoch: epoch,
             ~duration: duration)
 
@@ -859,7 +892,7 @@ fun table(rows :: List.of(List),
                     if hsep is_a List | PairList[& hsep] | hsep,
                     if vsep is_a List | PairList[& vsep] | vsep)
   if !hline && !vline && !line_c
-  | Pict.from_handle(r).pad(& if ins is_a List | ins | [ins])
+  | Pict.from_handle(r)._pad(& if ins is_a List | ins | [ins])
   | let picts = [& picts]
     let col_length = rows.length()
     let ws:

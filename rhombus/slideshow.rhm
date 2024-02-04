@@ -76,11 +76,11 @@ fun next_to_anim(contents) :~ Pict:
         let post = loop(contents, [])
         pict.above(~sep: gap(),
                    pre.sustain(post.duration),
-                   post.pad_duration(pre.duration, 0))
+                   post.time_pad(~before: pre.duration))
     | [Alts([alt, ...]), & contents]:
         let alts = [next_to_anim(alt), ...]
         let p = pict.overlay(~vert: #'top,
-                             ~duration: #'ragged,
+                             ~duration: #'pad,
                              & pict.sequential(& alts))
         let pre = pict.above(~sep: gap(), & accum)
         loop(contents, [pre, p])
@@ -150,7 +150,7 @@ fun assemble_slide(title, layout, p) :~ Pict:
       let v_sep = if layout == #'tall | gap() | 2*gap()
       let back :~ Pict:
         if title
-        | Pict.from_handle(rkt.#{get-titleless-page}()).pad_at(~top: if layout == #'tall | 0 | -gap())
+        | Pict.from_handle(rkt.#{get-titleless-page}()).pad(~top: if layout == #'tall | 0 | -gap())
         | Pict.from_handle(rkt.#{get-full-page}())
       let p:
         pict.overlay(~vert: match layout
@@ -198,9 +198,9 @@ fun align(~horiz: dir :: matching(#'left || #'center || #'right) = #'left,
         match c
         | p :: Pict:
             [match dir
-             | #'left: p.pad(0, 0, width - p.width, 0)
-             | #'center: p.pad((width - p.width) / 2, 0)
-             | #'right: p.pad(width - p.width, 0, 0, 0)]
+             | #'left: p.pad(~right: width - p.width)
+             | #'center: p.pad(~horiz: (width - p.width) / 2)
+             | #'right: p.pad(~left: width - p.width)]
         | Alts([alt, ...]):
             [Alts([loop(dir, alt), ...])]
         | InAlign(dir, cs):
