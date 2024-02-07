@@ -1,0 +1,225 @@
+#lang rhombus/static/and_meta
+
+import:
+  draw
+  pict open
+  lib("pict/main.rkt") as rkt
+
+export:
+  flower
+  cloud
+  flash
+  sun
+  gear
+
+fun flower(~width: width :: Real = 64,
+           ~height: height :: Real = 64,
+           ~points: n :: PosInt = 6,
+           ~point_fraction: point_fraction :: Real = 1,
+           ~edge_fraction: edge_fraction :: Real = 0,
+           ~hole: hole :: Real = 0,
+           ~inward: d :: Real = 0.5,
+           ~jitter: jitter :: Real = 0,
+           ~outer_pull: outer_pull :: Real = 0.3,
+           ~inner_pull: inner_pull :: Real = 0.5,
+           ~rotate: spin :: Real = 0,
+           ~line: line :: maybe(Color || String || matching(#'inherit)) = #false,
+           ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #'inherit,
+           ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
+  make(~width: width,
+       ~height: height,
+       ~points: n,
+       ~point_fraction: point_fraction,
+       ~edge_fraction: edge_fraction,
+       ~hole: hole,
+       ~inward: d,
+       ~jitter: jitter,
+       ~outer_pull: outer_pull,
+       ~inner_pull: inner_pull,
+       ~rotate: spin,
+       ~line: line,
+       ~fill: fill,
+       ~line_width: line_width)
+
+fun cloud(~width: width :: Real = 64,
+          ~height: height :: Real = 32,
+          ~points: n :: PosInt = 6,
+          ~point_fraction: point_fraction :: Real = 1,
+          ~edge_fraction: edge_fraction :: Real = 0,
+          ~hole: hole :: Real = 0,
+          ~inward: d :: Real.in(0, 1) = 0.2,
+          ~jitter: jitter :: Real = 0.3,
+          ~outer_pull: outer_pull :: Real = 0.3,
+          ~inner_pull: inner_pull :: Real = 0.5,
+          ~rotate: spin :: Real = 0,
+          ~line: line :: maybe(Color || String || matching(#'inherit)) = #false,
+          ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #'inherit,
+          ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
+  make(~width: width,
+       ~height: height,
+       ~points: n,
+       ~point_fraction: point_fraction,
+       ~edge_fraction: edge_fraction,
+       ~hole: hole,
+       ~inward: d,
+       ~jitter: jitter,
+       ~outer_pull: outer_pull,
+       ~inner_pull: inner_pull,
+       ~rotate: spin,
+       ~line: line,
+       ~fill: fill,
+       ~line_width: line_width)
+
+fun flash(~width: width :: Real = 64,
+          ~height: height :: Real = 32,
+          ~points: n :: PosInt = 10,
+          ~point_fraction: point_fraction :: Real = 1,
+          ~edge_fraction: edge_fraction :: Real = 0,
+          ~hole: hole :: Real = 0,
+          ~inward: d :: Real.in(0, 1) = 0.25,
+          ~jitter: jitter :: Real = 0,
+          ~outer_pull: outer_pull :: Real = 0,
+          ~inner_pull: inner_pull :: Real = 0,
+          ~rotate: spin :: Real = 0,
+          ~line: line :: maybe(Color || String || matching(#'inherit)) = #false,
+          ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #'inherit,
+          ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
+  make(~width: width,
+       ~height: height,
+       ~points: n,
+       ~point_fraction: point_fraction,
+       ~edge_fraction: edge_fraction,
+       ~hole: hole,
+       ~inward: d,
+       ~jitter: jitter,
+       ~outer_pull: outer_pull,
+       ~inner_pull: inner_pull,
+       ~rotate: spin,
+       ~line: line,
+       ~fill: fill,
+       ~line_width: line_width)
+
+fun sun(~width: width :: Real = 64,
+        ~height: height :: Real = 64,
+        ~points: n :: PosInt = 10,
+        ~point_fraction: point_fraction :: Real = 0.5,
+        ~edge_fraction: edge_fraction :: Real = 0,
+        ~hole: hole :: Real = 0,
+        ~inward: d :: Real.in(0, 1) = 0.4,
+        ~jitter: jitter :: Real = 0,
+        ~outer_pull: outer_pull :: Real = 0,
+        ~inner_pull: inner_pull :: Real = 0,
+        ~rotate: spin :: Real = 0,
+        ~line: line :: maybe(Color || String || matching(#'inherit)) = #false,
+        ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #'inherit,
+        ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
+  make(~width: width,
+       ~height: height,
+       ~points: n,
+       ~point_fraction: point_fraction,
+       ~edge_fraction: edge_fraction,
+       ~hole: hole,
+       ~inward: d,
+       ~jitter: jitter,
+       ~outer_pull: outer_pull,
+       ~inner_pull: inner_pull,
+       ~rotate: spin,
+       ~line: line,
+       ~fill: fill,
+       ~line_width: line_width)
+
+fun gear(~width: width :: Real = 64,
+         ~height: height :: Real = 64,
+         ~points: n :: PosInt = 5,
+         ~point_fraction: point_fraction :: Real = 0.5,
+         ~edge_fraction: edge_fraction :: Real = 0.5,
+         ~hole: hole :: Real = 0.25,
+         ~inward: d :: Real.in(0, 1) = 0.3,
+         ~jitter: jitter :: Real = 0,
+         ~outer_pull: outer_pull :: Real = 0,
+         ~inner_pull: inner_pull :: Real = 0,
+         ~rotate: spin :: Real = 0,
+         ~line: line :: maybe(Color || String || matching(#'inherit)) = #false,
+         ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #'inherit,
+         ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
+  make(~width: width,
+       ~height: height,
+       ~points: n,
+       ~point_fraction: point_fraction,
+       ~edge_fraction: edge_fraction,
+       ~hole: hole,
+       ~inward: d,
+       ~jitter: jitter,
+       ~outer_pull: outer_pull,
+       ~inner_pull: inner_pull,
+       ~rotate: spin,
+       ~line: line,
+       ~fill: fill,
+       ~line_width: line_width)
+
+fun make(~width: width,
+         ~height: height,
+         ~points: n,
+         ~point_fraction: point_fraction,
+         ~edge_fraction: edge_fraction,       
+         ~hole: hole,
+         ~inward: d,
+         ~jitter: jitter,
+         ~outer_pull: outer_pull,
+         ~inner_pull: inner_pull,
+         ~rotate: spin,
+         ~line: line,
+         ~fill: fill,
+         ~line_width: line_width):
+  let p = draw.Path()
+  let pi = math.pi
+  p.move_to([100, 0])
+  let step = math.pi * 2 / n
+  fun get_jitter(i):
+    i + step * 0.25 * math.sin(jitter * 2 * pi * (i mod n)/n)
+  // gets the point at mag@s in polar form, but then moves it orthognal
+  // to that vector by a `pinwheel` fraction
+  fun arm(s, mag, pinwheel):
+    cond
+    | pinwheel .= 0:
+        [mag * math.cos(s), mag * math.sin(s)]
+    | pinwheel > 0:      
+        [mag * math.cos(s) + pinwheel * mag * math.cos(s+pi/2), mag * math.sin(s) + pinwheel * mag * math.sin(s+pi/2)]
+    | pinwheel < 0:      
+        [mag * math.cos(s) - pinwheel * mag * math.cos(s-pi/2), mag * math.sin(s) - pinwheel * mag * math.sin(s-pi/2)]
+  let xd = 1 - (1 - inner_pull) * d
+  for (i: 0..n):
+    let s0 = get_jitter(i) * step
+    let e0 = get_jitter(i + 1) * step
+    let s = s0 + (e0 - s0) * edge_fraction/2
+    let e = e0 - (e0 - s0) * edge_fraction/2
+    let m1 = s + point_fraction * (e - s) / 2
+    let m2 = e - point_fraction * (e - s) / 2
+    fun arc(frac, m1, m2):
+      unless m1 .= m2
+      | p.arc([frac*-100, frac*-100, frac*200, frac*200], -m1, -m2, ~clockwise: #true)
+    arc(1, s0, s)
+    if outer_pull .= 0 && inner_pull .= 0
+    | p.line_to(arm(m1, (1-d) * 100, 0))
+      arc(1-d, m1, m2)
+      p.line_to(arm(e, 100, 0))
+    | p.curve_to(arm(s, 100, outer_pull),
+                 arm(m1, xd * 100, -0),
+                 arm(m1, (1-d) * 100, 0))
+      arc(1-d, m1, m2)
+      p.curve_to(arm(m2, xd * 100, 0),
+                 arm(e, 100, -outer_pull),
+                 arm(e, 100, 0))
+    arc(1, e, e0)
+  when hole > 0
+  | p.ellipse([hole*-100, hole*-100, hole*200, hole*200])
+  p.rotate(2 * pi * spin)
+  let p:
+    dc(fun (dc :: draw.DC, x, y):
+         dc.path(p, ~dx: x + 100, ~dy: y + 100),
+       ~width: 200,
+       ~height: 200,
+       ~line: line,
+       ~line_width: line_width,
+       ~fill: fill)
+  p.scale(width / 200, height / 200)

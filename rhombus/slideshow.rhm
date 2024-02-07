@@ -23,6 +23,9 @@ export:
 
   interactive
 
+  is_printing
+  is_condensing
+
   start_at_recent_slide
   retract_recent_slide
 
@@ -217,6 +220,12 @@ fun in_align(~horiz: dir :: matching(#'left || #'center || #'right) = #'left,
 fun interactive(p :: Pict, callback :: Function.of_arity(1)) :~ Pict:
   Pict.from_handle(rkt.interactive(p.snapshot().handle, callback))
 
+fun is_printing():
+  rkt.#{printing?}
+  
+fun is_condensing():
+  rkt.#{condense?}
+  
 fun start_at_recent_slide():
   rkt.#{start-at-recent-slide}()
 

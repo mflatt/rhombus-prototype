@@ -127,6 +127,14 @@ fun lines(~horiz: align :: matching(#'left || #'center || #'right) = #'left,
              ~horiz: align,
              p, ...)
 
+namespace lines:
+  export:
+    left center right
+  fun left(p :: Pict, ...) :~ Pict: lines(~horiz: #'left, p, ...)
+  fun center(p :: Pict, ...) :~ Pict: lines(~horiz: #'center, p, ...)
+  fun right(p :: Pict, ...) :~ Pict: lines(~horiz: #'right, p, ...)
+
+
 Parameter.def current_para_width :: Real:
   500
 

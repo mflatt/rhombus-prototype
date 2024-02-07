@@ -231,7 +231,71 @@
 
 }
 
+@doc(
+  fun beside.top(~sep: sep :: Real = 0, pict :: Pict, ...) :: Pict
+  fun beside.topline(~sep: sep :: Real = 0, pict :: Pict, ...) :: Pict
+  fun beside.center(~sep: sep :: Real = 0, pict :: Pict, ...) :: Pict
+  fun beside.baseline(~sep: sep :: Real = 0, pict :: Pict, ...) :: Pict
+  fun beside.bottom(~sep: sep :: Real = 0, pict :: Pict, ...) :: Pict
+){
 
+ Shorthands for @rhombus(beside)  with a @rhombus(~vert) argument.
+
+}
+
+@doc(
+  fun stack.center(~sep: sep :: Real = 0, pict :: Pict, ...) :: Pict
+  fun stack.left(~sep: sep :: Real = 0, pict :: Pict, ...) :: Pict
+  fun stack.right(~sep: sep :: Real = 0, pict :: Pict, ...) :: Pict
+){
+
+ Shorthands for @rhombus(stack)  with a @rhombus(~horiz) argument.
+
+}
+
+@doc(
+  fun overlay.center(pict :: Pict, ...) :: Pict
+  fun overlay.left(pict :: Pict, ...) :: Pict
+  fun overlay.right(pict :: Pict, ...) :: Pict
+  fun overlay.top(pict :: Pict, ...) :: Pict
+  fun overlay.topline(pict :: Pict, ...) :: Pict
+  fun overlay.baseline(pict :: Pict, ...) :: Pict
+  fun overlay.bottom(pict :: Pict, ...) :: Pict
+  fun overlay.left_top(pict :: Pict, ...) :: Pict
+  fun overlay.left_topline(pict :: Pict, ...) :: Pict
+  fun overlay.left_center(pict :: Pict, ...) :: Pict
+  fun overlay.left_baseline(pict :: Pict, ...) :: Pict
+  fun overlay.left_bottom(pict :: Pict, ...) :: Pict
+  fun overlay.center_top(pict :: Pict, ...) :: Pict
+  fun overlay.center_topline(pict :: Pict, ...) :: Pict
+  fun overlay.center_center(pict :: Pict, ...) :: Pict
+  fun overlay.center_baseline(pict :: Pict, ...) :: Pict
+  fun overlay.center_bottom(pict :: Pict, ...) :: Pict
+  fun overlay.right_top(pict :: Pict, ...) :: Pict
+  fun overlay.right_topline(pict :: Pict, ...) :: Pict
+  fun overlay.right_center(pict :: Pict, ...) :: Pict
+  fun overlay.right_baseline(pict :: Pict, ...) :: Pict
+  fun overlay.right_bottom(pict :: Pict, ...) :: Pict
+  fun overlay.top_left(pict :: Pict, ...) :: Pict
+  fun overlay.top_center(pict :: Pict, ...) :: Pict
+  fun overlay.top_right(pict :: Pict, ...) :: Pict
+  fun overlay.topline_left(pict :: Pict, ...) :: Pict
+  fun overlay.topline_center(pict :: Pict, ...) :: Pict
+  fun overlay.center_left(pict :: Pict, ...) :: Pict
+  fun overlay.center_right(pict :: Pict, ...) :: Pict
+  fun overlay.baseline_left(pict :: Pict, ...) :: Pict
+  fun overlay.baseline_center(pict :: Pict, ...) :: Pict
+  fun overlay.baseline_right(pict :: Pict, ...) :: Pict
+  fun overlay.bottom(pict :: Pict, ...) :: Pict
+  fun overlay.bottom_left(pict :: Pict, ...) :: Pict
+  fun overlay.bottom_center(pict :: Pict, ...) :: Pict
+  fun overlay.bottom_right(pict :: Pict, ...) :: Pict
+){
+
+ Shorthands for @rhombus(overlay) at all combinations of @rhombus(~horiz)
+ and @rhombus(~vert) arguments in all orders.
+
+}
 
 @doc(
   annot.macro 'HorizAlignment'

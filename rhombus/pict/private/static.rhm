@@ -170,6 +170,9 @@ class Pict():
                   ~after: after :: Int = all) :~ Pict:
     _time_pad(before, after)
 
+  method freeze(~scale: scale :: Real = 2.0):
+    static_pict(rkt.freeze(snapshot().handle))
+
 class StaticPict(private _handle):
   extends Pict
   nonfinal
@@ -236,7 +239,7 @@ class StaticPict(private _handle):
   override method colorize(c :: (Color || String)) :~ Pict:
     static_pict(rkt.colorize(handle, as_color(c)))
   override method line_width(w :: NonnegReal) :~ Pict:
-    static_pict(rkt.#{linewidth}(handle, w))
+    static_pict(rkt.#{linewidth}(w, handle))
 
   override method alpha(n :: Real.in(0, 1)) :~ Pict:
     static_pict(rkt.cellophane(handle, n))
@@ -329,7 +332,9 @@ class NothingPict():
   override method _time_pad(before :: Int, after :: Int): this
   override method sustain(n :: Int = 1): this
 
-  override method epoch_set_extent(i :: Int, extent :: NonnegReal): this  
+  override method epoch_set_extent(i :: Int, extent :: NonnegReal): this
+
+  override method freeze(~scale: scale :: Real = 2.0): this
 
 def nothing = NothingPict()
 
@@ -362,6 +367,20 @@ fun beside(~sep: sep ::Real = 0,
     | ps:
         convert(ps, epoch, duration, retry)
 
+namespace beside:
+  export:
+    top topline center baseline bottom
+  fun top(~sep: sep :: Real = 0, p :: Pict, ...) :~ Pict:
+    beside(~sep: sep, ~vert: #'top, p, ...)
+  fun topline(~sep: sep :: Real = 0, p :: Pict, ...) :~ Pict:
+    beside(~sep: sep, ~vert: #'topline, p, ...)
+  fun center(~sep: sep :: Real = 0, p :: Pict, ...) :~ Pict:
+    beside(~sep: sep, ~vert: #'center, p, ...)
+  fun baseline(~sep: sep :: Real = 0, p :: Pict, ...) :~ Pict:
+    beside(~sep: sep, ~vert: #'baseline, p, ...)
+  fun bottom(~sep: sep :: Real = 0, p :: Pict, ...) :~ Pict:
+    beside(~sep: sep, ~vert: #'bottom, p, ...)
+
 fun stack(~sep: sep :: Real = 0,
           ~horiz: horiz :: HorizAlignment = #'center,
           ~epoch: epoch :: EpochAlignment = #'center,
@@ -378,6 +397,16 @@ fun stack(~sep: sep :: Real = 0,
         | #'right: static_pict(rkt.#{vr-append}(sep, p.handle, ...))
     | ps:
         convert(ps, epoch, duration, retry)
+
+namespace stack:
+  export:
+    left center right
+  fun left(~sep: sep :: Real = 0, p :: Pict, ...) :~ Pict:
+    stack(~sep: sep, ~horiz: #'left, p, ...)
+  fun center(~sep: sep :: Real = 0, p :: Pict, ...) :~ Pict:
+    stack(~sep: sep, ~horiz: #'center, p, ...)
+  fun right(~sep: sep :: Real = 0, p :: Pict, ...) :~ Pict:
+    stack(~sep: sep, ~horiz: #'right, p, ...)
 
 fun overlay(~horiz: horiz :: HorizAlignment = #'center,
             ~vert: vert :: VertAlignment = #'center,
@@ -417,6 +446,70 @@ fun overlay(~horiz: horiz :: HorizAlignment = #'center,
     | ps:
         convert(ps, epoch, duration, retry)
 
+namespace overlay: 
+  export:
+    center
+    left
+    right
+    top
+    topline
+    baseline
+    bottom
+    left_top top_left
+    left_topline topline_left
+    left_center center_left
+    left_baseline baseline_left
+    left_bottom bottom_left
+    center_top top_center
+    center_topline topline_center
+    center_center
+    center_baseline baseline_center
+    center_bottom bottom_center
+    right_top top_right
+    right_topline topline_right
+    right_center center_right
+    right_baseline baseline_right
+    right_bottom bottom_right
+  fun center(p :: Pict, ...) :~ Pict: overlay(~horiz: #'center, ~vert: #'center, p, ...)
+  fun left(p :: Pict, ...) :~ Pict: overlay(~horiz: #'left, ~vert: #'center, p, ...)
+  fun right(p :: Pict, ...) :~ Pict: overlay(~horiz: #'right, ~vert: #'center, p, ...)
+  fun top(p :: Pict, ...) :~ Pict: overlay(~horiz: #'center, ~vert: #'top, p, ...)
+  fun topline(p :: Pict, ...) :~ Pict: overlay(~horiz: #'center, ~vert: #'topline, p, ...)
+  fun baseline(p :: Pict, ...) :~ Pict: overlay(~horiz: #'center, ~vert: #'baseline, p, ...)
+  fun bottom(p :: Pict, ...) :~ Pict: overlay(~horiz: #'center, ~vert: #'bottom, p, ...)
+
+  fun left_top(p :: Pict, ...) :~ Pict: overlay(~horiz: #'left, ~vert: #'top, p, ...)
+  fun top_left(p :: Pict, ...) :~ Pict: overlay(~horiz: #'left, ~vert: #'top, p, ...)
+  fun left_topline(p :: Pict, ...) :~ Pict: overlay(~horiz: #'left, ~vert: #'topline, p, ...)
+  fun topline_left(p :: Pict, ...) :~ Pict: overlay(~horiz: #'left, ~vert: #'topline, p, ...)
+  fun left_center(p :: Pict, ...) :~ Pict: overlay(~horiz: #'left, ~vert: #'center, p, ...)
+  fun center_left(p :: Pict, ...) :~ Pict: overlay(~horiz: #'left, ~vert: #'center, p, ...)
+  fun left_baseline(p :: Pict, ...) :~ Pict: overlay(~horiz: #'left, ~vert: #'baseline, p, ...)
+  fun baseline_left(p :: Pict, ...) :~ Pict: overlay(~horiz: #'left, ~vert: #'baseline, p, ...)
+  fun left_bottom(p :: Pict, ...) :~ Pict: overlay(~horiz: #'left, ~vert: #'bottom, p, ...)
+  fun bottom_left(p :: Pict, ...) :~ Pict: overlay(~horiz: #'left, ~vert: #'bottom, p, ...)
+
+  fun right_top(p :: Pict, ...) :~ Pict: overlay(~horiz: #'right, ~vert: #'top, p, ...)
+  fun top_right(p :: Pict, ...) :~ Pict: overlay(~horiz: #'right, ~vert: #'top, p, ...)
+  fun right_topline(p :: Pict, ...) :~ Pict: overlay(~horiz: #'right, ~vert: #'topline, p, ...)
+  fun topline_right(p :: Pict, ...) :~ Pict: overlay(~horiz: #'right, ~vert: #'topline, p, ...)
+  fun right_center(p :: Pict, ...) :~ Pict: overlay(~horiz: #'right, ~vert: #'center, p, ...)
+  fun center_right(p :: Pict, ...) :~ Pict: overlay(~horiz: #'right, ~vert: #'center, p, ...)
+  fun right_baseline(p :: Pict, ...) :~ Pict: overlay(~horiz: #'right, ~vert: #'baseline, p, ...)
+  fun baseline_right(p :: Pict, ...) :~ Pict: overlay(~horiz: #'right, ~vert: #'baseline, p, ...)
+  fun right_bottom(p :: Pict, ...) :~ Pict: overlay(~horiz: #'right, ~vert: #'bottom, p, ...)
+  fun bottom_right(p :: Pict, ...) :~ Pict: overlay(~horiz: #'right, ~vert: #'bottom, p, ...)
+
+  fun center_top(p :: Pict, ...) :~ Pict: overlay(~horiz: #'center, ~vert: #'top, p, ...)
+  fun top_center(p :: Pict, ...) :~ Pict: overlay(~horiz: #'center, ~vert: #'top, p, ...)
+  fun center_topline(p :: Pict, ...) :~ Pict: overlay(~horiz: #'center, ~vert: #'topline, p, ...)
+  fun topline_center(p :: Pict, ...) :~ Pict: overlay(~horiz: #'center, ~vert: #'topline, p, ...)
+  fun center_center(p :: Pict, ...) :~ Pict: overlay(~horiz: #'center, ~vert: #'center, p, ...)
+  fun center_baseline(p :: Pict, ...) :~ Pict: overlay(~horiz: #'center, ~vert: #'baseline, p, ...)
+  fun baseline_center(p :: Pict, ...) :~ Pict: overlay(~horiz: #'center, ~vert: #'baseline, p, ...)
+  fun center_bottom(p :: Pict, ...) :~ Pict: overlay(~horiz: #'center, ~vert: #'bottom, p, ...)
+  fun bottom_center(p :: Pict, ...) :~ Pict: overlay(~horiz: #'center, ~vert: #'bottom, p, ...)
+
 fun text(content :: String,
          ~font: font :: draw.Font = default_font) :~ Pict:
   static_pict(rkt.text(content, font.handle))
@@ -432,6 +525,10 @@ fun make_dc_pict(draw_it, w, h, a, d, line, line_width, fill):
   rkt.dc(fun (dc_handle, dx, dy):
               let dc = draw.DC.from_handle(dc_handle)
               dc.save()
+              match fill
+              | #false: dc.brush := draw.Brush.none
+              | #'inherit: dc.brush := draw.Brush(~color: dc.pen.color)
+              | ~else: dc.brush := draw.Brush(~color: fill)                    
               match line
               | #'inherit:
                   when line_width != #'inherit
@@ -441,9 +538,6 @@ fun make_dc_pict(draw_it, w, h, a, d, line, line_width, fill):
                                           ~width: (if line_width == #'inherit
                                                    | dc.pen.width
                                                    | line_width))
-              match fill
-              | #false: dc.brush := draw.Brush.none
-              | ~else: dc.brush := draw.Brush(~color: fill)                    
               draw_it(dc, dx, dy)
               dc.restore(),
          w, h, a, d)
@@ -677,15 +771,18 @@ fun dc(draw :: Function.of_arity(3),
        ~width: width :: Real,
        ~height: height :: Real,
        ~ascent: ascent :: Real = height,
-       ~descent: descent :: Real = 0) :~ Pict:
+       ~descent: descent :: Real = 0,
+       ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
+       ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
+       ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
   static_pict(make_dc_pict(draw,
                            width,
                            height,
                            ascent,
                            descent,
-                           #false,
-                           #false,
-                           #false))
+                           line,
+                           line_width,
+                           fill))
 
 // ------------------------------------------------------------
 

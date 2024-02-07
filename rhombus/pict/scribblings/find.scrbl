@@ -59,8 +59,8 @@
 @doc(
   fun Find.center(pict :: Pict,
                   ~dx: dx :: Real = 0, -dy: dy :: Real = 0) :: Find
-  fun Find.left(pict :: Pict
-                , ~dx: dx :: Real = 0, -dy: dy :: Real = 0) :: Find
+  fun Find.left(pict :: Pict,
+                ~dx: dx :: Real = 0, -dy: dy :: Real = 0) :: Find
   fun Find.right(pict :: Pict,
                  ~dx: dx :: Real = 0, -dy: dy :: Real = 0) :: Find
   fun Find.top(pict :: Pict,
