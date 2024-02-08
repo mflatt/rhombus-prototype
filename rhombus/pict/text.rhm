@@ -142,21 +142,35 @@ fun mstr_t(s :: ReadableString.to_string): t(s).snapshot().handle
 
 fun flatten_para_content(who, c) :~ List:
   match c
+  | "":
+      []
   | s :: String:
       let PairList[str, ...] = string.#{string-split}(s)
-      [Pict.from_handle(rkt.para(~t: mstr_t, ~width: #inf, str)),
-       ...]
-  | p :: Pict: [p]
-  | [c, ...]: List.append(flatten_para_content(who, c), ...)
+      let ps = [Pict.from_handle(rkt.para(~t: mstr_t, ~width: #inf, str)),
+                ...]
+      let ps = if s[s.length()-1] == " "[0] | ps.add(#'join) | ps
+      let ps = if s[0] == " "[0] | List.cons(#'join, ps) | ps
+      ps
+  | p :: Pict: [#'join, p, #'join]
+  | [c, ...]:
+      List.append(flatten_para_content(who, c), ...)
   | ~else:
       error(who, "bad paragraph content: " +& to_string(c, ~mode: #'expr))
 
+fun join_nonbreaking(l :: List):
+  match l
+  | []: []
+  | [#'join, & l]: join_nonbreaking(l)
+  | [p, #'join]: [p]
+  | [p, #'join, #'join, & l]: join_nonbreaking([p, & l])
+  | [p, #'join, p2, & l]: join_nonbreaking([pict.beside.topline(p, p2), & l])
+  | [p, & l]: [p, & join_nonbreaking(l)]
 
 fun para(~width: width = current_para_width(),
          ~horiz: align :: pict.HorizAlignment = #'left,
          ~full: full = #false,
          content, ...) :~ Pict:
-  recur retry(ps = flatten_para_content(#'slide, [content, ...])):
+  recur retry(ps = join_nonbreaking(flatten_para_content(#'slide, [content, ...]))):
     match ps
     | [p :: pict.StaticPict, ...]:
         Pict.from_handle(rkt.para(~t: mstr_t,

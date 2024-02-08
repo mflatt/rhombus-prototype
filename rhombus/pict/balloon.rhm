@@ -109,7 +109,7 @@ fun note(content :: Pict,
                               #{#:line-width}: line_width)
         )
     | ~else:
-        animate_map(content,
+        animate_map(contents,
                     ~epoch: epoch,
                     ~duration: duration,
                     ~combine: retry,
