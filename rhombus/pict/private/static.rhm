@@ -10,6 +10,8 @@ import:
 
 export:
   Color
+  MaybeColor
+  LineWidth
   HorizAlignment
   VertAlignment
   EpochAlignment
@@ -54,7 +56,18 @@ module private:
     _Pict
     StaticPict
     NothingPict
+    static_instance
     remove_nothings
+
+annot.macro 'MaybeColor':
+  annot_meta.pack_predicate('is_maybe_color', '()')
+fun is_maybe_color(v):
+  !v || (v is_a Color) || (v is_a String) || v == #'inherit
+
+annot.macro 'LineWidth':
+  annot_meta.pack_predicate('is_line_width', '()')
+fun is_line_width(v):
+  (v is_a Real) || v == #'inherit
 
 annot.macro 'HorizAlignment':
   annot_meta.pack_predicate('is_horiz_aign', '()')
@@ -83,6 +96,8 @@ fun is_sustain_align(v):
   match v
   | #'sustain || #'pad: #true
   | ~else: #false
+
+def empty_instances = []
 
 annot.delayed_declare SnapshotPict
 
@@ -120,8 +135,6 @@ class Pict():
   | snapshot() :~ SnapshotPict
   | snapshot(epoch :: Int,
              n :: Real.in(0, 1)) :~ SnapshotPict
-
-  abstract method _reps()
 
   abstract method launder() :~ Pict
   abstract method ghost() :~ Pict
@@ -170,15 +183,15 @@ class Pict():
                   ~after: after :: Int = all) :~ Pict:
     _time_pad(before, after)
 
-  method freeze(~scale: scale :: Real = 2.0):
-    static_pict(rkt.freeze(snapshot().handle))
+  abstract method freeze(~scale: scale :: Real = 2.0) :~ Pict
 
-class StaticPict(private _handle):
+class StaticPict(private _handle,
+                 private _instances :~ List):
   extends Pict
   nonfinal
   opaque
   internal _StaticPict
-  constructor (): super()(rkt.blank())
+  constructor (): super()(rkt.blank(), empty_instances)
 
   property handle: _handle
   override property width: rkt.#{pict-width}(_handle)
@@ -189,8 +202,6 @@ class StaticPict(private _handle):
   override property duration: 1
   override method epoch_extent(i :: Int): 0
 
-  override method _reps(): values(this, this)
-
   override method
   | snapshot(): this
   | snapshot(epoch, n):
@@ -199,53 +210,58 @@ class StaticPict(private _handle):
       | this.ghost()
 
   override method launder() :~ Pict:
-    static_pict(rkt.launder(handle))
+    static_pict(rkt.launder(handle), empty_instances)
 
   override method ghost() :~ Pict:
-    static_pict(rkt.ghost(handle))
+    static_pict(rkt.ghost(handle), _instances)
 
   override method refocus(to_p :: Pict) :~ Pict:
     match to_p
     | to_p :: StaticPict:
-        static_pict(rkt.refocus(handle, to_p.handle))
+        static_pict(rkt.refocus(handle, to_p.handle), _instances)
+    | ~else:
+        let to_handle = find_instance(this, to_p)
+        if to_handle
+        | static_pict(rkt.refocus(handle, to_handle), _instances)
+        | error(#'refocus, "pict for refocus not found")
 
   override method
   | _pad(amt :: Real):
-      static_pict(rkt.inset(handle, amt))
+      static_pict(rkt.inset(handle, amt), _instances)
   | _pad(h_amt :: Real, v_amt :: Real):
-      static_pict(rkt.inset(handle, h_amt, v_amt))
+      static_pict(rkt.inset(handle, h_amt, v_amt), _instances)
   | _pad(left :: Real, top :: Real,
          right :: Real, bottom :: Real):
-      static_pict(rkt.inset(handle, left, top, right, bottom))
+      static_pict(rkt.inset(handle, left, top, right, bottom), _instances)
 
   override method lift(amt :: Real) :~ Pict:
-    static_pict(rkt.#{lift-bottom-relative-to-baseline}(handle, amt))
+    static_pict(rkt.#{lift-bottom-relative-to-baseline}(handle, amt), _instances)
   override method drop(amt :: Real) :~ Pict:
-    static_pict(rkt.#{drop-top-relative-to-ascent}(handle, amt))
+    static_pict(rkt.#{drop-top-relative-to-ascent}(handle, amt), _instances)
 
   override method
   | scale(amt :: Real) :~ Pict:
       let p = rkt.scale(handle, amt)
       let p = if amt .= 0 | rkt.ghost(p) | p
-      static_pict(p)
+      static_pict(p, _instances)
   | scale(h_amt :: Real, v_amt :: Real) :~ Pict:
       let p = rkt.scale(handle, h_amt, v_amt)
       let p = if h_amt .= 0 || v_amt .= 0 | rkt.ghost(p) | p
-      static_pict(p)
+      static_pict(p, _instances)
 
   override method rotate(radians :: Real) :~ Pict:
-    static_pict(rkt.rotate(handle, radians))
+    static_pict(rkt.rotate(handle, radians), _instances)
 
   override method colorize(c :: (Color || String)) :~ Pict:
-    static_pict(rkt.colorize(handle, as_color(c)))
+    static_pict(rkt.colorize(handle, as_color(c)), _instances)
   override method line_width(w :: NonnegReal) :~ Pict:
-    static_pict(rkt.#{linewidth}(w, handle))
+    static_pict(rkt.#{linewidth}(w, handle), _instances)
 
   override method alpha(n :: Real.in(0, 1)) :~ Pict:
-    static_pict(rkt.cellophane(handle, n))
+    static_pict(rkt.cellophane(handle, n), _instances)
 
   override method clip() :~ Pict:
-    static_pict(rkt.clip(handle))
+    static_pict(rkt.clip(handle), _instances)
   
   override method time_clip(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict:
     convert([this], #'center, #'pad, fun (ps :~ List): ps[0]).time_clip(~keep: keep)
@@ -262,10 +278,13 @@ class StaticPict(private _handle):
   override method epoch_set_extent(i :: Int, extent :: NonnegReal):
     convert([this], #'center, #'pad, fun ([p]): p).epoch_set_extent(i, extent)
 
+  override method freeze(~scale: scale :: Real = 2.0):
+    static_pict(rkt.freeze(_handle), _instances)
+
 annot.delayed_complete SnapshotPict: StaticPict
 
-fun static_pict(handle) :~ StaticPict:
-  _StaticPict()(handle)
+fun static_pict(handle, instances) :~ StaticPict:
+  _StaticPict()(handle, instances)
 
 def mutable do_convert = (fun (p): error("convert not ready"))
 fun convert(p :~ List.of(Pict), epoch, duration, combine, non_sustain_combine = combine) :~ Pict:
@@ -293,8 +312,6 @@ class NothingPict():
   override method
   | epoch_extent(i :: Int): 0
   | epoch_extent(i :: Int, extent :: NonnegReal): this
-
-  override method _reps(): values(this, this)
 
   override method
   | snapshot(): this
@@ -343,8 +360,23 @@ fun remove_nothings(ps :~ List):
     skip_when p == nothing
     p
 
-fun from_handle(p :: satisfying(#{pict?})) :~ Pict:
-  static_pict(p)
+fun from_handle(p :: satisfying(#{pict?}),
+                combining :: List.of(StaticPict) = []) :~ Pict:
+  let [sub :~ _StaticPict, ...] = combining
+  static_pict(p, [sub._instances, ...])
+
+fun static_instance([p, ...], as_p :: _StaticPict):
+  let handle = rkt.inset(as_p.handle, 0) // fresh identity
+  static_pict(handle, as_p._instances ++ [Pair(p, handle), ...])
+
+fun find_instance(p :: _StaticPict, q :~ Pict):
+  recur loop (instances :: List = p._instances):
+    for any (inst: instances):
+      match inst
+      | Pair(key, handle):
+          key === q && handle
+      | ~else:
+          loop(inst)
 
 def default_font = draw.Font()
 
@@ -357,13 +389,14 @@ fun beside(~sep: sep ::Real = 0,
     match remove_nothings(ps):
     | []:
         nothing
-    | [p :: StaticPict, ...]:
+    | [p :: _StaticPict, ...]:
+        let all_instances = [p._instances, ...]
         match vert
-        | #'top: static_pict(rkt.#{ht-append}(sep, p.handle, ...))
-        | #'topline: static_pict(rkt.#{htl-append}(sep, p.handle, ...))
-        | #'center: static_pict(rkt.#{hc-append}(sep, p.handle, ...))
-        | #'baseline: static_pict(rkt.#{hbl-append}(sep, p.handle, ...))
-        | #'bottom: static_pict(rkt.#{hb-append}(sep, p.handle, ...))
+        | #'top: static_pict(rkt.#{ht-append}(sep, p.handle, ...), all_instances)
+        | #'topline: static_pict(rkt.#{htl-append}(sep, p.handle, ...), all_instances)
+        | #'center: static_pict(rkt.#{hc-append}(sep, p.handle, ...), all_instances)
+        | #'baseline: static_pict(rkt.#{hbl-append}(sep, p.handle, ...), all_instances)
+        | #'bottom: static_pict(rkt.#{hb-append}(sep, p.handle, ...), all_instances)
     | ps:
         convert(ps, epoch, duration, retry)
 
@@ -390,11 +423,12 @@ fun stack(~sep: sep :: Real = 0,
     match remove_nothings(ps):
     | []:
         nothing
-    | [p :: StaticPict, ...]:
+    | [p :: _StaticPict, ...]:        
+        let all_instances = [p._instances, ...]
         match horiz
-        | #'left: static_pict(rkt.#{vl-append}(sep, p.handle, ...))
-        | #'center: static_pict(rkt.#{vc-append}(sep, p.handle, ...))
-        | #'right: static_pict(rkt.#{vr-append}(sep, p.handle, ...))
+        | #'left: static_pict(rkt.#{vl-append}(sep, p.handle, ...), all_instances)
+        | #'center: static_pict(rkt.#{vc-append}(sep, p.handle, ...), all_instances)
+        | #'right: static_pict(rkt.#{vr-append}(sep, p.handle, ...), all_instances)
     | ps:
         convert(ps, epoch, duration, retry)
 
@@ -417,8 +451,9 @@ fun overlay(~horiz: horiz :: HorizAlignment = #'center,
     match remove_nothings(ps):
     | []:
         nothing
-    | [p :: StaticPict, ...]:
-        let [p, ...] = [p.handle, ...]
+    | [p :: _StaticPict, ...]:
+        let all_instances = [p._instances, ...]
+        let [p, ...] = [p._handle, ...]
         static_pict(
           match horiz
           | #'left:
@@ -441,7 +476,8 @@ fun overlay(~horiz: horiz :: HorizAlignment = #'center,
               | #'topline: rkt.#{rtl-superimpose}(p, ...)
               | #'center: rkt.#{rc-superimpose}(p, ...)
               | #'baseline: rkt.#{rbl-superimpose}(p, ...)
-              | #'bottom: rkt.#{rb-superimpose}(p, ...)
+              | #'bottom: rkt.#{rb-superimpose}(p, ...),
+          all_instances
         )
     | ps:
         convert(ps, epoch, duration, retry)
@@ -512,14 +548,14 @@ namespace overlay:
 
 fun text(content :: String,
          ~font: font :: draw.Font = default_font) :~ Pict:
-  static_pict(rkt.text(content, font.handle))
+  static_pict(rkt.text(content, font.handle), empty_instances)
 
 fun blank(size = 0,
           ~width: width :: Real = size,
           ~height: height :: Real = size,
           ~ascent: ascent :: Real = height,
           ~descent: descent :: Real = 0) :~ StaticPict:
-  static_pict(rkt.blank(width, height, ascent, descent))
+  static_pict(rkt.blank(width, height, ascent, descent), empty_instances)
 
 fun make_dc_pict(draw_it, w, h, a, d, line, line_width, fill):
   rkt.dc(fun (dc_handle, dx, dy):
@@ -545,7 +581,7 @@ fun make_dc_pict(draw_it, w, h, a, d, line, line_width, fill):
 fun line(~dx: dx :: Real = 0,
          ~dy: dy :: Real = 0,
          ~color: color :: Color || String || matching(#'inherit) = #'inherit,
-         ~width: width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
+         ~width: width :: LineWidth = #'inherit) :~ Pict:
   def ln:
     cond
     | dx == 0: if dy == 0
@@ -563,7 +599,8 @@ fun line(~dx: dx :: Real = 0,
     | ln
   static_pict(if width != #'inherit
               | rkt.linewidth(width, cln)
-              | cln)
+              | cln,
+              empty_instances)
 
 fun as_color(color):
   match color
@@ -579,9 +616,9 @@ fun as_width(w):
 fun rectangle(~around: around :: maybe(Pict) = #false,
               ~width: width :: Real || Pict: around || 32,
               ~height: height :: Real || Pict: around || 32,
-              ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
-              ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
-              ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+              ~line: line :: MaybeColor = #'inherit,
+              ~fill: fill :: MaybeColor = #false,
+              ~line_width: line_width :: LineWidth = #'inherit,
               ~rounded: rounded :: maybe(Real || matching(#'default)) = #false,
               ~refocus: refocus :: maybe(Pict || matching(#'around)) = #false,
               ~epoch: epoch :: EpochAlignment = #'center,
@@ -625,10 +662,11 @@ fun rectangle(~around: around :: maybe(Pict) = #false,
               rkt.blank(width,
                         height)
         let r = if ghosted | rkt.ghost(r) | r
-        let r:
-          static_pict(if around
-                      | rkt.#{cc-superimpose}(r, StaticPict.handle(around))
-                      | r)
+        let r :~ Pict:
+          match around
+          | around :: _StaticPict:
+              static_pict(rkt.#{cc-superimpose}(r, around._handle), [around._instances])
+          | ~else: static_pict(r, empty_instances)
         if refocus
         | r.refocus(if refocus == #'around | around | refocus)
         | r
@@ -652,9 +690,9 @@ fun convert_some([around, width, height], epoch, duration, retry):
         
 fun square(~around: around :: maybe(Pict) = #false,
            ~size: size :: Real || Pict: around || 32,
-           ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
-           ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
-           ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+           ~line: line :: MaybeColor = #'inherit,
+           ~fill: fill :: MaybeColor = #false,
+           ~line_width: line_width :: LineWidth = #'inherit,
            ~refocus: refocus :: maybe(Pict || matching(#'around)) = #false,              
            ~epoch: epoch :: EpochAlignment = #'center,
            ~duration: duration :: DurationAlignment = #'sustain) :~ Pict:
@@ -680,9 +718,9 @@ fun ellipse(~around: around :: maybe(Pict) = #false,
             ~arc: arc :: maybe(matching(#'cw || #'ccw)) = #false,
             ~start: start :: Real = 0,
             ~end: end :: Real = 2 * math.pi,
-            ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
-            ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
-            ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+            ~line: line :: MaybeColor = #'inherit,
+            ~fill: fill :: MaybeColor = #false,
+            ~line_width: line_width :: LineWidth = #'inherit,
             ~epoch: epoch :: EpochAlignment = #'center,
             ~duration: duration :: DurationAlignment = #'sustain) :~ Pict:
   recur retry(around = around, width = width, height = height, ghosted = #false):
@@ -719,9 +757,10 @@ fun ellipse(~around: around :: maybe(Pict) = #false,
               rkt.blank(width,
                         height)
         let r = if ghosted | r.ghost() | r
-        static_pict(if around
-                    | rkt.#{cc-superimpose}(r, StaticPict.handle(around))
-                    | r)
+        match around
+        | around :: _StaticPict:
+           static_pict(rkt.#{cc-superimpose}(r, around._handle), [around._instances])
+        | ~else: static_pict(r, empty_instances)
     | ~else:
         convert_some([around, width, height], epoch, duration, retry)
 
@@ -731,9 +770,9 @@ fun circle(~around: around :: maybe(Pict) = #false,
            ~start: start :: Real = 0,
            ~end: end :: Real = 2 * math.pi,
            ~clockwise: clockwise :: Boolean = #false,
-           ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
-           ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
-           ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+           ~line: line :: MaybeColor = #'inherit,
+           ~fill: fill :: MaybeColor = #false,
+           ~line_width: line_width :: LineWidth = #'inherit,
            ~epoch: epoch :: EpochAlignment = #'center,
            ~duration: duration :: DurationAlignment = #'sustain) :~ Pict:
   let size = match size | p :: Pict: math.max(p.width, p.height) | ~else: size
@@ -750,9 +789,9 @@ fun circle(~around: around :: maybe(Pict) = #false,
           ~duration: duration)
 
 fun polygon([pt :: draw.PointLike.to_point, ...],
-            ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
-            ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
-            ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
+            ~line: line :: MaybeColor = #'inherit,
+            ~fill: fill :: MaybeColor = #false,
+            ~line_width: line_width :: LineWidth = #'inherit) :~ Pict:
   let w = math.max(pt.x, ...)
   let h = math.max(pt.y, ...)
   static_pict(
@@ -761,20 +800,21 @@ fun polygon([pt :: draw.PointLike.to_point, ...],
                  w, h, h, 0,
                  line,
                  line_width,
-                 fill)
+                 fill),
+    empty_instances
   )
 
 fun bitmap(path :: Path || String) :~ Pict:
-  static_pict(rkt.bitmap(path))
+  static_pict(rkt.bitmap(path), empty_instances)
 
 fun dc(draw :: Function.of_arity(3),
        ~width: width :: Real,
        ~height: height :: Real,
        ~ascent: ascent :: Real = height,
        ~descent: descent :: Real = 0,
-       ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
-       ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
-       ~line_width: line_width :: Real || matching(#'inherit) = #'inherit) :~ Pict:
+       ~line: line :: MaybeColor = #'inherit,
+       ~fill: fill :: MaybeColor = #false,
+       ~line_width: line_width :: LineWidth = #'inherit) :~ Pict:
   static_pict(make_dc_pict(draw,
                            width,
                            height,
@@ -782,7 +822,8 @@ fun dc(draw :: Function.of_arity(3),
                            descent,
                            line,
                            line_width,
-                           fill))
+                           fill),
+              empty_instances)
 
 // ------------------------------------------------------------
 
@@ -862,16 +903,11 @@ fun offset(proc, dx, dy):
         let (x, y) = proc(p.handle, q.handle)
         values(x + dx, y + dy)
     | ~else:
-        let (q_lt :~ StaticPict, q_rb :~ StaticPict) = q._reps()
-        let (l, t) = rkt.#{lt-find}(p.handle, q_lt.handle)
-        let (r, b) = rkt.#{rb-find}(p.handle, q_rb.handle)
-        let w = r - l
-        let h = b - t
-        let fake_p = rkt.blank(p.width, p.height)
-        let fake_q = rkt.blank(w, h, w * p.ascent/p.width, w * p.descent/p.width)
-        let fake_p = rkt.#{pin-over}(fake_p, l, t, fake_q)
-        let (x, y) = proc(fake_p, fake_q)
-        values(x + dx, y + dy)
+        let q_handle = find_instance(p, q)
+        if q_handle
+        | let (x, y) = proc(p.handle, q_handle)
+          values(x + dx, y + dy)
+        | error(#'Find, "cannot find pict")
 
 fun abs(dx :: Real = 0, dy :: Real = 0):
   _Find(#false, fun (p, q): values(dx, dy))
@@ -957,7 +993,7 @@ fun connect(p :: Pict,
             to :: Find,
             ~style: style :: matching(#'line || #'arrow || #'arrows) = #'line,
             ~color: color :: Color || String || matching(#'inherit) = #'inherit,
-            ~width: width :: Real || matching(#'inherit) = #'inherit,
+            ~width: width :: LineWidth = #'inherit,
             ~order: order :: matching(#'front || #'back) = #'front,
             ~arrow_size: arrow_size :: Real = 16,
             ~arrow_solid: solid = #true,
@@ -975,7 +1011,7 @@ fun connect(p :: Pict,
     match p
     | _ :: NothingPict:
         nothing
-    | p :: StaticPict:
+    | p :: _StaticPict:
         let (from_x, from_y) = from.in(p)
         let (to_x, to_y) = to.in(p)
         let (proc, [pre, ...], kw_args):
@@ -1001,7 +1037,8 @@ fun connect(p :: Pict,
                          #{#:label}: label && (label != nothing) && StaticPict.handle(label),
                          #{#:x-adjust-label}: label_dx,
                          #{#:y-adjust-label}: label_dy,
-                         ~& kw_args))
+                         ~& kw_args),
+                    p._instances)
     | ~else:
         convert([p], #'center, #'sustain,
                 fun ([p]): retry(p),
@@ -1019,13 +1056,14 @@ fun pin(q :: Pict,
         nothing
     | [_, _ :: NothingPict]:
         nothing
-    | [p :: StaticPict, q :: StaticPict]:
+    | [p :: _StaticPict, q :: _StaticPict]:
         let (at_x, at_y) = at.in(p)
         static_pict((if order == #'front
                      | rkt.#{pin-over}
                      | rkt.#{pin-under})(p.handle,
                                          at_x, at_y,
-                                         q.handle))
+                                         q.handle),
+                    [p._instances, q._instances])
     | [p, q]:
         convert([p, q], epoch, duration,
                 retry,
@@ -1033,110 +1071,106 @@ fun pin(q :: Pict,
 
 // ------------------------------------------------------------
 
-fun table(rows :: List.of(List),
+fun table(rows :: List.of(List.of(Pict)),
           ~horiz: horiz :: HorizAlignment || List.of(HorizAlignment) = #'left,
           ~vert: vert :: VertAlignment || List.of(VertAlignment) = #'topline,
           ~hsep: hsep :: Real || List.of(Real) = 32,
           ~vsep: vsep :: Real || List.of(Real) = 1,
           ~pad: ins :: matching((_ :: Real) || [_ :: Real, _ :: Real] || [_ :: Real, _ :: Real, _ :: Real, _ :: Real]) = 0,
           ~line: line_c :: maybe(String || Color || matching(#'inherit)) = #false,
-          ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+          ~line_width: line_width :: LineWidth = #'inherit,
           ~hline: hline :: maybe(String || Color || matching(#'inherit)) = line_c,
-          ~hline_width: hline_width :: Real || matching(#'inherit) = line_width,
+          ~hline_width: hline_width :: LineWidth = line_width,
           ~vline: vline :: maybe(String || Color || matching(#'inherit)) = line_c,
-          ~vline_width: vline_width :: Real || matching(#'inherit) = line_width) :~ Pict:
-  let [[elem, ...], ...] = rows
-  fun convert(elem):
-    match elem
-    | elem :: NothingPict: blank()
-    | elem :: String: text(elem).snapshot().handle
-    | elem :: Pict: elem.snapshot().handle
-  fun to_align(align):
-    match align
-    | [align, ...]:
-        PairList[to_align(align), ...]
-    | #'left:
-        rkt.#{lc-superimpose}
-    | #'right:
-        rkt.#{rc-superimpose}
-    | #'center:
-        rkt.#{cc-superimpose}
-    | #'top:
-        rkt.#{ct-superimpose}
-    | #'topline:
-        rkt.#{ctl-superimpose}
-    | #'baseline:
-        rkt.#{cbl-superimpose}
-    | #'bottom:
-        rkt.#{cb-superimpose}
-  let picts = PairList[convert(elem), ..., ...]
-  let row_length = rows[0].length()
-  let r = rkt.table(row_length,
-                    picts,
-                    to_align(horiz),
-                    to_align(vert),
-                    if hsep is_a List | PairList[& hsep] | hsep,
-                    if vsep is_a List | PairList[& vsep] | vsep)
-  if !hline && !vline && !line_c
-  | Pict.from_handle(r)._pad(& if ins is_a List | ins | [ins])
-  | let picts = [& picts]
-    let col_length = rows.length()
-    let ws:
-      for List (i: 0 .. row_length):
-        let [p, ...]: for List (r: 0 .. col_length):
-                        picts[i + r * row_length]
-        math.max(rkt.#{pict-width}(p), ...)
-    let hs:
-      for List (i: 0 .. col_length):
-        let [p, ...]: for List (r: 0 .. row_length):
-                        picts[r + i * row_length]
-        math.max(rkt.#{pict-height}(p), ...)
-    let r: rkt.inset(r, & if ins is_a List | ins | [ins])
-    let (left_ins, top_ins): match ins
-                             | [l, t, _, _]: values(l, t)
-                             | [h, v]: values(h, v)
-                             | a: values(a, a)
-    let r:
-      if !vline
-      | r
-      | recur loop(r = r, i = 1, dx = left_ins):
-          if i == row_length
+          ~vline_width: vline_width :: LineWidth = line_width) :~ Pict:
+  match rows
+  | [[elem :~ _StaticPict, ...], ...]:
+      fun to_align(align):
+        match align
+        | [align, ...]:
+            PairList[to_align(align), ...]
+        | #'left:
+            rkt.#{lc-superimpose}
+        | #'right:
+            rkt.#{rc-superimpose}
+        | #'center:
+            rkt.#{cc-superimpose}
+        | #'top:
+            rkt.#{ct-superimpose}
+        | #'topline:
+            rkt.#{ctl-superimpose}
+        | #'baseline:
+            rkt.#{cbl-superimpose}
+        | #'bottom:
+            rkt.#{cb-superimpose}
+      let picts = PairList[elem._handle, ..., ...]
+      let row_length = rows[0].length()
+      let r = rkt.table(row_length,
+                        picts,
+                        to_align(horiz),
+                        to_align(vert),
+                        if hsep is_a List | PairList[& hsep] | hsep,
+                        if vsep is_a List | PairList[& vsep] | vsep)
+      if !hline && !vline && !line_c
+      | static_pict(r, [elem._instances, ..., ...])._pad(& if ins is_a List | ins | [ins])
+      | let picts = [& picts]
+        let col_length = rows.length()
+        let ws:
+          for List (i: 0 .. row_length):
+            let [p, ...]: for List (r: 0 .. col_length):
+                            picts[i + r * row_length]
+            math.max(rkt.#{pict-width}(p), ...)
+        let hs:
+          for List (i: 0 .. col_length):
+            let [p, ...]: for List (r: 0 .. row_length):
+                            picts[r + i * row_length]
+            math.max(rkt.#{pict-height}(p), ...)
+        let r: rkt.inset(r, & if ins is_a List | ins | [ins])
+        let (left_ins, top_ins): match ins
+                                 | [l, t, _, _]: values(l, t)
+                                 | [h, v]: values(h, v)
+                                 | a: values(a, a)
+        let r:
+          if !vline
           | r
-          |  let dx = dx + ws[i-1]
-             let sep:
-               match hsep:
-               | hsep :: List: if hsep.length() > i-1
-                               | hsep[i-1]
-                               | hsep[hsep.length() - 1]
-               | else: hsep
-             loop(rkt.#{pin-under}(r,
-                                   dx + sep / 2, 0,
-                                   line(~dy: rkt.#{pict-height}(r),
-                                        ~color: vline,
-                                        ~width: vline_width).snapshot().handle),
-                  i + 1,
-                  dx + sep)
-    let r:
-      if !hline
-      | r
-      | recur loop(r = r, i = 1, dy = top_ins):
-          if i == col_length
+          | recur loop(r = r, i = 1, dx = left_ins):
+              if i == row_length
+              | r
+              |  let dx = dx + ws[i-1]
+                 let sep:
+                   match hsep:
+                   | hsep :: List: if hsep.length() > i-1
+                                   | hsep[i-1]
+                                   | hsep[hsep.length() - 1]
+                   | else: hsep
+                 loop(rkt.#{pin-under}(r,
+                                       dx + sep / 2, 0,
+                                       line(~dy: rkt.#{pict-height}(r),
+                                            ~color: vline,
+                                            ~width: vline_width).snapshot().handle),
+                      i + 1,
+                      dx + sep)
+        let r:
+          if !hline
           | r
-          |  let dy = dy + hs[i-1]
-             let sep:
-               match vsep:
-               | vsep :: List: if vsep.length() > i-1
-                               | vsep[i-1]
-                               | vsep[vsep.length() - 1]
-               | else: vsep
-             loop(rkt.#{pin-under}(r,
-                                   0, dy + sep / 2,
-                                   line(~dx: rkt.#{pict-width}(r),
-                                        ~color: hline,
-                                        ~width: hline_width).snapshot().handle),
-                  i + 1,
-                  dy + sep)
-    let p = Pict.from_handle(r)
-    if line_c
-    | rectangle(~around: p, ~line: line_c, ~line_width: line_width)
-    | p
+          | recur loop(r = r, i = 1, dy = top_ins):
+              if i == col_length
+              | r
+              |  let dy = dy + hs[i-1]
+                 let sep:
+                   match vsep:
+                   | vsep :: List: if vsep.length() > i-1
+                                   | vsep[i-1]
+                                   | vsep[vsep.length() - 1]
+                   | else: vsep
+                 loop(rkt.#{pin-under}(r,
+                                       0, dy + sep / 2,
+                                       line(~dx: rkt.#{pict-width}(r),
+                                            ~color: hline,
+                                            ~width: hline_width).snapshot().handle),
+                      i + 1,
+                      dy + sep)
+        let p = static_pict(r, [elem._instances, ..., ...])
+        if line_c
+        | rectangle(~around: p, ~line: line_c, ~line_width: line_width)
+        | p

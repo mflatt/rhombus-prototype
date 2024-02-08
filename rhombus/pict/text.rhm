@@ -144,9 +144,9 @@ fun flatten_para_content(who, c) :~ List:
   match c
   | s :: String:
       let PairList[str, ...] = string.#{string-split}(s)
-      [rkt.para(~t: mstr_t, ~width: #inf, str),
+      [Pict.from_handle(rkt.para(~t: mstr_t, ~width: #inf, str)),
        ...]
-  | p :: Pict: [p.snapshot().handle]
+  | p :: Pict: [p]
   | [c, ...]: List.append(flatten_para_content(who, c), ...)
   | ~else:
       error(who, "bad paragraph content: " +& to_string(c, ~mode: #'expr))
@@ -156,12 +156,17 @@ fun para(~width: width = current_para_width(),
          ~horiz: align :: pict.HorizAlignment = #'left,
          ~full: full = #false,
          content, ...) :~ Pict:
-  Pict.from_handle(rkt.para(~t: mstr_t,
-                            #{#:line-sep}: current_line_sep(),
-                            #{#:fill?}: full,
-                            ~width: width,
-                            ~align: align,
-                            & flatten_para_content(#'slide, [content, ...])))
+  recur retry(ps = flatten_para_content(#'slide, [content, ...])):
+    match ps
+    | [p :: pict.StaticPict, ...]:
+        Pict.from_handle(rkt.para(~t: mstr_t,
+                                  #{#:line-sep}: current_line_sep(),
+                                  #{#:fill?}: full,
+                                  ~width: width,
+                                  ~align: align,
+                                  p.handle, ...))
+    | ps:
+        pict.animate_map(ps, ~combine: retry)
 
 fun item(~width: width = current_para_width(),
          ~full: full = #false,
