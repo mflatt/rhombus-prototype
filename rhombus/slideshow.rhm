@@ -16,6 +16,7 @@ export:
   all_from(.text)
 
   SlideLayout
+  current_assembler
 
   // flattens nested lists in arguments:
   slide
@@ -26,8 +27,8 @@ export:
   is_printing
   is_condensing
 
-  start_at_recent_slide
-  retract_recent_slide
+  start_at_recent
+  retract_recent
 
 namespace slide:
   export:
@@ -98,43 +99,24 @@ fun slide(~title: title :: maybe(String || Pict) = #false,
           ~intro: intro :: NonnegInt = 0,
           content, ...):
   let p = next_to_anim(flatten_slide_content(#'slide, [content, ...]))
-  match title
-  | _ :: False || String || pict.StaticPict:
-      let title:
-        match title
-        | _ :: pict.NothingPict: #false
-        | p :: Pict: p.snapshot(0, 0).handle
-        | ~else: title
-      when intro == 1
-      | rkt_play.#{play-n}(~title: title,
-                           ~name: if name is_a String | name | to_string(name),
-                           ~layout: layout,
-                           #{#:skip-first?}: #true,
-                           #{#:skip-last?}: #true,
-                           fun (n): p.snapshot(-1, n).handle)
-      for (i: 0..p.duration):
-        let extent = p.epoch_extent(i)
-        if extent .= 0
-        | rkt.slide(~title: title,
-                    ~layout: layout,
-                    & (if p == pict.nothing
-                       | []
-                       | [p.snapshot(i, 0).handle]))
-        | rkt_play.#{play-n}(~title: title,
-                             ~name: if name is_a String | name | to_string(name),
-                             ~layout: layout,                         
-                             ~delay: extent / rkt_play.#{current-play-steps}(),
-                             #{#:skip-last?}: #true,
-                             fun (n): p.snapshot(i, n).handle)
-  | ~else:
-      // use slide_content to combine an animated title
-      slide(~name: name,
-            ~layout: #'top,
-            ~intro: intro,
-            slide_content(~title: title,
-                          ~full: #true,
-                          ~layout: layout,
-                          p))
+  let name = if name is_a String | name | to_string(name)
+  let p: assemble_slide(title, layout, p)
+  when intro == 1
+  | rkt_play.#{play-n}(~name: name,
+                       #{#:skip-first?}: #true,
+                       #{#:skip-last?}: #true,
+                       fun (n): p.snapshot(-1, n).handle)
+  for (i: 0..p.duration):
+    let extent = p.epoch_extent(i)
+    if extent .= 0
+    | rkt.slide(~name: name,
+                & (if p == pict.nothing
+                   | []
+                   | [p.snapshot(i, 0).handle]))
+    | rkt_play.#{play-n}(~name: name,
+                         ~delay: extent / rkt_play.#{current-play-steps}(),
+                         #{#:skip-last?}: #true,
+                         fun (n): p.snapshot(i, n).handle)
 
 fun slide_content(~title: title :: maybe(String || Pict) = #false,
                   ~full: full = title && #true,
@@ -146,37 +128,41 @@ fun slide_content(~title: title :: maybe(String || Pict) = #false,
   | p
 
 fun assemble_slide(title, layout, p) :~ Pict:  
-  match [title, p]
-  | [_ :: pict.NothingPict, _]:
-      assemble_slide(#false, layout, p)
-  | [_ :: pict.StaticPict || False || String, p :: pict.StaticPict]:
-      let v_sep = if layout == #'tall | gap() | 2*gap()
-      let back :~ Pict:
-        if title
-        | Pict.from_handle(rkt.#{get-titleless-page}()).pad(~top: if layout == #'tall | 0 | -gap())
-        | Pict.from_handle(rkt.#{get-full-page}())
-      let p:
-        pict.overlay(~vert: match layout
-                            | #'tall: #'top
-                            | #'auto:
-                                if p.height > back.height | #'top | #'center
-                            | ~else: layout,
-                     back,
-                     p)
-      let p = Pict.from_handle(rkt.#{current-slide-assembler}()(match title
-                                                                | title :: Pict: title.snapshot().handle
-                                                                | ~else: title,
-                                                                v_sep,
-                                                                p.snapshot().handle))
-      pict.overlay(p, Pict.from_handle(rkt.#{get-full-page}()))
-  | [_ :: False || String, _]:
-      pict.animate_map([p],
-                       ~combine: fun ([p]): assemble_slide(title, layout, p),
-                       ~non_sustain_combine: fun ([p]): assemble_slide(title, layout, p).ghost())
+  match title
+  | _ :: pict.NothingPict:
+      current_assembler()(#false, layout, p)
+  | _ :: String:
+      current_assembler()(text.title(title), layout, p)
   | ~else:
-      pict.animate_map([title, p],
-                       ~combine: fun ([title, p]): assemble_slide(title, layout, p),
-                       ~non_sustain_combine: fun ([title, p]): assemble_slide(title, layout, p).ghost())
+      current_assembler()(title, layout, p)
+
+Parameter.def current_assembler :: Function.of_arity(3):
+  fun (title, layout, p :~ Pict):
+    let back: Pict.from_handle(rkt.#{get-full-page}())
+    let head :~ Pict:
+      if title
+      | Pict.pad(title, ~bottom: if layout == #'tall | gap() | 2*gap())
+      | pict.blank()
+    let layout:
+      match layout
+      | #'auto:
+          if p.height > (back.height - 2 * head.height) | #'top | #'center
+      | ~else: layout
+    let body:
+      match layout
+      | #'center: back
+      | ~else: back.pad(~top: -head.height)
+    pict.overlay(~vert: #'bottom,
+                 pict.overlay(~vert: #'top,
+                              back,
+                              head),
+                 pict.overlay(~vert: match layout
+                                     | #'tall: #'top
+                                     | ~else: layout,
+                              body,
+                              p)
+                   .refocus(body))
+      .refocus(back)
                         
 // ----------------------------------------
 
@@ -226,8 +212,8 @@ fun is_printing():
 fun is_condensing():
   rkt.#{condense?}
   
-fun start_at_recent_slide():
+fun start_at_recent():
   rkt.#{start-at-recent-slide}()
 
-fun retract_recent_slide():
+fun retract_recent():
   rkt.#{retract-most-recent-slide}()
