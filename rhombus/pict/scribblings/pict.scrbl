@@ -160,11 +160,32 @@
 }
 
 @doc(
+  method (pict :: Pict).hflip() :: Pict
+  method (pict :: Pict).vflip() :: Pict
+){
+
+ Flips a @tech{pict} horizontally or vertically.
+
+}
+
+@doc(
   method (pict :: Pict).clip() :: Pict
 ){
 
  Returns a @tech{pict} that is like @rhombus(pict), but whose drawing is
  confined to its bounding box.
+
+}
+
+@doc(
+  method (pict :: Pict).freeze(~scale: scale :: Real = 2.0) :: Pict
+){
+
+ Returns a @tech{pict} that is like @rhombus(pict), but whose drawing is
+ rendered at the time of the @rhombus(Pict.freeze) call to a bitmap, and
+ then the new pict draws by drawing the bitmap. The @rhombus(scale)
+ argument determines the scale factor of the bitmap (i.e., the number of
+ pixels per drawing unit).
 
 }
 

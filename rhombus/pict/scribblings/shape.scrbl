@@ -151,8 +151,8 @@
   fun line(
     ~dx: dx :: Real = 0,
     ~dy: dy :: Real = 0,
-    ~color: color :: Color || String || matching(#'inherit) = #'inherit,
-    ~width: width :: Real || matching(#'inherit) = #'inherit
+    ~line: color :: Color || String || matching(#'inherit) = #'inherit,
+    ~line_width: width :: Real || matching(#'inherit) = #'inherit
   ) :: Pict
 ){
 

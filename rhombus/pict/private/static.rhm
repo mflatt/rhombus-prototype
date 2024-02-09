@@ -165,6 +165,10 @@ class Pict():
   | scale(h_amt :: Real, v_amt :: Real) :~ Pict
 
   abstract method rotate(radians :: Real) :~ Pict
+  method hflip() :~ Pict:
+    scale(-1, 1).pad(~right: width, ~left: width)
+  method vflip() :~ Pict:
+    hflip().rotate(math.pi)
 
   abstract method colorize(c :: (Color || String)) :~ Pict
   abstract method line_width(w :: NonnegReal) :~ Pict
@@ -580,8 +584,8 @@ fun make_dc_pict(draw_it, w, h, a, d, line, line_width, fill):
 
 fun line(~dx: dx :: Real = 0,
          ~dy: dy :: Real = 0,
-         ~color: color :: Color || String || matching(#'inherit) = #'inherit,
-         ~width: width :: LineWidth = #'inherit) :~ Pict:
+         ~line: color :: Color || String || matching(#'inherit) = #'inherit,
+         ~line_width: width :: LineWidth = #'inherit) :~ Pict:
   def ln:
     cond
     | dx == 0: if dy == 0
@@ -992,8 +996,8 @@ fun connect(p :: Pict,
             from :: Find,
             to :: Find,
             ~style: style :: matching(#'line || #'arrow || #'arrows) = #'line,
-            ~color: color :: Color || String || matching(#'inherit) = #'inherit,
-            ~width: width :: LineWidth = #'inherit,
+            ~line: color :: Color || String || matching(#'inherit) = #'inherit,
+            ~line_width: width :: LineWidth = #'inherit,
             ~order: order :: matching(#'front || #'back) = #'front,
             ~arrow_size: arrow_size :: Real = 16,
             ~arrow_solid: solid = #true,
@@ -1146,8 +1150,8 @@ fun table(rows :: List.of(List.of(Pict)),
                  loop(rkt.#{pin-under}(r,
                                        dx + sep / 2, 0,
                                        line(~dy: rkt.#{pict-height}(r),
-                                            ~color: vline,
-                                            ~width: vline_width).snapshot().handle),
+                                            ~line: vline,
+                                            ~line_width: vline_width).snapshot().handle),
                       i + 1,
                       dx + sep)
         let r:
@@ -1166,8 +1170,8 @@ fun table(rows :: List.of(List.of(Pict)),
                  loop(rkt.#{pin-under}(r,
                                        0, dy + sep / 2,
                                        line(~dx: rkt.#{pict-width}(r),
-                                            ~color: hline,
-                                            ~width: hline_width).snapshot().handle),
+                                            ~line: hline,
+                                            ~line_width: hline_width).snapshot().handle),
                       i + 1,
                       dy + sep)
         let p = static_pict(r, [elem._instances, ..., ...])

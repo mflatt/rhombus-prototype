@@ -91,7 +91,7 @@ it did before the addition:
 @examples(
   ~eval: pict_eval
   fun antenna(p):    
-    let ap = stack(circle(~size: 4), line(~dy: 6, ~width: 2), p)
+    let ap = stack(circle(~size: 4), line(~dy: 6, ~line_width: 2), p)
     // negative cancels circle+line contribution to bounding box:
     ap.pad(~top: -10)
   beside(antenna(rect), circ)
@@ -108,7 +108,7 @@ within a composite pict, as we explain a little further below.)
   ~eval: pict_eval
   ~repl:
     fun antenna(p):    
-      let ap = stack(circle(~size: 4), line(~dy: 6, ~width: 2), p)
+      let ap = stack(circle(~size: 4), line(~dy: 6, ~line_width: 2), p)
       ap.refocus(p)
     beside(antenna(rect), circ)
   ~repl:

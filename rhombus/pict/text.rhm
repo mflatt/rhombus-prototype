@@ -3,7 +3,9 @@
 import:
   draw
   pict:
-    expose Pict
+    expose:
+      Pict
+      HorizAlignment
   lib("pict/main.rkt") as rkt_pict
   lib("racket/string.rkt")
   "private/para.rkt" as rkt
@@ -121,7 +123,7 @@ fun superscript(arg, ...) :~ Pict:
 
 Parameter.def current_line_sep :: Real = 5
 
-fun lines(~horiz: align :: matching(#'left || #'center || #'right) = #'left,
+fun lines(~horiz: align :: HorizAlignment = #'left,
           p :: Pict, ...) :~ Pict:
   pict.stack(~sep: current_line_sep(),
              ~horiz: align,

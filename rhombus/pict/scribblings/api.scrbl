@@ -8,3 +8,4 @@
 @include_section("shape.scrbl")
 @include_section("combine.scrbl")
 @include_section("find.scrbl")
+@include_section("text.scrbl")
