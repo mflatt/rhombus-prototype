@@ -125,30 +125,47 @@ paragraph typesetting.
   fun para(content, ...,
            ~width: width = current_para_width(),
            ~horiz: align :: pict.HorizAlignment = #'left,
-           ~full: full = #false) :: Pict
+           ~full: full = #false,
+           ~decode: decode = #true) :: Pict
 ){
 
- Accepts @rhombus(content) similar to @rhombus(t), but combining into
+ Accepts @rhombus(content) similar to @rhombus(t), but combines into
  multiple lines instead of a single @rhombus(beside) combination, and a
- blank space is added between picts on the same line. Also, strings are
- treated more specially:
+ blank space is added between picts that end up on the same line but
+ could be split across lines.
+
+ The rules for spacing and line breaks are designed to work naturally
+ with @litchar("@") notation, and so they treat strings and list nestings
+ specially:
 
 @itemlist(
 
- @item{all strings are split on space characters to obtain a list of
-  strings to convert separately;}
+ @item{when a string does not start or end with a space, and when it is
+  preceded or followed by a @tech{pict} (not a string or list), then no
+  space is added before or after the string's rendering;}
 
- @item{strings are decoded to convert @litchar{``} to @litchar{“}, etc.; and}
+ @item{after deciding on spacing around a string, the string is split on
+  space characters to obtain a list of strings to convert separately;}
 
- @item{when a string does not start or end with a space, then no space
-  or line break is added between the string's pict (or last pict after
-  splitting) and the pevious or subsequent pict.}
+ @item{strings are converted to text using @rhombus(t), but first
+  rewritten through the following conversions, unless @rhombus(decode) is
+  @rhombus(#false):
+
+       @itemlist(
+
+         @item{@litchar{---} → @litchar{—} (em dash)}
+         @item{@litchar{--} → @litchar{–} (en dash)}
+         @item{@litchar{``} → @litchar{“} (curly open quote)}
+         @item{@litchar{''} → @litchar{”} (curly close quote)}
+         @item{@litchar{'} → @litchar{’} (curly single close quote)}
+
+      )}
  
 )
 
  The @rhombus(width) argument determines the maximum width of a line,
  and if @rhombus(full) is true, then the resulting pict is padded to that
- width. The @rhombus(align) argument constrolds both how multiple lines
+ width. The @rhombus(align) argument controls both how multiple lines
  are aligned relative to one another and how padding is added when
  @rhombus(full) is true. Lines are separated by
  @rhombus(current_line_sep()) space.
