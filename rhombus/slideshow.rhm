@@ -150,12 +150,12 @@ fun slide(~title: title :: maybe(String || Pict) = #false,
           ~layout: layout :: SlideLayout = #'auto,
           ~sep: sep :: Real = gap,
           ~horiz: horiz :: pict.HorizAlignment = #'center,
-          ~intro: intro :: NonnegInt = 0,
+          ~lead_in: lead_in = #false,
           content, ...):
   let p = next_to_anim(align_content(sep, horiz, flatten_slide_content(#'slide, [content, ...])))
   let name = if name is_a String | name | to_string(name)
   let p: assemble_slide(title, layout, p)
-  when intro == 1
+  when lead_in
   | rkt_play.#{play-n}(~name: name,
                        #{#:skip-first?}: #true,
                        #{#:skip-last?}: #true,

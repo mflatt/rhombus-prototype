@@ -19,6 +19,20 @@ re-exports @rhombusmodname(pict) and @rhombusmodname(pict/text).
 @table_of_contents()
 
 @doc(
+  fun slide(~title: title :: maybe(String || Pict) = #false,
+            ~name: name = title,
+            ~layout: layout :: SlideLayout = #'auto,
+            ~sep: sep :: Real = slide.gap,
+            ~horiz: horiz :: HorizAlignment = #'center,
+            ~lead_in: lead_in = #false,
+            content, ...) :: Void
+){
+
+ Registers one or more slides.
+
+}
+
+@doc(
   def current_title_font :: Parameter
   fun current_title_font() :: Font
   fun current_title_font(font :: Font) :: Void
