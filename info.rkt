@@ -25,6 +25,7 @@
     "scribble-doc"
     "draw-doc"
     "pict-doc"
+    "slideshow-doc"
     "gui-easy"
     "compatibility"))
 

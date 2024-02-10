@@ -5,15 +5,20 @@ import:
   pict:
     expose Pict
   pict/text
+  rhombus/pict/text!ly.ly
   slideshow/config
   lib("slideshow/main.rkt") as rkt
   lib("pict/main.rkt") as rkt_pict
   lib("slideshow/play.rkt") as rkt_play
-  lib("racket/string.rkt")
+  lib("racket/string.rkt")  
 
 export:
   all_from(.pict)
   all_from(.text)
+
+  current_title_font
+  titlet
+  titlely
 
   SlideLayout
   current_assembler
@@ -42,6 +47,16 @@ namespace slide:
     center
     left
     horiz
+
+// ----------------------------------------
+
+Parameter.def current_title_font :: draw.Font:
+  text.current_font() with (size = 40)
+
+ly titlely: current_title_font()
+
+fun titlet(a, ...) :~ Pict:
+  titlely(a, ...)
 
 // ----------------------------------------
 
@@ -173,7 +188,7 @@ fun assemble_slide(title, layout, p) :~ Pict:
   | _ :: pict.NothingPict:
       current_assembler()(#false, layout, p)
   | _ :: String:
-      current_assembler()(text.title(title), layout, p)
+      current_assembler()(titlet(title), layout, p)
   | ~else:
       current_assembler()(title, layout, p)
 

@@ -23,7 +23,6 @@ export:
   italic
   tt
   roman
-  title
   subscript
   superscript
 
@@ -34,7 +33,6 @@ export:
   italicly
   ttly
   romanly
-  titlely
 
   // like `stack`, but with the current line separation
   lines
@@ -48,6 +46,9 @@ export:
   subitem
 
   verbatim
+
+module ly:
+  export ly
 
 Parameter.def current_font :: draw.Font:
   draw.Font()
@@ -76,9 +77,6 @@ fun current_font_as_tt():
 fun current_font_as_roman():
    (current_font() :~ draw.Font) with (kind = #'roman, name = #false)
 
-fun current_font_as_title():
-   (current_font() :~ draw.Font) with (size = 40)
-
 defn.macro 'ly $ly: $expr':
   '«
      macro
@@ -94,7 +92,6 @@ ly boldly: current_font_as_bold()
 ly italicly: current_font_as_italic()
 ly ttly: current_font_as_tt()
 ly romanly: current_font_as_roman()
-ly titlely: current_font_as_title()
 
 fun bold(a, ...) :~ Pict:
   boldly(a, ...)
@@ -107,9 +104,6 @@ fun tt(a, ...) :~ Pict:
 
 fun roman(a, ...) :~ Pict:
   romanly(a, ...)
-
-fun title(a, ...) :~ Pict:
-  titlely(a, ...)
 
 fun subscript(arg, ...) :~ Pict:
   let p = t(arg, ...)

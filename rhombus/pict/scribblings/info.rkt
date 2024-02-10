@@ -1,3 +1,3 @@
 #lang info
 
-(define scribblings '(("rhombus-pict.scrbl" (multi-page) (language))))
+(define scribblings '(("rhombus-pict.scrbl" (multi-page) (gui-library 100))))
