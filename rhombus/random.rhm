@@ -1,0 +1,52 @@
+#lang rhombus/static/and_meta
+import:
+  lib("racket/base.rkt") as rkt
+
+export:
+  PRNG:
+    only_space namespace annot expr
+  PRNGState
+
+annot.macro 'PRNGState':
+  annot_meta.pack_predicate('rkt.#{pseudo-random-generator-vector?}', '()')
+
+class PRNG(private _handle):
+  opaque
+  internal _PRNG
+  constructor
+  | (): super(rkt.#{make-pseudo-random-generator}())
+  | (state :: PRNGState):
+      super(rkt.#{vector->pseudo-random-generator}(state))
+
+  export: current
+
+  method
+  | random():
+      rkt.random(_handle)  
+  | random(n :: PosInt):
+      if n < (1 bits.(<<) 31)
+      | rkt.random(n, _handle)
+      | parameterize { rkt.#{current-pseudo-random-generator}: _handle }:
+          math.random(n)
+  | random(start :: Int, end :: Int):
+      unless start < end
+      | error(#'random, "start index is not less than end index")
+      random(end - start) + start
+
+  property
+  | state :: PRNGState:
+      rkt.#{pseudo-random-generator->vector}(_handle)  
+  | state := (s :: PRNGState):
+      rkt.#{vector->pseudo-random-generator!}(_handle, s)  
+
+def current = rkt.#{make-derived-parameter}(rkt.#{current-pseudo-random-generator},
+                                            fun (prg :: _PRNG):
+                                              prg._handle,
+                                            fun (handle):
+                                              _PRNG(handle))
+statinfo.macro 'current':
+  '(($statinfo_meta.indirect_key, PRNG_returner))'
+
+// placeholder for static information to associate with `current`
+fun PRNG_returner() :~ PRNG:
+  #void
