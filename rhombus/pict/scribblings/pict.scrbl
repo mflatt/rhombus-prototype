@@ -70,11 +70,19 @@
 }
 
 @doc(
-  method (pict :: Pict).ghost() :: Pict
+  method (pict :: Pict).ghost(do_ghost = #true) :: Pict
 ){
 
  Returns a @tech{pict} that is the same as @rhombus(pict), including the
- same @tech{bounding box} and @tech{time box}, but whose drawing is empty.
+ same @tech{bounding box} and @tech{time box}, but whose drawing is empty
+ if @rhombus(do_ghost) is true. If @rhombus(do_ghost) is @rhombus(#false),
+ then @rhombus(pict) itself is returned.
+
+ The @rhombus(do_ghost) argument is intended to help avoid @rhombus(if)
+ wrappers, enabling @rhombus(pict.ghost(@rhombus(test, ~var))) instead of
+ @rhombus(if @rhombus(test, ~var) | pict.ghost() | pict), where the
+ former works even without having to bind an intermediate variable if
+ @rhombus(pict) is replaced with a more complex expression.
 
 }
 
@@ -147,6 +155,16 @@
  Returns a @tech{pict} that is like @rhombus(pict), but its drawing is
  rotated, and its bounding box is extended as needed to enclose the
  rotated bounding box.
+
+}
+
+@doc(
+  method (pict :: Pict).shear(x_factor :: Real, y_factor :: Real) :: Pict
+){
+
+ Returns a @tech{pict} that is like @rhombus(pict), but its drawing is
+ sheared. The bounding box is inflated to contain the result. The
+ result pict's ascent and descent are the same as @rhombus(pict)'s.
 
 }
 

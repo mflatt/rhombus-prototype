@@ -404,8 +404,10 @@ class AnimPict(_epochs :~ List.of(PictEpoch),
   override method launder() :~ AnimPict:
     anim_pict_like(anim_pict_adjust(this, fun (p :~ StaticPict): p.launder()))
 
-  override method ghost() :~ AnimPict:
-    anim_pict_adjust(this, fun (p :~ StaticPict): p.ghost())
+  override method ghost(do_ghost = #true) :~ AnimPict:
+    if do_ghost
+    | anim_pict_adjust(this, fun (p :~ StaticPict): p.ghost())
+    | this
     
   override method refocus(to_p :: Pict) :~ AnimPict:
     anim_pict_adjust(this, fun (p :~ StaticPict): p.refocus(to_p))
@@ -423,6 +425,9 @@ class AnimPict(_epochs :~ List.of(PictEpoch),
 
   override method rotate(radians :: Real) :~ Pict:
     anim_pict_adjust(this, fun (p :~ StaticPict): p.rotate(radians))
+
+  override method shear(horiz :: Real, vert :: Real) :~ Pict:
+    anim_pict_adjust(this, fun (p :~ StaticPict): p.shear(horiz, vert))
 
   override method colorize(c :: (Color || String)) :~ Pict:
     anim_pict_adjust(this, fun (p :~ StaticPict): p.colorize(c))

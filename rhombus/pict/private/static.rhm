@@ -137,7 +137,7 @@ class Pict():
              n :: Real.in(0, 1)) :~ SnapshotPict
 
   abstract method launder() :~ Pict
-  abstract method ghost() :~ Pict
+  abstract method ghost(do_ghost = #true) :~ Pict
   abstract method refocus(to_p :: Pict) :~ Pict
 
   abstract method
@@ -169,6 +169,8 @@ class Pict():
     scale(-1, 1).pad(~right: width, ~left: width)
   method vflip() :~ Pict:
     hflip().rotate(math.pi)
+
+  abstract method shear(horiz :: Real, vert :: Real) :~ Pict
 
   abstract method colorize(c :: (Color || String)) :~ Pict
   abstract method line_width(w :: NonnegReal) :~ Pict
@@ -216,8 +218,10 @@ class StaticPict(private _handle,
   override method launder() :~ Pict:
     static_pict(rkt.launder(handle), empty_instances)
 
-  override method ghost() :~ Pict:
-    static_pict(rkt.ghost(handle), _instances)
+  override method ghost(do_ghost = #true) :~ Pict:
+    if do_ghost
+    | static_pict(rkt.ghost(handle), _instances)
+    | this
 
   override method refocus(to_p :: Pict) :~ Pict:
     match to_p
@@ -255,6 +259,9 @@ class StaticPict(private _handle,
 
   override method rotate(radians :: Real) :~ Pict:
     static_pict(rkt.rotate(handle, radians), _instances)
+
+  override method shear(horiz :: Real, vert :: Real) :~ Pict:
+    static_pict(rkt.shear(handle, horiz, vert), _instances)
 
   override method colorize(c :: (Color || String)) :~ Pict:
     static_pict(rkt.colorize(handle, as_color(c)), _instances)
@@ -322,7 +329,7 @@ class NothingPict():
   | snapshot(epoch, n): this
 
   override method launder(): this
-  override method ghost(): this
+  override method ghost(do_ghost = #true): this
   override method refocus(to_p :: Pict):
     error(#'refocus, "cannot refocus nothing")
 
@@ -340,7 +347,8 @@ class NothingPict():
   | scale(h_amt :: Real, v_amt :: Real): this
 
   override method rotate(radians :: Real): this
-
+  override method shear(horiz :: Real, vert :: Real): this
+                                           
   override method colorize(c :: (Color || String)): this
   override method line_width(w :: NonnegReal): this
   
@@ -1083,6 +1091,7 @@ fun table(rows :: List.of(List.of(Pict)),
           ~pad: ins :: matching((_ :: Real) || [_ :: Real, _ :: Real] || [_ :: Real, _ :: Real, _ :: Real, _ :: Real]) = 0,
           ~line: line_c :: maybe(String || Color || matching(#'inherit)) = #false,
           ~line_width: line_width :: LineWidth = #'inherit,
+          ~order: order :: matching(#'front || #'back) = #'back,
           ~hline: hline :: maybe(String || Color || matching(#'inherit)) = line_c,
           ~hline_width: hline_width :: LineWidth = line_width,
           ~vline: vline :: maybe(String || Color || matching(#'inherit)) = line_c,
@@ -1134,6 +1143,9 @@ fun table(rows :: List.of(List.of(Pict)),
                                  | [l, t, _, _]: values(l, t)
                                  | [h, v]: values(h, v)
                                  | a: values(a, a)
+        let pin: if order == #'back
+                 | rkt.#{pin-under}
+                 | rkt.#{pin-over}
         let r:
           if !vline
           | r
@@ -1147,11 +1159,11 @@ fun table(rows :: List.of(List.of(Pict)),
                                    | hsep[i-1]
                                    | hsep[hsep.length() - 1]
                    | else: hsep
-                 loop(rkt.#{pin-under}(r,
-                                       dx + sep / 2, 0,
-                                       line(~dy: rkt.#{pict-height}(r),
-                                            ~line: vline,
-                                            ~line_width: vline_width).snapshot().handle),
+                 loop(pin(r,
+                          dx + sep / 2, 0,
+                          line(~dy: rkt.#{pict-height}(r),
+                               ~line: vline,
+                               ~line_width: vline_width).snapshot().handle),
                       i + 1,
                       dx + sep)
         let r:
@@ -1167,14 +1179,16 @@ fun table(rows :: List.of(List.of(Pict)),
                                    | vsep[i-1]
                                    | vsep[vsep.length() - 1]
                    | else: vsep
-                 loop(rkt.#{pin-under}(r,
-                                       0, dy + sep / 2,
-                                       line(~dx: rkt.#{pict-width}(r),
-                                            ~line: hline,
-                                            ~line_width: hline_width).snapshot().handle),
+                 loop(pin(r,
+                          0, dy + sep / 2,
+                          line(~dx: rkt.#{pict-width}(r),
+                               ~line: hline,
+                               ~line_width: hline_width).snapshot().handle),
                       i + 1,
                       dy + sep)
         let p = static_pict(r, [elem._instances, ..., ...])
         if line_c
-        | rectangle(~around: p, ~line: line_c, ~line_width: line_width)
+        | if order == #'back
+          | rectangle(~around: p, ~line: line_c, ~line_width: line_width)
+          | overlay(p, rectangle(~around: p.launder().ghost(), ~line: line_c, ~line_width: line_width))
         | p

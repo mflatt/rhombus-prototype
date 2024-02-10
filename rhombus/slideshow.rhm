@@ -33,9 +33,15 @@ export:
 namespace slide:
   export:
     next
+    gap
     alts
+
     align
-    in_align
+
+    right
+    center
+    left
+    horiz
 
 // ----------------------------------------
 
@@ -51,54 +57,87 @@ class Alts(alts :~ List.of(List)):
     PrintDesc.list("slide.alts(", alts.map(recur), ")")
 
 fun alts(contents, ...):
-  Alts([flatten_slide_content(#'Alts, contents),
+  Alts([flatten_slide_content(#'alts, contents),
         ...])
 
-fun gap(): 24
+class Align(sep, horiz, cs :: List, width)
+class Horiz(sep, horiz, cs :: List)
 
-fun flatten_slide_content(who, c, ~in_align = #false) :~ List:
+fun horiz(~sep: sep :: Real || matching(#'inherit) = #'inherit,
+          ~horiz: horiz :: pict.HorizAlignment = #'left,
+          content, ...):
+  Horiz(sep, horiz, flatten_slide_content(#'horiz, [content, ...]))
+
+fun left(~sep: sep :: Real || matching(#'inherit) = #'inherit,
+         content, ...):
+  Horiz(sep, #'left, flatten_slide_content(#'left, [content, ...]))
+
+fun center(~sep: sep :: Real || matching(#'inherit) = #'inherit,
+           content, ...):
+  Horiz(sep, #'center, flatten_slide_content(#'center, [content, ...]))
+
+fun right(~sep: sep :: Real || matching(#'inherit) = #'inherit,
+          content, ...):
+  Horiz(sep, #'right, flatten_slide_content(#'right, [content, ...]))
+
+def gap = 24
+
+fun align(~sep: sep :: Real || matching(#'inherit) = #'inherit,
+          ~horiz: horiz :: pict.HorizAlignment = #'left,
+          content, ...):
+  Align(sep, horiz, flatten_slide_content(#'right, [content, ...]), #false)
+
+fun flatten_slide_content(who, c) :~ List:
   match c
-  | [c, ...]: List.append(flatten_slide_content(who, c, ~in_align: in_align), ...)
+  | [c, ...]: List.append(flatten_slide_content(who, c), ...)
   | p :: pict.NothingPict: []
   | p :: Pict: [p]
-  | p :: satisfying(rkt_pict.#{pict?}): [Pict.from_handle(p)]
   | p :: Next: [p]
   | Alts([]): []
   | Alts([alt]): alt
   | p :: Alts: [p]
-  | (p :: InAlign) when in_align: [p]
+  | p :: Horiz: [p]
+  | p :: Align: [p]
   | ~else:
       error(who, "bad slide content: " +& to_string(c, ~mode: #'expr))
 
+// generated in `align_content` for consumption by `next_to_anim`:
+class SetSep(sep)
+
 fun next_to_anim(contents) :~ Pict:
-  recur loop (contents = contents, accum :~ List = []) :~ Pict:
+  recur loop (sep = gap, contents = contents, accum :~ List = []) :~ Pict:
     match contents
     | []:
-        pict.stack(~sep: gap(), & accum)
+        pict.stack(~sep: sep, & accum)
     | [p :: Next, & contents]:
-        let pre = pict.stack(~sep: gap(), & accum)
-        let post = loop(contents, [])
-        pict.stack(~sep: gap(),
+        let pre = pict.stack(~sep: sep, & accum)
+        let post = loop(sep, contents, [])
+        pict.stack(~sep: sep,
                    pre.sustain(post.duration),
                    post.time_pad(~before: pre.duration))
     | [Alts([alt, ...]), & contents]:
-        let alts = [next_to_anim(alt), ...]
+        let none = []
+        let alts = [loop(sep, alt, none), ...]
         let p = pict.overlay(~vert: #'top,
                              ~duration: #'pad,
                              & pict.sequential(& alts))
-        let pre = pict.stack(~sep: gap(), & accum)
-        loop(contents, [pre, p])
+        let pre = pict.stack(~sep: sep, & accum)
+        loop(sep, contents, [pre, p])
+    | [SetSep(sep), & contents]:
+        loop(sep, contents, accum)
     | [c, & contents]:
-        loop(contents, accum.add(c))
+        loop(sep, contents, accum.add(c))
 
 annot.macro 'SlideLayout': 'matching(#'auto || #'center || #'top || #'tall)'
 
 fun slide(~title: title :: maybe(String || Pict) = #false,
           ~name: name = title,
           ~layout: layout :: SlideLayout = #'auto,
+          ~sep: sep :: Real = gap,
+          ~horiz: horiz :: pict.HorizAlignment = #'center,
           ~intro: intro :: NonnegInt = 0,
           content, ...):
-  let p = next_to_anim(flatten_slide_content(#'slide, [content, ...]))
+  let p = next_to_anim(align_content(sep, horiz, flatten_slide_content(#'slide, [content, ...])))
   let name = if name is_a String | name | to_string(name)
   let p: assemble_slide(title, layout, p)
   when intro == 1
@@ -120,9 +159,11 @@ fun slide(~title: title :: maybe(String || Pict) = #false,
 
 fun slide_content(~title: title :: maybe(String || Pict) = #false,
                   ~full: full = title && #true,
+                  ~sep: sep :: Real = gap,
+                  ~horiz: horiz :: pict.HorizAlignment = #'center,
                   ~layout: layout :: SlideLayout = #'auto,
                   content, ...) :~ Pict:
-  let p = next_to_anim(flatten_slide_content(#'slide_content, [content, ...]))
+  let p = next_to_anim(align_content(sep, horiz, flatten_slide_content(#'slide_content, [content, ...])))
   if full
   | assemble_slide(title, layout, p)
   | p
@@ -137,69 +178,90 @@ fun assemble_slide(title, layout, p) :~ Pict:
       current_assembler()(title, layout, p)
 
 Parameter.def current_assembler :: Function.of_arity(3):
-  fun (title, layout, p :~ Pict):
-    let back: Pict.from_handle(rkt.#{get-full-page}())
-    let head :~ Pict:
-      if title
-      | Pict.pad(title, ~bottom: if layout == #'tall | gap() | 2*gap())
-      | pict.blank()
-    let layout:
-      match layout
-      | #'auto:
-          if p.height > (back.height - 2 * head.height) | #'top | #'center
-      | ~else: layout
-    let body:
-      match layout
-      | #'center: back
-      | ~else: back.pad(~top: -head.height)
-    pict.overlay(~vert: #'bottom,
-                 pict.overlay(~vert: #'top,
-                              back,
-                              head),
-                 pict.overlay(~vert: match layout
-                                     | #'tall: #'top
-                                     | ~else: layout,
-                              body,
-                              p)
-                   .refocus(body))
-      .refocus(back)
+  fun (title :: False || Pict, layout:: SlideLayout, p :: Pict):
+    recur retry(title = title, p :~ Pict = p):
+      cond
+      | layout == #'auto && !(p is_a pict.StaticPict):
+          // layout decision depends on size, so use size
+          // at each step, instead of only the starting size
+          if title
+          | pict.animate_map([title, p], ~combine: fun ([title, p]): retry(title, p))
+          | pict.animate_map([p], ~combine: fun ([p]): retry(title, p))
+      | ~else:
+          let back: Pict.from_handle(rkt.#{get-full-page}())
+          let head :~ Pict:
+            if title
+            | Pict.pad(title, ~bottom: if layout == #'tall | gap | 2*gap)
+            | pict.blank()
+          let layout:
+            match layout
+            | #'auto:
+                if p.height > (back.height - 2 * head.height) | #'top | #'center
+            | ~else: layout
+          let body:
+            match layout
+            | #'center: back
+            | ~else: back.pad(~top: -head.height)
+          pict.overlay(~vert: #'bottom,
+                       pict.overlay(~vert: #'top,
+                                    back,
+                                    head),
+                       pict.overlay(~vert: match layout
+                                           | #'tall: #'top
+                                           | ~else: layout,
+                                    body,
+                                    p)
+                         .refocus(body))
+            .refocus(back)
                         
 // ----------------------------------------
 
-class InAlign(dir, cs :: List)
-
-fun align(~horiz: dir :: matching(#'left || #'center || #'right) = #'left,
-          content, ...):
-  let cs = flatten_slide_content(#'align, [content, ...], ~in_align: #true)
-  let width:
-    recur loop (cs :: List = cs):
-      for values(w = 0) (c: cs):
-        match c
-        | p :: Pict: math.max(w, p.width)
-        | Alts([alt, ...]):
-            math.max(loop(alt), ...)
-        | InAlign(dir, cs):
-            math.max(w, loop(cs))
-        | ~else: w
-  recur loop (dir = dir, cs :: List = cs):
+fun align_content(sep, horiz, contents):
+  let [width, recorded :~ List]:
+    recur gather_widths (cs :: List = contents):
+      let (max_w, accum):
+        for values(max_w = 0, accum :~ List = []) (c: cs):
+          match c
+          | p :: Pict: values(math.max(max_w, p.width),
+                              accum.add(p))
+          | next :: Next: values(max_w, accum.add(next))
+          | Alts([alt, ...]):
+              let [[w, alt], ...]:
+                [gather_widths(alt), ...]
+              values(math.max(max_w, w, ...),
+                     accum.add(Alts([alt, ...])))
+          | Horiz(sep, horiz, cs):
+              let [w, recorded] = gather_widths(cs)
+              values(math.max(max_w, w),
+                     accum.add(Horiz(sep, horiz, recorded)))
+          | Align(sep, horiz, cs, _):
+              let [w, recorded] = gather_widths(cs)
+              values(math.max(max_w, w),
+                     accum.add(Align(sep, horiz, recorded, w)))
+      [max_w, accum]
+  recur widen (w = width, sep = sep, horiz = horiz, cs :: List = recorded):
     List.append(
       & for List (c: cs):
         match c
         | p :: Pict:
-            [match dir
+            [match horiz
              | #'left: p.pad(~right: width - p.width)
              | #'center: p.pad(~horiz: (width - p.width) / 2)
              | #'right: p.pad(~left: width - p.width)]
+        | next :: Next: [next]
         | Alts([alt, ...]):
-            [Alts([loop(dir, alt), ...])]
-        | InAlign(dir, cs):
-            loop(dir, cs)
-        | ~else: [c]
+            [Alts([widen(w, sep, horiz, alt), ...])]
+        | Horiz(h_sep, horiz, cs):
+            let mid = widen(w, if h_sep == #'inherit | sep | h_sep, horiz, cs)
+            if h_sep == #'inherit
+            | mid
+            | [SetSep(h_sep)] ++ mid ++ [SetSep(sep)]
+        | Align(align_sep, horiz, cs, w):
+            let mid = widen(w, if align_sep == #'inherit | sep | align_sep, horiz, cs)
+            if align_sep == #'inherit
+            | mid            
+            | [SetSep(align_sep)] ++ mid ++ [SetSep(sep)]
     )
-
-fun in_align(~horiz: dir :: matching(#'left || #'center || #'right) = #'left,
-             content, ...):
-  InAlign(dir, flatten_slide_content(#'in_align, [content, ...], ~in_align: #true))
 
 // ----------------------------------------
 

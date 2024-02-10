@@ -48,6 +48,8 @@ fun pin(content :: Pict,
     match ps:
     | [_ :: pict.NothingPict, _]:
         nothing
+    | [p, _ :: pict.NothingPict]:
+        p
     | [p :: pict.StaticPict, content :: pict.StaticPict]:
         let (at_x, at_y) = at.in(p)
         Pict.from_handle(
@@ -74,13 +76,15 @@ fun pin(content :: Pict,
                     ~combine: retry,
                     ~non_sustain_combine:
                       fun ([p :~ Pict, content :~ Pict]):
-                        let pg = p.ghost()
-                        let cg = content.ghost()
-                        let b :~ Pict = retry([pg, cg])
-                        let b = b.ghost()
-                        pict.pin(~on: pict.pin(~on: b, ~at: Find.left_top(pg), p),
-                                 ~at: Find.left_top(cg),
-                                 content))
+                        if content == nothing
+                        | p
+                        | let pg = p.ghost()
+                          let cg = content.ghost()
+                          let b :~ Pict = retry([pg, cg])
+                          let b = b.ghost()
+                          pict.pin(~on: pict.pin(~on: b, ~at: Find.left_top(pg), p),
+                                   ~at: Find.left_top(cg),
+                                   content))
 
 fun note(content :: Pict,
          ~margin: margin :: maybe(Real) = #false,
