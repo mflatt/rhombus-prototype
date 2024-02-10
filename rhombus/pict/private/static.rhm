@@ -119,8 +119,8 @@ class Pict():
     fun (self :~ Pict):
       self.snapshot().handle
 
-  implements Printable
-  override describe(mode, recur):
+  private implements Printable
+  private override describe(mode, recur):
     PrintDesc.special(snapshot().handle, ~mode: #'print,
                       "Pict(...)")
 
@@ -182,6 +182,7 @@ class Pict():
   abstract method _time_pad(before :: Int, after :: Int) :~ Pict
   abstract method time_clip(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict    
   abstract method sustain(n :: Int = 1) :~ Pict
+  abstract method nonsustaining() :~ Pict
   abstract method epoch_set_extent(i :: Int, extent :: NonnegReal) :~ Pict
 
   method time_pad(~all: all :: Int = 0,
@@ -285,6 +286,8 @@ class StaticPict(private _handle,
     if n == 0
     | this
     | convert([this], #'center, #'pad, fun (ps :~ List): ps[0]).sustain(n)
+  override method nonsustaining() :~ Pict:
+    convert([this], #'center, #'pad, fun (ps :~ List): ps[0]).nonsustaining()
 
   override method epoch_set_extent(i :: Int, extent :: NonnegReal):
     convert([this], #'center, #'pad, fun ([p]): p).epoch_set_extent(i, extent)
@@ -360,6 +363,7 @@ class NothingPict():
 
   override method _time_pad(before :: Int, after :: Int): this
   override method sustain(n :: Int = 1): this
+  override method nonsustaining(): this
 
   override method epoch_set_extent(i :: Int, extent :: NonnegReal): this
 
@@ -378,8 +382,10 @@ fun from_handle(p :: satisfying(#{pict?}),
   static_pict(p, [sub._instances, ...])
 
 fun static_instance([p, ...], as_p :: _StaticPict):
-  let handle = rkt.inset(as_p.handle, 0) // fresh identity
-  static_pict(handle, as_p._instances ++ [Pair(p, handle), ...])
+  if as_p == nothing
+  | as_p
+  | let handle = rkt.inset(as_p.handle, 0) // fresh identity
+    static_pict(handle, as_p._instances ++ [Pair(p, handle), ...])
 
 fun find_instance(p :: _StaticPict, q :~ Pict):
   recur loop (instances :: List = p._instances):

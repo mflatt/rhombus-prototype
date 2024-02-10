@@ -294,4 +294,6 @@ While sustaining is usually the right choice for combining animated
 picts, functions like @rhombus(overlay) and @rhombus(stack) accept a
 @rhombus(~duration) optional argument. That argument can be
 @rhombus(#'pad) instead of @rhombus(#'sustain) to make them normalize
-durations by padding instead of sustaining.
+durations by padding instead of sustaining. A pict can be made
+nonsustaining through @rhombus(Pict.nonsustaining), which causes
+a sustain on the pict to be the same as time padding.

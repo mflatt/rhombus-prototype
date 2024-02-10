@@ -139,6 +139,16 @@
 }
 
 @doc(
+  method (pict :: Pict).nonsustaining() :: Pict
+){
+
+ Returns a @tech{pict} that is the same as @rhombus(pict), but where a
+ @tech{sustain} operation is treated the same as padding via
+ @rhombus(Pict.time_pad).
+
+}
+
+@doc(
   method (pict :: Pict).scale(n :: Real) :: Pict
   method (pict :: Pict).scale(horiz :: Real, vert :: Real) :: Pict
 ){
@@ -209,7 +219,8 @@
 
 @doc(
   method (pict :: Pict).time_clip(
-    ~keep: keep :: maybe(matching(#'before || #'after)) = #false
+    ~keep: keep :: maybe(matching(#'before || #'after)) = #false,
+    ~nonsustaining: nonsustaining = keep != #'after
   ) :: Pict
 ){
 
@@ -217,7 +228,8 @@
  confined to its time box in the sense that it is represented by
  @rhombus(nothing) outside of its time box. If @rhombus(keep) is
  @rhombus(#'before) or @rhombus(#'after), then the pict is not clipped in
- that time direction.
+ that time direction. The resulting pict is nonsustaining (in the sense
+ of @rhombus(Pict.nonsustaining)) if @rhombus(nonsustaining) is true.
 
 }
 

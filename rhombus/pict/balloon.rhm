@@ -44,7 +44,7 @@ fun pin(content :: Pict,
         ~line_width: line_width :: Real = 0,
         ~epoch: epoch :: EpochAlignment = #'center,
         ~duration: duration :: DurationAlignment = #'sustain) :~ Pict:
-  recur retry(ps = [p, content]):
+  recur retry_balloon(ps = [p, content]):
     match ps:
     | [_ :: pict.NothingPict, _]:
         nothing
@@ -73,14 +73,15 @@ fun pin(content :: Pict,
         animate_map([p, content],
                     ~epoch: epoch,
                     ~duration: duration,
-                    ~combine: retry,
+                    ~combine: fun ([p :: Pict, ...]):
+                                retry_balloon([p, ...]),
                     ~non_sustain_combine:
                       fun ([p :~ Pict, content :~ Pict]):
                         if content == nothing
                         | p
                         | let pg = p.ghost()
                           let cg = content.ghost()
-                          let b :~ Pict = retry([pg, cg])
+                          let b :~ Pict = retry_balloon([pg, cg])
                           let b = b.ghost()
                           pict.pin(~on: pict.pin(~on: b, ~at: Find.left_top(pg), p),
                                    ~at: Find.left_top(cg),
