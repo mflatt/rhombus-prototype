@@ -10,6 +10,8 @@ import:
 
 export:
   BoundingBoxMode
+  Radial:
+    only_space namespace annot
 
   radial_pict radial
 
@@ -25,6 +27,9 @@ export:
   gear gear_radial
   polygon polygon_radial
   circle circle_radial
+
+  evenly_spaced
+  jitter_spaced
 
 annot.macro 'BoundingBoxMode': 'Any.of(#'unit, #'shrink, #'stretch)'
 
@@ -286,7 +291,7 @@ def_radial:
   star(make, r): make([r])
 
 def_radial:
-  sun_radial(~points: n :: PosInt = 10,
+  sun_radial(~rays: n :: PosInt = 10,
              ~width: width :: Real = 64,
              ~height: height :: Real = width,
              ~angle_at: point_angle :: Function.of_arity(2) = evenly_spaced,

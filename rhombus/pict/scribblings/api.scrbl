@@ -9,3 +9,4 @@
 @include_section("combine.scrbl")
 @include_section("find.scrbl")
 @include_section("text.scrbl")
+@include_section("radial.scrbl")
