@@ -75,35 +75,28 @@ class PictEpoch():
     this
   method sustain(extent) :~ List:
     [this, 0, this, 0]
+  method is_archival():
+    #true
 
-class StaticPictEpoch(p :~ StaticPict):
+class StaticPictEpoch(p :~ StaticPict,
+                      archival = #true):
   extends PictEpoch
   override pict(n :: Real.in(0, 1)):
     p
   override preferred_extent():
     0
   override before() :~ PictEpoch:
-    StaticPictEpoch(p.ghost())
+    StaticPictEpoch(p.ghost(), #false)
   override after() :~ PictEpoch:
-    StaticPictEpoch(p.ghost())
-  override sustain(extent):
-    [this, 0, this, 0]
+    StaticPictEpoch(p.ghost(), #false)
+  override sustain(extent):    
+    [this, 0, this with (archival = #false), 0]
+  override is_archival():
+    archival
 
-class NothingBeforePictEpoch(e :~ PictEpoch):
+class LikePictEpoch(e :~ PictEpoch):
   extends PictEpoch
-  override pict(n :: Real.in(0, 1)):
-    e.pict(n)
-  override preferred_extent():
-    e.preferred_extent()
-  override before() :~ PictEpoch:
-    StaticPictEpoch(nothing)
-  override after() :~ PictEpoch:
-    e.after()
-  override sustain(extent):
-    e.sustain(extent)
-
-class NothingAfterPictEpoch(e :~ PictEpoch):
-  extends PictEpoch
+  nonfinal
   override pict(n :: Real.in(0, 1)):
     e.pict(n)
   override preferred_extent():
@@ -111,9 +104,42 @@ class NothingAfterPictEpoch(e :~ PictEpoch):
   override before() :~ PictEpoch:
     e.before()
   override after() :~ PictEpoch:
+    e.after()
+  override sustain(extent):
+    e.sustain(extent)
+  override is_archival():
+    e.is_archival()
+
+class NothingBeforePictEpoch():
+  extends LikePictEpoch  
+  override before() :~ PictEpoch:
+    StaticPictEpoch(nothing)
+  override is_archival():
+    #false
+
+class NothingAfterPictEpoch():
+  extends LikePictEpoch
+  override after() :~ PictEpoch:
     StaticPictEpoch(nothing)
   override sustain(extent):
     [this, extent, StaticPictEpoch(nothing), 0]
+  override is_archival():
+    #false
+
+class NonarchivalPictEpoch():
+  extends LikePictEpoch
+  override sustain(extent):
+    let [pre :~ PictEpoch, pre_extent, post :~ PictEpoch, post_extent] = e.sustain(extent)
+    [if pre.is_archival()
+     | NonarchivalPictEpoch(pre)
+     | pre,
+     pre_extent,
+     if post.is_archival()
+     | NonarchivalPictEpoch(post)
+     | post,
+     post_extent]     
+  override is_archival():
+    #false
 
 class ProcPictEpoch(proc,
                     _before :~ StaticPict,
@@ -126,13 +152,13 @@ class ProcPictEpoch(proc,
   override preferred_extent() :~ NonnegReal:
     extent
   override before() :~ PictEpoch:
-    StaticPictEpoch(_before.ghost())
+    StaticPictEpoch(_before.ghost(), #false)
   override after() :~ PictEpoch:
-    StaticPictEpoch(_after.ghost())
+    StaticPictEpoch(_after.ghost(), #false)
   override sustain(extent):
     if sustain_edge == #'before
-    | [StaticPictEpoch(_before), 0, this, extent]
-    | [this, extent, StaticPictEpoch(_after), 0]
+    | [StaticPictEpoch(_before, #false), 0, this, extent]
+    | [this, extent, StaticPictEpoch(_after, #false), 0]
 
 // for adjsting each individual pict in all epochs
 class AdjustEpoch(orig :~ PictEpoch,
@@ -149,6 +175,8 @@ class AdjustEpoch(orig :~ PictEpoch,
   override sustain(extent):
     let [pre, pre_extent, post, post_extent] = orig.sustain(extent)
     [AdjustEpoch(pre, adjust), pre_extent, AdjustEpoch(post, adjust), post_extent]
+  override is_archival():
+    orig.is_archival()
 
 // for ajdusting the `n` for this particular epoch
 class ReframePictEpoch(orig :~ PictEpoch,
@@ -166,6 +194,8 @@ class ReframePictEpoch(orig :~ PictEpoch,
     let [pre, pre_extent, post, post_extent] = orig.sustain(extent)
     [if pre_extent .= 0 | pre | ReframePictEpoch(pre, reframe), pre_extent,
      if post_extent .= 0 | post |  ReframePictEpoch(post, reframe), post_extent]
+  override is_archival():
+    orig.is_archival()
 
 class TransitionPictEpoch(zero :~ PictEpoch,
                           rest :~ PictEpoch):
@@ -182,6 +212,8 @@ class TransitionPictEpoch(zero :~ PictEpoch,
     rest.after()
   override sustain(extent):
     rest.sustain(extent)
+  override is_archival():
+    zero.is_archival() || rest.is_archival()
 
 class AnimPict(_epochs :~ List.of(PictEpoch),
                _epoch_extents :~ List.of(Real), // parallel to `_epochs`
@@ -214,6 +246,10 @@ class AnimPict(_epochs :~ List.of(PictEpoch),
         if i >= _epoch_extents.length()
         | 0
         | _epoch_extents[i]
+  override method epoch_is_archival(epoch :: Int):
+    match get_epoch(epoch)
+    | e :: PictEpoch: e.is_archival()
+    | ~else: #false
 
   private method get_epoch(i):
     let i = i + _duration_start
@@ -484,6 +520,15 @@ class AnimPict(_epochs :~ List.of(PictEpoch),
                        _epoch_extents.set(index, extent))
     | reify_epochs(i, i).epoch_set_extent(i, extent)
 
+  override method epoch_set_nonarchival(i :: Int):
+    let e = get_epoch(i)
+    if e && PictEpoch.is_archival(e)
+    | let index = i + _duration_start
+      anim_pict_like(this,
+                     ~epochs:
+                       _epochs.set(index, NonarchivalPictEpoch(e)))
+    | this
+
   override method freeze(~scale: scale :: Real = 2.0):
     snapshot().freeze(~scale: scale)
 
@@ -711,6 +756,8 @@ class CombinePictEpoch(combine,
      math.max(pre_extent, ...),
      CombinePictEpoch(combine, pad_combine, orig_picts, orig_sustainings, [post, ...]),
      math.max(post_extent, ...)]     
+  override is_archival():
+    for any (orig: origs): orig.is_archival()
 
 private.set_convert(
   fun (ps :~ List, ealign, dalign, combine, pad_combine):

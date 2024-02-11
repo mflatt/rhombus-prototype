@@ -126,6 +126,7 @@ fun next_to_anim(contents) :~ Pict:
         pict.stack(~sep: sep, & accum)
     | [p :: Next, & contents]:
         let pre = pict.stack(~sep: sep, & accum)
+        let pre = pre.epoch_set_nonarchival(pre.duration-1)
         let post = loop(sep, contents, [])
         pict.stack(~sep: sep,
                    pre.sustain(post.duration),
@@ -155,12 +156,13 @@ fun slide(~title: title :: maybe(String || Pict) = #false,
   let p = next_to_anim(align_content(sep, horiz, flatten_slide_content(#'slide, [content, ...])))
   let name = if name is_a String | name | to_string(name)
   let p: assemble_slide(title, layout, p)
-  when lead_in
+  when lead_in && !rkt.#{condense?}
   | rkt_play.#{play-n}(~name: name,
                        #{#:skip-first?}: #true,
                        #{#:skip-last?}: #true,
                        fun (n): p.snapshot(-1, n).handle)
   for (i: 0..p.duration):
+    skip_when rkt.#{condense?} && !p.epoch_is_archival(i)
     let extent = p.epoch_extent(i)
     if extent .= 0
     | rkt.slide(~name: name,
@@ -188,7 +190,7 @@ fun assemble_slide(title, layout, p) :~ Pict:
   | _ :: pict.NothingPict:
       current_assembler()(#false, layout, p)
   | _ :: String:
-      current_assembler()(titlet(title), layout, p)
+      current_assembler()(titlet(title).epoch_set_nonarchival(0), layout, p)
   | ~else:
       current_assembler()(title, layout, p)
 
