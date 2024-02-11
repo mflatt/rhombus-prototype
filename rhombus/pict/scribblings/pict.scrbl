@@ -254,3 +254,20 @@
  @tech{extent} of one of its @tech{epochs} adjusted.
 
 }
+
+@doc(
+  method (pict :: Pict).epoch_metadata(i :: Int) :: Map
+  method (pict :: Pict).epoch_set_metadata(i :: Int,
+                                           metadata :: Map) :: Pict
+){
+
+ Gets metadata registerd for an epoch with a pict, or returns a
+ @tech{pict} that is like @rhombus(pict) but with the given metadata for
+ the given epoch.
+
+ When picts are combined through operations like @rhombus(beside) or
+ @rhombus(overlay), the combination's metadata is formed by merging
+ metadata maps from the combined picts, and later picts in the
+ combination take precedence.
+
+}
