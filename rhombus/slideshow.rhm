@@ -27,10 +27,11 @@ export:
   slide
   slide_content
 
+  nonarchival
   interactive
 
   is_printing
-  is_condensing
+  is_condensing  
 
   start_at_recent
   retract_recent
@@ -57,6 +58,13 @@ ly titlely: current_title_font()
 
 fun titlet(a, ...) :~ Pict:
   titlely(a, ...)
+
+fun
+| nonarchival(p :: Pict) :~ Pict:
+    for values(p = p) (i: 0..p.duration):
+      nonarchival(p, i)
+| nonarchival(p :: Pict, epoch :: Int) :~ Pict:
+    p.epoch_set_metadata(epoch, p.epoch_metadata(epoch) ++ { #'nonarchival: #true })
 
 // ----------------------------------------
 
@@ -126,7 +134,7 @@ fun next_to_anim(contents) :~ Pict:
         pict.stack(~sep: sep, & accum)
     | [p :: Next, & contents]:
         let pre = pict.stack(~sep: sep, & accum)
-        let pre = pre.epoch_set_nonarchival(pre.duration-1)
+        let pre = nonarchival(pre, pre.duration-1)
         let post = loop(sep, contents, [])
         pict.stack(~sep: sep,
                    pre.sustain(post.duration),
@@ -162,17 +170,18 @@ fun slide(~title: title :: maybe(String || Pict) = #false,
                        #{#:skip-last?}: #true,
                        fun (n): p.snapshot(-1, n).handle)
   for (i: 0..p.duration):
-    skip_when rkt.#{condense?} && !p.epoch_is_archival(i)
-    let extent = p.epoch_extent(i)
-    if extent .= 0
-    | rkt.slide(~name: name,
-                & (if p == pict.nothing
-                   | []
-                   | [p.snapshot(i, 0).handle]))
-    | rkt_play.#{play-n}(~name: name,
-                         ~delay: extent / rkt_play.#{current-play-steps}(),
-                         #{#:skip-last?}: #true,
-                         fun (n): p.snapshot(i, n).handle)
+    if rkt.#{condense?} && p.epoch_metadata(i).get(#'nonarchival, #false)
+    | rkt.#{skip-slides}(1)
+    | let extent = p.epoch_extent(i)
+      if extent .= 0
+      | rkt.slide(~name: name,
+                  & (if p == pict.nothing
+                     | []
+                     | [p.snapshot(i, 0).handle]))
+      | rkt_play.#{play-n}(~name: name,
+                           ~delay: extent / rkt_play.#{current-play-steps}(),
+                           #{#:skip-last?}: #true,
+                           fun (n): p.snapshot(i, n).handle)
 
 fun slide_content(~title: title :: maybe(String || Pict) = #false,
                   ~full: full = title && #true,
@@ -190,7 +199,7 @@ fun assemble_slide(title, layout, p) :~ Pict:
   | _ :: pict.NothingPict:
       current_assembler()(#false, layout, p)
   | _ :: String:
-      current_assembler()(titlet(title).epoch_set_nonarchival(0), layout, p)
+      current_assembler()(titlet(title), layout, p)
   | ~else:
       current_assembler()(title, layout, p)
 

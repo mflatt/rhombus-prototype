@@ -131,7 +131,6 @@ class Pict():
 
   abstract property duration :~ Int
   abstract method epoch_extent(i :: Int) :~ Real
-  abstract method epoch_is_archival(epoch :: Int)
   abstract method
   | snapshot() :~ SnapshotPict
   | snapshot(epoch :: Int,
@@ -185,7 +184,9 @@ class Pict():
   abstract method sustain(n :: Int = 1) :~ Pict
   abstract method nonsustaining() :~ Pict
   abstract method epoch_set_extent(i :: Int, extent :: NonnegReal) :~ Pict
-  abstract method epoch_set_nonarchival(i :: Int) :~ Pict
+
+  abstract method epoch_metadata(i :: Int) :~ Map
+  abstract method epoch_set_metadata(i :: Int, metadata :: Map) :~ Pict
 
   method time_pad(~all: all :: Int = 0,
                   ~before: before :: Int = all,
@@ -210,7 +211,6 @@ class StaticPict(private _handle,
 
   override property duration: 1
   override method epoch_extent(i :: Int): 0
-  override method epoch_is_archival(epoch :: Int): epoch == 0
 
   override method
   | snapshot(): this
@@ -294,10 +294,12 @@ class StaticPict(private _handle,
 
   override method epoch_set_extent(i :: Int, extent :: NonnegReal):
     convert([this], #'center, #'pad, fun ([p]): p).epoch_set_extent(i, extent)
-  override method epoch_set_nonarchival(i :: Int):
-    if i == 0
-    | convert([this], #'center, #'pad, fun ([p]): p).epoch_set_nonarchival(i)
+
+  override method epoch_metadata(epoch :: Int): {}
+  override method epoch_set_metadata(i :: Int, metadata :: Map):
+    if metadata == {}
     | this
+    | convert([this], #'center, #'pad, fun ([p]): p).epoch_set_metadata(i, metadata)
 
   override method freeze(~scale: scale :: Real = 2.0):
     static_pict(rkt.freeze(_handle), _instances)
@@ -373,7 +375,8 @@ class NothingPict():
   override method nonsustaining(): this
 
   override method epoch_set_extent(i :: Int, extent :: NonnegReal): this
-  override method epoch_set_nonarchival(i :: Int): this
+  override method epoch_metadata(epoch :: Int): {}
+  override method epoch_set_metadata(i :: Int, metadata :: Map): this
 
   override method freeze(~scale: scale :: Real = 2.0): this
 
