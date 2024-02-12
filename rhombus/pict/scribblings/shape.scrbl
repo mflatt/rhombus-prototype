@@ -1,6 +1,7 @@
 #lang scribble/rhombus/manual
 
 @(import:
+    "timeline.rhm".pict_eval
     meta_label:
       rhombus open
       pict open
@@ -19,6 +20,13 @@
 ){
 
  Creates a blank @tech{static pict} with the specified bounding box.
+
+@(block:
+    let width = "shadow arg"
+    @examples(
+      ~eval: pict_eval
+      blank(10).width
+    ))
 
 }
 
@@ -69,6 +77,14 @@
  @rhombus(refocus) is @rhombus(#'around), then the pict is refocused on
  @rhombus(around), otherwise it is refocused on @rhombus(refocus).
 
+@examples(
+  ~eval: pict_eval
+  rectangle()
+  rectangle(~fill: "lightblue", ~line: #false)
+  rectangle(~line: "blue", ~rounded: #'default)
+  rectangle(~around: text("Hello"), ~fill: "lightgreen")
+)
+
 }
 
 
@@ -88,6 +104,11 @@
  A shorthand for @rhombus(rectangle) where the width and height are
  specified as @rhombus(size) or, if @rhombus(size) is a pict, as the
  maximum of the pict's width and height.
+
+@examples(
+  ~eval: pict_eval
+  square(~around: text("Hello"), ~fill: "lightgreen")
+)
 
 }
 
@@ -112,6 +133,11 @@
  draws an arc or widge if @rhombus(arc) is @rhombus(#'cw) (clockwise) or
  @rhombus(#'ccw) (counterclockwise).
 
+@examples(
+  ~eval: pict_eval
+  ellipse(~around: text("Hello"), ~fill: "lightgreen")
+)
+
 }
 
 @doc(
@@ -131,7 +157,12 @@
 ){
 
  Like @rhombus(square), but a shorthand for @rhombus(ellipse).
- 
+
+@examples(
+  ~eval: pict_eval
+  circle(~around: text("Hello"), ~fill: "lightgreen")
+)
+
 }
 
 @doc(
@@ -143,7 +174,13 @@
   ) :: Pict
 ){
 
- Creates a @tech{pict} that draws a polygon.
+ Creates a @tech{pict} that draws a polygon. The maximum x and y values
+ among the @rhombus(pt)s determine the resulting pict's bounding box.
+
+@examples(
+  ~eval: pict_eval
+  polygon([[0, 0], [50, 0], [50, 50]], ~fill: "lightgreen")
+)
 
 }
 
@@ -160,6 +197,13 @@
  The @rhombus(dx) and @rhombus(dy) arguments determine both the shape of
  the line and the width and height of the pict.
 
+@examples(
+  ~eval: pict_eval
+  line(~dx: 10, ~line_width: 3)
+  line(~dy: 10, ~line: "blue", ~line_width: 3)
+  line(~dx: 10, ~dy: 10)
+)
+
 }
 
 @doc(
@@ -168,6 +212,12 @@
 ){
 
  Creates a @tech{pict} that draws text using @rhombus(font)
+
+@examples(
+  ~eval: pict_eval
+  text("Hello")
+  text("Hi!", ~font: draw.Font(~kind: #'roman, ~size: 20, ~style: #'italic))
+)
 
 }
 
@@ -190,6 +240,16 @@
  Creates a @tech{pict} with an arbitrary drawing context. The
  @rhombus(draw) function receives a s @rhombus(draw.DC), an x-offset, and
  a y-offset.
+
+@examples(
+  ~eval: pict_eval
+  dc(fun (dc :: draw.DC, dx, dy):
+       dc.line([dx, dy+10], [dx+20, dy+10])
+       dc.line([dx+10, dy], [dx+10, dy+20])
+       dc.ellipse([[dx, dy], [21, 21]]),
+     ~width: 20,
+     ~height: 20)
+)
 
 }
 

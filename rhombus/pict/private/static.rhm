@@ -1115,10 +1115,14 @@ fun table(rows :: List.of(List.of(Pict)),
           ~vline_width: vline_width :: LineWidth = line_width) :~ Pict:
   match rows
   | [[elem :~ _StaticPict, ...], ...]:
+      fun
+      | improper([]): rkt.#{cc-superimpose}
+      | improper([e]): e
+      | improper([a, &l]): Pair.cons(a, improper(l))
       fun to_align(align):
         match align
         | [align, ...]:
-            PairList[to_align(align), ...]
+            improper([to_align(align), ...])
         | #'left:
             rkt.#{lc-superimpose}
         | #'right:

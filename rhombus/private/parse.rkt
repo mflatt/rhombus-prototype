@@ -165,10 +165,7 @@
         ;; `:definition`, etc., doesn't carry over
         [(_ top decl-ok? (data ...) e::definition-sequence . tail)
          (define-values (parsed new-tail)
-           (handle-top-transforming
-            #'decl-ok?
-            (lambda ()
-              (apply-definition-sequence-transformer #'e.id #'e.tail #'tail))))
+           (apply-definition-sequence-transformer #'e.id #'e.tail #'tail))
          #`(begin (begin . #,parsed) (top data ... . #,new-tail))]
         [(_ top decl-ok? (data ...) form . forms)
          (define (nestable-parsed)
@@ -177,14 +174,11 @@
              [e::definition #'(begin . e.parsed)]
              [_ #`(#%expression (rhombus-expression form))]))
          (define parsed
-           (handle-top-transforming
-            #'decl-ok?
-            (lambda ()
-              (if (syntax-e #'decl-ok?)
-                  (syntax-parse #'form
-                    [e::declaration #'(begin . e.parsed)]
-                    [_ (nestable-parsed)])
-                  (nestable-parsed)))))
+           (if (syntax-e #'decl-ok?)
+               (syntax-parse #'form
+                 [e::declaration #'(begin . e.parsed)]
+                 [_ (nestable-parsed)])
+               (nestable-parsed)))
          (syntax-parse #'forms
            [() parsed]
            [_ #`(begin #,parsed (top data ... . forms))])])))))
@@ -330,19 +324,3 @@
     [(rhombus-expression . _)
      (rhombus-local-expand (enforest-rhombus-expression stx))]
     [_ stx]))
-
-(define-for-syntax (handle-top-transforming top?-stx thunk)
-  (cond
-    [(syntax-e top?-stx)
-     ;; In a top-level context, no one is removing enforestation
-     ;; use-site scopes on definititions; to keep things simpler,
-     ;; we'll effectively just disable use-site scopes
-     (define use-box (transform-use-sites #'use-ctx #'base-ctx))
-     (with-continuation-mark
-         transform-use-scope-accumulate-key use-box
-         (call-with-values
-          thunk
-          (case-lambda
-            [(stx) (transform-binder stx)]
-            [(stx tail) (values (transform-binder stx) tail)])))]
-    [else (thunk)]))

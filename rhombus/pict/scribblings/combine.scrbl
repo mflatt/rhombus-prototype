@@ -1,6 +1,7 @@
 #lang scribble/rhombus/manual
 
 @(import:
+    "timeline.rhm".pict_eval
     meta_label:
       rhombus open
       pict open
@@ -25,6 +26,12 @@
 
  If no @rhombus(pict)s are provided, the result is @rhombus(nothing).
 
+@examples(
+  ~eval: pict_eval
+  beside(square(~size: 32), circle(~size: 16))
+  beside(~vert: #'top, ~sep: 12, square(~size: 32), circle(~size: 16))
+)
+
 }
 
 @doc(
@@ -43,6 +50,12 @@
  along @rhombus(duration_align) and @rhombus(epoch_align).
 
  If no @rhombus(pict)s are provided, the result is @rhombus(nothing).
+
+@examples(
+  ~eval: pict_eval
+  stack(square(~size: 32), circle(~size: 16))
+  stack(~horiz: #'right, ~sep: 12, square(~size: 32), circle(~size: 16))
+)
 
 }
 
@@ -63,6 +76,13 @@
 
  If no @rhombus(pict)s are provided, the result is @rhombus(nothing).
 
+@examples(
+  ~eval: pict_eval
+  overlay(square(~size: 32, ~fill: "lightblue"), circle(~size: 16, ~fill: "lightgreen"))
+  overlay(~horiz: #'right, ~vert: #'bottom, square(~size: 32), circle(~size: 16))
+)
+
+
 }
 
 @doc(
@@ -78,10 +98,19 @@
 
  Returns a @tech{pict} that draws @rhombus(pict) in front of or behind
  @rhombus(on_pict) at the location in @rhombus(on_pict) determined by
- @rhombus(finder).
+ @rhombus(finder). The resulting pict's bounding box is the same as
+ @rhombus(on_pict)'s.
 
  The picts are first made concurrent via @rhombus(concurrent), passing
  along @rhombus(duration_align) and @rhombus(epoch_align).
+
+@examples(
+  ~eval: pict_eval
+  def circ = circle(~size: 16, ~fill: "lightgreen")
+  pin(~on: overlay(square(~size: 32, ~fill: "lightblue"), circ),
+      ~at: Find.right(circ),
+      line(~dx: 10))
+)
 
 }
 
@@ -112,6 +141,19 @@
  Returns a @tech{pict} like @rhombus(on_pict), but with a line added to
  connect @rhombus(from) to @rhombus(to).
 
+@examples(
+  ~eval: pict_eval
+  def circ = circle(~size: 16, ~fill: "lightgreen")
+  def sq = square(~size: 32, ~fill: "lightblue")
+  connect(beside(~sep: 32, sq, circ),
+          Find.right(sq),
+          Find.left(circ),
+          ~style: #'arrow,
+          ~line: "red",
+          ~arrow_size: 8)
+)
+
+
 }
 
 @doc(
@@ -134,7 +176,24 @@
   ) :: Pict
 ){
 
- Creates a table @tech{pict}.
+ Creates a table @tech{pict}. For @rhombus(horiz), @rhombus(vert),
+ @rhombus(vsep), and @rhombus(hsep), a value or final list element is
+ repeated as meany times as needed to cover all rows, columns, or
+ positions between them, and extra list elements are ignored.
+
+@examples(
+  ~eval: pict_eval
+  def circ = circle(~size: 16, ~fill: "lightgreen")
+  def sq = square(~size: 32, ~fill: "lightblue")
+  table([[blank(),              text("Square"), text("Circle")],
+         [blank(),              sq,             circ],
+         [text("rolls"),        blank(),        text("✔")],
+         [text("easy to cut"),  text("✔"),      blank()]],
+        ~horiz: [#'left, #'center],
+        ~vert: #'top,
+        ~vline: "black",
+        ~pad: 5)
+)
 
 }
 
