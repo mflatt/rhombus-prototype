@@ -1,6 +1,7 @@
 #lang racket/base
 (require (for-syntax racket/base
-                     syntax/parse/pre)
+                     syntax/parse/pre
+                     enforest/transformer)
          (submod "module-path.rkt" for-import-export)
          "declaration.rkt"
          "parens.rkt")
@@ -26,7 +27,8 @@
         (list (datum->syntax
                #'name
                (syntax-e
-                #`(rhombus-module+ name body ...))))]
+                (transform-binder
+                 #`(rhombus-module+ name body ...)))))]
        [(_ name:identifier #:lang mp ...+ (_::block body ...))
         #:with lang::module-path #'(group mp ...)
         #`((module name lang.parsed

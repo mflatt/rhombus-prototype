@@ -2,7 +2,8 @@
 (require (for-syntax racket/base
                      syntax/parse/pre
                      "space-meta-macro.rkt"
-                     "expose.rkt")
+                     "expose.rkt"
+                     "forwarding-sequence.rkt")
          "provide.rkt"
          "space-provide.rkt"
          "name-root.rkt"
@@ -126,11 +127,13 @@
             (define-syntax _define-bridge
               (make-bridge-definer '#,space-path-name)))
            (begin-for-syntax
-             (enforest-meta
-              #,(car meta-namespace)
-              base-stx scope-stx
-              [name #,space-path-name make-prefix-operator make-infix-operator make-prefix+infix-operator]
-              #,(cdr meta-namespace))))])))
+             (rhombus-module-forwarding-sub-sequence
+              tmp-base-ctx tmp-use-ctx ;; replaced by enclosing module expansion
+              (enforest-meta
+               #,(car meta-namespace)
+               base-stx scope-stx
+               [name #,space-path-name make-prefix-operator make-infix-operator make-prefix+infix-operator]
+               #,(cdr meta-namespace)))))])))
 
 (define-syntax-rule (define-identifier-syntax-definition-transformer* _define-macro
                       protocol

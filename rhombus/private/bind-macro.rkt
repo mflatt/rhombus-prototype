@@ -282,7 +282,7 @@
        #:literals (maybe-definition if-bridge)
        [((group (parsed #:rhombus/expr (maybe-definition (if-bridge IF fail)))))
         #`(IF (rhombus-expression (group e ...))
-              (rhombus-body-sequence success ...)
+              (rhombus-body success ...)
               fail)]
        [_ (raise-syntax-error #f
                               "not the given failure form in the failure branch"

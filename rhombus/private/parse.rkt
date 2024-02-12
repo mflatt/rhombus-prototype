@@ -23,6 +23,7 @@
          rhombus-body-at
          rhombus-body-expression
          rhombus-body-sequence
+         rhombus-body-sequence*
 
          rhombus-top-step
 
@@ -62,7 +63,8 @@
     #:in-space in-decl-space
     #:transformer-ref declaration-transformer-ref
     #:check-result check-declaration-result
-    #:track-origin track-sequence-origin)
+    #:track-origin track-sequence-origin
+    #:use-sites? #t)
 
   ;; Form at the top of a module or in a `nested` block:
   (define-rhombus-transform
@@ -73,7 +75,8 @@
     #:in-space in-decl-space
     #:transformer-ref nestable-declaration-transformer-ref
     #:check-result check-nestable-declaration-result
-    #:track-origin track-sequence-origin)
+    #:track-origin track-sequence-origin
+    #:use-sites? #t)
 
   ;; Form in a definition context:
   (define-rhombus-transform
@@ -84,7 +87,8 @@
     #:in-space in-defn-space
     #:transformer-ref definition-transformer-ref
     #:check-result check-definition-result
-    #:track-origin track-sequence-origin)
+    #:track-origin track-sequence-origin
+    #:use-sites? #t)
 
   ;; Form in a definition context that can consume extra groups:
   (define-rhombus-sequence-transform
@@ -95,7 +99,8 @@
     #:in-space in-defn-space
     #:transformer-ref definition-sequence-transformer-ref
     #:check-result check-definition-result
-    #:track-origin track-sequence-origin)
+    #:track-origin track-sequence-origin
+    #:use-sites? #t)
 
   ;; Form in an expression context:
   (define-rhombus-enforest
@@ -110,7 +115,8 @@
     #:infix-operator-ref expression-infix-operator-ref
     #:check-result check-expression-result
     #:make-identifier-form make-identifier-expression
-    #:relative-precedence expression-relative-precedence)
+    #:relative-precedence expression-relative-precedence
+    #:use-sites? #t)
 
   (define name-root-binding-ref
     (make-name-root-ref #:binding-ref (lambda (v)
@@ -159,7 +165,10 @@
         ;; `:definition`, etc., doesn't carry over
         [(_ top decl-ok? (data ...) e::definition-sequence . tail)
          (define-values (parsed new-tail)
-           (apply-definition-sequence-transformer #'e.id #'e.tail #'tail))
+           (handle-top-transforming
+            #'decl-ok?
+            (lambda ()
+              (apply-definition-sequence-transformer #'e.id #'e.tail #'tail))))
          #`(begin (begin . #,parsed) (top data ... . #,new-tail))]
         [(_ top decl-ok? (data ...) form . forms)
          (define (nestable-parsed)
@@ -168,11 +177,14 @@
              [e::definition #'(begin . e.parsed)]
              [_ #`(#%expression (rhombus-expression form))]))
          (define parsed
-           (if (syntax-e #'decl-ok?)
-               (syntax-parse #'form
-                 [e::declaration #'(begin . e.parsed)]
-                 [_ (nestable-parsed)])
-               (nestable-parsed)))
+           (handle-top-transforming
+            #'decl-ok?
+            (lambda ()
+              (if (syntax-e #'decl-ok?)
+                  (syntax-parse #'form
+                    [e::declaration #'(begin . e.parsed)]
+                    [_ (nestable-parsed)])
+                  (nestable-parsed)))))
          (syntax-parse #'forms
            [() parsed]
            [_ #`(begin #,parsed (top data ... . forms))])])))))
@@ -255,6 +267,14 @@
              (#%expression (rhombus-expression g))
              (rhombus-body-sequence . tail)))]))))
 
+;; For a Racket definition context, where Rhombus use-site scopes need to
+;; be removed from definitions
+(define-syntax (rhombus-body-sequence* stx)
+  (syntax-parse stx
+    [(_ . forms)
+     #`(rhombus-sub-block-forwarding-sequence
+        (rhombus-body-sequence . forms))]))
+
 ;; Wraps a `parsed` term that can be treated as a definition:
 (define-syntax (maybe-definition stx)
   (syntax-parse stx
@@ -310,3 +330,19 @@
     [(rhombus-expression . _)
      (rhombus-local-expand (enforest-rhombus-expression stx))]
     [_ stx]))
+
+(define-for-syntax (handle-top-transforming top?-stx thunk)
+  (cond
+    [(syntax-e top?-stx)
+     ;; In a top-level context, no one is removing enforestation
+     ;; use-site scopes on definititions; to keep things simpler,
+     ;; we'll effectively just disable use-site scopes
+     (define use-box (transform-use-sites #'use-ctx #'base-ctx))
+     (with-continuation-mark
+         transform-use-scope-accumulate-key use-box
+         (call-with-values
+          thunk
+          (case-lambda
+            [(stx) (transform-binder stx)]
+            [(stx tail) (values (transform-binder stx) tail)])))]
+    [else (thunk)]))

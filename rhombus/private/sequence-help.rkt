@@ -103,7 +103,7 @@
                  ()
                  (begin
                    #,(if (attribute outer)
-                         #'(rhombus-body-sequence
+                         #'(rhombus-body-sequence*
                             (group def outer.bind ... rhombus= outer.rhs ...)
                             ...)
                          #'(begin))
@@ -119,7 +119,7 @@
                              (not approx-for-old-racket?))
                         (list
                          #'(begin
-                             (rhombus-body-sequence
+                             (rhombus-body-sequence*
                               (group def inner.bind ... rhombus= inner.rhs ...)
                               ...)))
                         null)

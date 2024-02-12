@@ -47,7 +47,9 @@
               (~optional (~seq #:check-result check-result)
                          #:defaults ([check-result #'check-is-syntax]))
               (~optional (~seq #:track-origin track-origin)
-                         #:defaults ([track-origin #'syntax-track-origin])))
+                         #:defaults ([track-origin #'syntax-track-origin]))
+              (~optional (~seq #:use-sites? use-sites?)
+                         #:defaults ([use-sites? #'#f])))
         ...)
      #`(begin
          (define-syntax-class form
@@ -65,6 +67,7 @@
                                          (transform-out (datum->syntax #f (cons head-name head-tail)))
                                          tail-tail
                                          track-origin
+                                         use-sites?
                                          check-result))
            (values (transform-in parsed) (transform-in remaining-tail)))
          #,@(if (syntax-e #'form?)
@@ -76,11 +79,12 @@
                        [_ #f])))
                 '()))]))
 
-(define (apply-sequence-transformer t id stx tail track-origin checker)
+(define (apply-sequence-transformer t id stx tail track-origin use-sites? checker)
   (define proc (sequence-transformer-proc t))
   (call-as-transformer
    id
    track-origin
+   #:use-sites? use-sites?
    (lambda (in out)
      (define-values (forms new-tail) (proc (in stx) (in tail)))
      (check-transformer-result (out (datum->syntax #f (checker forms proc)))

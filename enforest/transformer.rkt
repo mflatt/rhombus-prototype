@@ -22,6 +22,10 @@
          transform-out
          call-as-transformer
 
+         transform-binder
+         transform-use-scope-accumulate-key
+         (struct-out transform-use-sites)
+
          track-sequence-origin
 
          define-transform)
@@ -55,7 +59,9 @@
               (~optional (~seq #:check-result check-result)
                          #:defaults ([check-result #'check-is-syntax]))
               (~optional (~seq #:track-origin track-origin)
-                         #:defaults ([track-origin #'syntax-track-origin])))
+                         #:defaults ([track-origin #'syntax-track-origin]))
+              (~optional (~seq #:use-sites? use-sites?)
+                         #:defaults ([use-sites? #'#f])))
         ...)
      #`(begin
          (define-syntax-class form
@@ -72,6 +78,7 @@
                                                         (transform-out ; from an enclosing transformer
                                                          (datum->syntax #f (cons #'hname.name #'hname.tail))))
                                                       track-origin
+                                                      use-sites?
                                                       check-result)))
            (pattern ((~datum group) (~and head ((~datum parsed) tag inside . inside-tail)) . tail)
                     #:when (eq? (syntax-e #'tag) 'parsed-tag)
@@ -90,6 +97,7 @@
                                                       (transform-out
                                                        (datum->syntax #f (list* implicit-name #'head #'tail)))
                                                       track-origin
+                                                      use-sites?
                                                       check-result))))
 
          #,@(if (syntax-e #'transform-id)
@@ -112,11 +120,12 @@
                              #t)])))
                 '()))]))
 
-(define (apply-transformer t id stx track-origin checker)
+(define (apply-transformer t id stx track-origin use-sites? checker)
   (define proc (transformer-proc t))
   (call-as-transformer
    id
    track-origin
+   #:use-sites? use-sites?
    (lambda (in out)
      (define forms (checker (proc (in stx)) proc))
      (datum->syntax #f (out forms)))))

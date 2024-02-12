@@ -3,6 +3,7 @@
                      syntax/parse/pre
                      "forwarding-sequence.rkt")
          "provide.rkt"
+         "forwarding-sequence.rkt" ; for recognizing nested
          "declaration.rkt"
          "definition.rkt"
          "name-root.rkt"
@@ -28,11 +29,13 @@
      (syntax-parse stx
        [(form-id (_::block form ...))
         #'((begin-for-syntax
-             (rhombus-module-forwarding-sequence
+             (rhombus-module-forwarding-sub-sequence
+              base-ctx use-ctx ;; we expect these to get replaced by an enclosing module expansion
               (rhombus-top form ...))))]
        [(form-id . tail)
         #'((begin-for-syntax
-             (rhombus-module-forwarding-sequence
+             (rhombus-module-forwarding-sub-sequence
+              base-ctx use-ctx ;; we expect these to get replaced...
               (rhombus-top (group . tail)))))]))))
 
 (define-for-syntax (make-bridge-definer space-sym)

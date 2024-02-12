@@ -551,10 +551,11 @@
                        ;; make-datum
                        (lambda (d) d)
                        ;; make-literal
-                       (lambda (d) (if (and (identifier? d)
-                                            (free-identifier=? d (quote-syntax ...)))
-                                       #`(#,(quote-syntax ...) #,d)
-                                       d))
+                       (lambda (d)
+                         (if (and (identifier? d)
+                                  (free-identifier=? d (quote-syntax ...)))
+                             #`(#,(quote-syntax ...) #,d)
+                             d))
                        ;; make-void
                        (lambda (e) e)
                        ;; handle-escape:

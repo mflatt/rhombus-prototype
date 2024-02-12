@@ -6,7 +6,10 @@
          transform-out
          call-as-transformer
          check-transformer-result
-         track-sequence-origin)
+         track-sequence-origin
+         transform-binder
+         transform-use-scope-accumulate-key
+         (struct-out transform-use-sites))
 
 (define no-props (datum->syntax #f #f))
 
@@ -16,10 +19,41 @@
 (define (transform-out stx)
   ((current-transformer-introduce) stx))
 
-(define (call-as-transformer id track-origin thunk)
+;; use internal-definition contexts to allow scope pruning
+(define (make-syntax-introducer/intdef)
+  (define intdef-ctx (syntax-local-make-definition-context))
+  (define x0 (datum->syntax #f 'x))
+  (define x (internal-definition-context-add-scopes intdef-ctx x0))
+  (define intro (make-syntax-delta-introducer x x0))
+  (lambda (stx [op 'flip]) (intro stx op)))
+
+(struct transform-use-sites ([ctx #:mutable] base-ctx))
+;; mapped to a boxed syntax object:
+(define transform-use-scope-accumulate-key (gensym))
+
+(define (transform-binder stx)
+  (define accum (continuation-mark-set-first #f transform-use-scope-accumulate-key))
+  (if accum
+      ((make-syntax-delta-introducer (transform-use-sites-ctx accum)
+                                     (transform-use-sites-base-ctx accum))
+       stx
+       'remove)
+      stx))
+
+(define (call-as-transformer id track-origin thunk
+                             #:use-sites? [use-sites? #f])
   (define intro (make-syntax-introducer))
-  (parameterize ([current-transformer-introduce intro])
-    (thunk intro
+  (define use (and use-sites?
+                   (let ([accum (continuation-mark-set-first #f transform-use-scope-accumulate-key)])
+                     (and accum
+                          (let ([use (make-syntax-introducer/intdef)])
+                            (set-transform-use-sites-ctx! accum (use (transform-use-sites-ctx accum)))
+                            use)))))
+  (define flip (if use
+                   (lambda (stx) (intro (use stx)))
+                   intro))
+  (parameterize ([current-transformer-introduce flip])
+    (thunk flip
            (lambda (stx)
              (let loop ([stx stx])
                (cond

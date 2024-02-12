@@ -4,6 +4,7 @@
          racket/unsafe/undefined
          "binding.rkt"
          "parse.rkt"
+         "forwarding-sequence.rkt"
          "static-info.rkt"
          "if-blocked.rkt")
 
@@ -14,7 +15,7 @@
     [(_ who try-next failure
         (arg-id arg-info arg-pat arg-default) ...
         body)
-     (for/foldr ([next #'(let () body)])
+     (for/foldr ([next #'(let () (rhombus-sub-block-forwarding-sequence body))])
                 ([arg-id (in-list (syntax->list #'(arg-id ...)))]
                  [arg-info (in-list (syntax->list #'(arg-info ...)))]
                  [arg-default (in-list (syntax->list #'(arg-default ...)))])

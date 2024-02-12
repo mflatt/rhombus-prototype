@@ -360,7 +360,7 @@
                [rev-attrs (reverse vars)])
       (define (accum-do) (if (null? rev-do)
                              rev-body
-                             (list* #`[(rhombus-body-sequence #,@(reverse rev-do))] '#:do
+                             (list* #`[(rhombus-body-sequence* #,@(reverse rev-do))] '#:do
                                     rev-body)))
       (cond
         [(null? body) (values (reverse (accum-do))

@@ -174,12 +174,12 @@
 (define-syntax (chain-to-pre-clause-former stx)
   (syntax-parse stx
     [(_ [wrapper-id pre-clause-id step-id break-id final-id finish-id data])
-     #'(rhombus-definition (group pre-clause-id data))]))
+     #'(rhombus-body-sequence* (group pre-clause-id data))]))
 
 (define-syntax (chain-to-body-wrapper stx)
   (syntax-parse stx
     [(_ [wrapper-id pre-clause-id step-id break-id final-id finish-id data] e)
-     #'(rhombus-definition (group step-id data (parsed #:rhombus/expr e)))]))
+     #'(rhombus-body-sequence* (group step-id data (parsed #:rhombus/expr e)))]))
 
 (define-syntax (chain-to-breaker stx)
   (syntax-parse stx
