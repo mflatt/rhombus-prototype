@@ -117,3 +117,14 @@ block:
    import .n open
    dz w
    check w ~is 0
+
+// use-site scopes
+check:
+  let x = "outer"
+  defn.macro 'm $(id :: Term)':
+    'block:
+       let $id = "inner"
+       x'
+  m x
+  ~is "outer"
+  

@@ -346,3 +346,13 @@ check:
       ex:
         "ok"
   ~completes
+
+// use-site scopes
+check:
+  let x = "outer"
+  expr.macro 'm $(id :: Term)':
+    'block:
+       let $id = "inner"
+       x'
+  m x
+  ~is "outer"
