@@ -22,6 +22,7 @@ block:
     ~hidden:
       import:
         pict open
+        pict/text open
         draw
   )
   #void

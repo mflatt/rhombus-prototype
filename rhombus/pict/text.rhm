@@ -107,11 +107,11 @@ fun roman(a, ...) :~ Pict:
 
 fun subscript(arg, ...) :~ Pict:
   let p = t(arg, ...)
-  p.lift(-15).scale(0.75)
+  p.lift(-p.height/2).scale(0.75)
 
 fun superscript(arg, ...) :~ Pict:
   let p = t(arg, ...)
-  p.lift(10).scale(0.75)
+  p.lift(p.height/3).scale(0.75)
 
 // ----------------------------------------
 

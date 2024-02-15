@@ -1,6 +1,7 @@
 #lang scribble/rhombus/manual
 
 @(import:
+    "timeline.rhm".pict_eval
     meta_label:
       rhombus open
       pict open
@@ -17,39 +18,6 @@ provides support for font configuration, nestable styles, and basic
 paragraph typesetting.
 
 @doc(
-  def current_font :: Parameter
-  fun current_font() :: Font
-  fun current_font(font :: Font) :: Void
-){
-
- The default font used by functions from @rhombusmodname(pict/text) for
- formatting text, including by @rhombus(t) and @rhombus(para).
-
-}
-
-@doc(
-  def current_para_width :: Parameter
-  fun current_para_width() :: Real
-  fun current_para_width(width :: Real) :: Void
-){
-
- The default line width for @rhombus(para) and related functions.
-
-}
-
-@doc(
-  def current_line_sep :: Parameter
-  fun current_line_sep() :: Real
-  fun current_line_sep(sep :: Real) :: Void
-){
-
- The default amount of separate used between lines by @rhombus(lines),
- @rhombus(para) and related functions.
-
-}
-
-
-@doc(
  fun t(content, ...,
        ~font: font :: draw.Font = current_font()) :: Pict
 ){
@@ -64,6 +32,15 @@ paragraph typesetting.
  Support for lists makes @rhombus(t) suitable for use with @litchar("@")
  notation, as in @litchar|{@t{Hello}}|.
 
+@examples(
+  ~eval: pict_eval
+  t("Hello").scale(2)
+  @t{Hello}.scale(2)
+  parameterize { current_font:
+                   current_font() with (style = #'italic) }:
+    @t{Hello}.scale(2)
+)
+
 }
 
 @doc(
@@ -77,6 +54,13 @@ paragraph typesetting.
  adds boldness, italicness, fixed-widthness, or serifness to obstain the
  font for converting strings.
 
+@examples(
+  ~eval: pict_eval
+  @bold{Hello}.scale(2)
+  @t{To @bold{boldly} go}.scale(2)
+  @roman{x = y + z}.scale(2)
+)
+
 }
 
 @doc(
@@ -86,7 +70,13 @@ paragraph typesetting.
 
  Like @rhombus(t), but the resulting @tech{pict}'s scale and baseline
  are adjusted to form subscript or superscript text.
- 
+
+ @examples(
+  ~eval: pict_eval
+  @t{H@subscript{2}O}.scale(2)
+  @t{x@superscript{2}}.scale(2)
+)
+
 }
 
 @doc(
@@ -108,6 +98,12 @@ paragraph typesetting.
  with @rhombus(body)s, the result is the result of the @rhombus(body)
  sequence.
 
+@examples(
+  ~eval: pict_eval
+  @bold{a @italic{b} c}.scale(2)
+  @boldly{a @italic{b} c}.scale(2)
+)
+
 }
 
 @doc(
@@ -124,7 +120,7 @@ paragraph typesetting.
 @doc(
   fun para(content, ...,
            ~width: width = current_para_width(),
-           ~horiz: align :: pict.HorizAlignment = #'left,
+           ~horiz: horiz :: pict.HorizAlignment = #'left,
            ~full: full = #false,
            ~decode: decode = #true) :: Pict
 ){
@@ -165,10 +161,23 @@ paragraph typesetting.
 
  The @rhombus(width) argument determines the maximum width of a line,
  and if @rhombus(full) is true, then the resulting pict is padded to that
- width. The @rhombus(align) argument controls both how multiple lines
+ width. The @rhombus(horiz) argument controls both how multiple lines
  are aligned relative to one another and how padding is added when
  @rhombus(full) is true. Lines are separated by
  @rhombus(current_line_sep()) space.
+
+@examples(
+  ~eval: pict_eval
+  @para{Say ``hello'' for me!}
+  @para(~width: 50){Say ``hello'' for me!}
+  @para(~width: 50, ~horiz: #'right){Say ``hello'' for me!}
+  para(& for List (i: 0..50): @t{Echo}.scale((50 - i)/50))
+  parameterize { current_font:
+                   current_font() with (size = 18, kind = #'roman) }:
+    para(@{There's a fine line between fishing},
+         @{and just standing on the shore like an idiot.},
+         @{--- Stephen Wright})
+)
 
 }
 
@@ -189,5 +198,49 @@ paragraph typesetting.
  bullet and space after the bullet. When @rhombus(bullet) is
  @rhombus(#false), then @litchar("\u2022") is used for @rhombus(item) or
  @litchar("\u25E6") is used for @rhombus(subitem).
+
+@examples(
+  ~eval: pict_eval
+  lines(
+    @para{Outline},
+    @item{Introduction},
+    @subitem{short version},
+    @subitem{long version},
+    @item{Conclusion}
+  )
+)
+
+
+}
+
+@doc(
+  def current_font :: Parameter
+  fun current_font() :: Font
+  fun current_font(font :: Font) :: Void
+){
+
+ The default font used by functions from @rhombusmodname(pict/text) for
+ formatting text, including by @rhombus(t) and @rhombus(para).
+
+}
+
+@doc(
+  def current_para_width :: Parameter
+  fun current_para_width() :: Real
+  fun current_para_width(width :: Real) :: Void
+){
+
+ The default line width for @rhombus(para) and related functions.
+
+}
+
+@doc(
+  def current_line_sep :: Parameter
+  fun current_line_sep() :: Real
+  fun current_line_sep(sep :: Real) :: Void
+){
+
+ The default amount of separate used between lines by @rhombus(lines),
+ @rhombus(para) and related functions.
 
 }

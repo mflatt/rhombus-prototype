@@ -9,6 +9,16 @@
           polygon
       pict/radial open)
 
+@(def radial_eval = make_rhombus_eval())
+@examples(
+  ~eval: radial_eval
+  ~hidden:
+    import:
+      pict:
+        expose: beside rectangle ellipse
+      pict/radial open
+)
+
 @title(~tag: "radial"){Pict Radial Shapes}
 
 @docmodule(pict/radial)
@@ -100,6 +110,22 @@
  is scaled and stretched to ensure that its bounding box has dimentions
  @rhombus(width) and @rhombus(height).
 
+@examples(
+  ~eval: radial_eval
+  radial_pict()
+  radial_pict(~line: "blue", ~fill: #false)
+  radial_pict(~width: 64, ~height: 32, ~rotate: math.pi * 1/2)  
+  radial_pict(~inner_pause: 0.5, ~outer_pause: 0.25)
+  radial_pict(~outer_pull: 0.25, ~fill: "purple")
+  radial_pict(~inner_pull: 0.25, ~fill: "forestgreen")
+  radial_pict(~outer_pull: 0.25, ~inner_radius: -0.5, ~fill: "lightblue")
+  beside(~sep: 16, ~vert: #'top,
+         ellipse(~around: radial_pict(~points: 3)),
+         rectangle(~around: radial_pict(~points: 3)),
+         rectangle(~around: radial_pict(~points: 3, ~bound: #'shrink)),
+         rectangle(~around: radial_pict(~points: 3, ~bound: #'stretch)))
+)
+
 }
 
 @doc(
@@ -111,7 +137,7 @@
   fun polygon(~sides: n :: PosInt = 10, ....) :: Pict
   fun circle(~sides: n :: PosInt = 10, ....) :: Pict
   fun gear(~arms: n :: PosInt = 10, ....,
-           ~hole: hole :: Real = 0.3) :: Pict
+           ~hole: hole :: Real = 0.5) :: Pict
 ){
 
  The same as @rhombus(radial_pict), but with defaults for arguments so that
@@ -120,6 +146,17 @@
 
  The @rhombus(gear) function has an extra @rhombus(hole) argument, which
  specifies a relative side for a hole in the middle of the gear.
+
+@examples(
+  ~eval: radial_eval
+  star(~fill: "gold")
+  flash(~fill: "red")
+  flower(~fill: "purple")
+  cloud(~fill: "gray")
+  polygon(~fill: "blue")
+  circle(~fill: "forestgreen")
+  gear(~fill: "brown")
+)
 
 }
 
@@ -150,6 +187,14 @@
  For example, @rhombus(gear) uses @rhombus(radials_pict) to combine gear
  arms with a hole when a non-zero hold is requested.
 
+@examples(
+  ~eval: radial_eval
+  def r = radial(~points: 7)
+  r.pict(~fill: "blue")
+  r.pict(~fill: #false, ~line: "blue", ~line_width: 3)
+)
+
+
 }
 
 @doc(
@@ -167,6 +212,11 @@
  the result looks like a flower, cloud, etc., and sometimes with an
  different keyword like @rhombus(~petals) instead of @rhombus(~points).
 
+@examples(
+  ~eval: radial_eval
+  flower_radial(~petals: 5).pict(~fill: "pink")
+)
+
 }
 
 @doc(
@@ -179,7 +229,17 @@
   method (radial :: Radial).path() :: Path
 ){
 
- Converts a @rhombus(Radial, ~annot) to a pict or DC path.
+ Converts a @rhombus(Radial, ~annot) to a pict or a DC path.
+
+ A DC path for a radial places the middle of the shape at the origin, so
+ it extends up to half the shape's width in each direction horizontally,
+ and up to half the shape's height in each direction vertically.
+
+@examples(
+  ~eval: radial_eval
+  polygon_radial().pict(~fill: "orange")
+  polygon_radial(~width: 64).path().bounding_box()
+)
 
 }
 
@@ -196,6 +256,13 @@
  Combines multiple @rhombus(Radial, ~annot)s to a pict. Nested radials
  creates holes in the same way as @rhombus(#'odd_even) polygon rendering.
 
+@examples(
+  ~eval: radial_eval
+  radials_pict([polygon_radial(~width: 64),
+                gear_radial(~width: 52)],
+               ~fill: "orange")
+)
+
 }
 
 @doc(
@@ -211,6 +278,11 @@
  the angle times @rhombus(jitter). The default @rhombus(~angle_at)
  argument for @rhombus(cloud) is @rhombus(jitter_spaced(0.3)).
 
+@examples(
+  ~eval: radial_eval
+  radial_pict(~angle_at: jitter_spaced(0.2))
+)
+
 }
 
 
@@ -222,3 +294,6 @@
  @rhombus(#'shrink), or @rhombus(#'stretch).
 
 }
+
+
+@close_eval(radial_eval)

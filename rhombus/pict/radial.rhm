@@ -198,7 +198,7 @@ fun jitter_spaced(jitter):
   fun (i, n):
     let a = evenly_spaced(i, n)
     let delta = 2 * math.pi / n
-    a + 0.25 * math.sin(jitter * a) * delta
+    a + 0.25 * math.sin(jitter * (if i == n | 0 | a)) * delta
 
 def_radial:
   radial(~points: n :: PosInt = 6,
@@ -321,7 +321,7 @@ def_radial:
               ~inner_pull: inner_pull :: Real = 0,
               ~rotate: spin :: Real = 0)
   gear(make, r,
-       ~hole: hole :: Real = 0.3):
+       ~hole: hole :: Real = 0.5):
     make(if hole == 0
          | [r]
          | [r, circle_radial(~width: r.width * hole,
