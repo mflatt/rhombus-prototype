@@ -24,6 +24,37 @@
 @docmodule(pict/radial)
 
 @doc(
+  fun star(~points: n :: PosInt = 5, ....) :: Pict
+  fun flash(~bumps: n :: PosInt = 10, ....) :: Pict
+  fun sun(~rays: n :: PosInt = 10, ....) :: Pict
+  fun flower(~petals: n :: PosInt = 6, ....) :: Pict
+  fun cloud(~bumps: n :: PosInt = 6, ....) :: Pict
+  fun polygon(~sides: n :: PosInt = 10, ....) :: Pict
+  fun circle(~sides: n :: PosInt = 10, ....) :: Pict
+  fun gear(~arms: n :: PosInt = 10, ....,
+           ~hole: hole :: Real = 0.5) :: Pict
+){
+
+ The same as @rhombus(radial_pict), but with defaults for arguments so that
+ the result looks like a flower, cloud, etc., and sometimes with an
+ different keyword like @rhombus(~petals) instead of @rhombus(~points).
+ The @rhombus(gear) function has an extra @rhombus(hole) argument, which
+ specifies a relative side for a hole in the middle of the gear.
+
+@examples(
+  ~eval: radial_eval
+  star(~fill: "gold")
+  flash(~fill: "red")
+  flower(~fill: "purple")
+  cloud(~fill: "gray")
+  polygon(~fill: "blue")
+  circle(~fill: "forestgreen")
+  gear(~fill: "brown")
+)
+
+}
+
+@doc(
   fun radial_pict(
     ~points: n :: PosInt = 6,
     ~width: width :: Real = 64,
@@ -38,8 +69,8 @@
     ~flat_outer_edge: flat_outer_edge = #false,
     ~outer_pull: outer_pull :: Real = 0,
     ~inner_pull: inner_pull :: Real = 0,
-    ~line: line :: MaybeColor = #false,
-    ~fill: fill :: MaybeColor = #'inherit,
+    ~fill: fill :: MaybeColor = #false,
+    ~line: line :: MaybeColor = !fill && #'inherit,
     ~line_width: line_width :: LineWidth = #'inherit,
     ~bound: bound :: BoundingBoxMode = #'unit
   ) :: Pict
@@ -113,9 +144,9 @@
 @examples(
   ~eval: radial_eval
   radial_pict()
-  radial_pict(~line: "blue", ~fill: #false)
+  radial_pict(~fill: #'inherit).colorize("red")
   radial_pict(~width: 64, ~height: 32, ~rotate: math.pi * 1/2)  
-  radial_pict(~inner_pause: 0.5, ~outer_pause: 0.25)
+  radial_pict(~inner_pause: 0.5, ~outer_pause: 0.25, ~fill: "black")
   radial_pict(~outer_pull: 0.25, ~fill: "purple")
   radial_pict(~inner_pull: 0.25, ~fill: "forestgreen")
   radial_pict(~outer_pull: 0.25, ~inner_radius: -0.5, ~fill: "lightblue")
@@ -124,38 +155,6 @@
          rectangle(~around: radial_pict(~points: 3)),
          rectangle(~around: radial_pict(~points: 3, ~bound: #'shrink)),
          rectangle(~around: radial_pict(~points: 3, ~bound: #'stretch)))
-)
-
-}
-
-@doc(
-  fun star(~points: n :: PosInt = 5, ....) :: Pict
-  fun flash(~bumps: n :: PosInt = 10, ....) :: Pict
-  fun sun(~rays: n :: PosInt = 10, ....) :: Pict
-  fun flower(~petals: n :: PosInt = 6, ....) :: Pict
-  fun cloud(~bumps: n :: PosInt = 6, ....) :: Pict
-  fun polygon(~sides: n :: PosInt = 10, ....) :: Pict
-  fun circle(~sides: n :: PosInt = 10, ....) :: Pict
-  fun gear(~arms: n :: PosInt = 10, ....,
-           ~hole: hole :: Real = 0.5) :: Pict
-){
-
- The same as @rhombus(radial_pict), but with defaults for arguments so that
- the result looks like a flower, cloud, etc., and sometimes with an
- different keyword like @rhombus(~petals) instead of @rhombus(~points).
-
- The @rhombus(gear) function has an extra @rhombus(hole) argument, which
- specifies a relative side for a hole in the middle of the gear.
-
-@examples(
-  ~eval: radial_eval
-  star(~fill: "gold")
-  flash(~fill: "red")
-  flower(~fill: "purple")
-  cloud(~fill: "gray")
-  polygon(~fill: "blue")
-  circle(~fill: "forestgreen")
-  gear(~fill: "brown")
 )
 
 }
@@ -191,7 +190,7 @@
   ~eval: radial_eval
   def r = radial(~points: 7)
   r.pict(~fill: "blue")
-  r.pict(~fill: #false, ~line: "blue", ~line_width: 3)
+  r.pict(~line: "blue", ~line_width: 3)
 )
 
 
@@ -221,8 +220,8 @@
 
 @doc(
   method (radial :: Radial).pict(
-    ~line: line :: MaybeColor = #false,
-    ~fill: fill :: MaybeColor = #'inherit,
+    ~fill: fill :: MaybeColor = #false,
+    ~line: line :: MaybeColor = !fill && #'inherit,
     ~line_width: line_width :: LineWidth = #'inherit,
     ~bound: bound :: BoundingBoxMode = #'unit
   ) :: Pict
@@ -246,8 +245,8 @@
 @doc(
   fun radials_pict(
     radial :: Radial, ...,
-    ~line: line :: MaybeColor = #false,
-    ~fill: fill :: MaybeColor = #'inherit,
+    ~fill: fill :: MaybeColor = #false,
+    ~line: line :: MaybeColor = !fill && #'inherit,
     ~line_width: line_width :: LineWidth = #'inherit,
     ~bound: bound :: BoundingBoxMode = #'unit
   ) :: Pict
@@ -280,7 +279,7 @@
 
 @examples(
   ~eval: radial_eval
-  radial_pict(~angle_at: jitter_spaced(0.2))
+  radial_pict(~points: 5, ~angle_at: jitter_spaced(0.2))
 )
 
 }

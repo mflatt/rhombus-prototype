@@ -35,9 +35,9 @@
     ~around: around :: maybe(Pict) = #false,
     ~width: width :: Real || Pict = around || 32,
     ~height: height :: Real || Pict = around || width,
-    ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
-    ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
-    ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+    ~fill: fill :: MaybeColor = #false,
+    ~line: line :: MaybeColor = !fill && #'inherit,
+    ~line_width: line_width ::MaybeWidth = #'inherit,
     ~rounded: rounded :: maybe(Real || matching(#'default)) = #false,
     ~order: order :: OverlayOrder = #'back,
     ~refocus: refocus_on :: maybe(Pict || matching(#'around)) = #'around,
@@ -96,9 +96,9 @@
   fun square(
     ~around: around :: maybe(Pict) = #false,
     ~size: size :: Real || Pict = around || 32,
-    ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
-    ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
-    ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+    ~fill: fill :: MaybeColor = #false,
+    ~line: line :: MaybeColor = !fill && #'inherit,
+    ~line_width: line_width ::MaybeWidth = #'inherit,
     ~order: order :: OverlayOrder = #'back,
     ~refocus: refocus_on :: maybe(Pict || matching(#'around)) = #'around,
     ~epoch: epoch_align :: EpochAlignment = #'center,
@@ -125,9 +125,9 @@
     ~arc: arc :: maybe(matching(#'cw || #'ccw)) = #false,
     ~start: start :: Real = 0,
     ~end: end :: Real = 2 * math.pi,
-    ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
-    ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
-    ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+    ~fill: fill :: MaybeColor = #false,
+    ~line: line :: MaybeColor = !fill && #'inherit,
+    ~line_width: line_width ::MaybeWidth = #'inherit,
     ~rounded: rounded :: maybe(Real || matching(#'default)) = #false,
     ~order: order :: OverlayOrder = #'back,
     ~refocus: refocus_on :: maybe(Pict || matching(#'around)) = #'around,
@@ -154,9 +154,9 @@
     ~arc: arc :: maybe(matching(#'cw || #'ccw)) = #false,
     ~start: start :: Real = 0,
     ~end: end :: Real = 2 * math.pi,
-    ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
-    ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
-    ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+    ~fill: fill :: MaybeColor = #false,
+    ~line: line :: MaybeColor = !fill && #'inherit,
+    ~line_width: line_width ::MaybeWidth = #'inherit,
     ~rounded: rounded :: maybe(Real || matching(#'default)) = #false,
     ~order: order :: OverlayOrder = #'back,
     ~refocus: refocus_on :: maybe(Pict || matching(#'around)) = #'around,
@@ -177,9 +177,9 @@
 @doc(
   fun polygon(
     [pt :: draw.PointLike.to_point, ...],
-    ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
-    ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
-    ~line_width: line_width :: Real || matching(#'inherit) = #'inherit
+    ~fill: fill :: MaybeColor = #false,
+    ~line: line :: MaybeColor = !fill && #'inherit,
+    ~line_width: line_width ::MaybeWidth = #'inherit
   ) :: Pict
 ){
 
@@ -197,8 +197,8 @@
   fun line(
     ~dx: dx :: Real = 0,
     ~dy: dy :: Real = 0,
-    ~line: color :: Color || String || matching(#'inherit) = #'inherit,
-    ~line_width: width :: Real || matching(#'inherit) = #'inherit
+    ~line: color :: MaybeColor = #'inherit,
+    ~line_width: width ::MaybeWidth = #'inherit
   ) :: Pict
 ){
 
