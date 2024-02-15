@@ -27,8 +27,17 @@
   ) :: Find
 ){
 
- Creates a @tech{finder} that locates the coresponding position of
- @rhombus(pict) within another @tech{pict}.
+ Creates a @tech{finder} that locates a @rhombus(pict) within another
+ @tech{pict}. The @rhombus(Find.in) method takes the pict that contains
+ @rhombus(pict) and returns two numbers, the x-offset and y-offset.
+
+ The @rhombus(horiz) and @rhombus(vert) arguments determine the position
+ within @rhombus(pict) that is fount. For example, the combination
+ @rhombus(#'right) and @rhombus(#'bottom) find the bottom-right corner of
+ @rhombus(pict)'s bounding box within another pict.
+
+ The @rhombus(dx) and @rhombus(dy) offsets are added to an x-offset and
+ y-offset that would be returned otherwise.
 
 }
 
@@ -51,7 +60,10 @@
  needed component pict cannot be found in @rhombus(pict).
 
  If @rhombus(pict) is an animated picture, then the search corresponds
- to finding within @rhombus(Pict.snapshot(pict)).
+ to finding within @rhombus(Pict.snapshot(pict)). When a finder for an
+ animated pict is provdied to a function like @rhombus(pin), however,
+ @rhombus(pin) will produce an animated pict where the finder is used
+ separately for each snapshot generated from the combined animated pict.
 
 }
 

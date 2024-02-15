@@ -16,6 +16,7 @@ export:
   VertAlignment
   EpochAlignment
   DurationAlignment
+  OverlayOrder
 
   Pict:
     only_space namespace annot
@@ -95,6 +96,13 @@ annot.macro 'DurationAlignment':
 fun is_sustain_align(v):
   match v
   | #'sustain || #'pad: #true
+  | ~else: #false
+
+annot.macro 'OverlayOrder':
+  annot_meta.pack_predicate('is_overlay_order', '()')
+fun is_overlay_order(v):
+  match v
+  | #'front || #'back: #true
   | ~else: #false
 
 def empty_instances = []
@@ -411,6 +419,7 @@ def default_font = draw.Font()
 
 fun beside(~sep: sep ::Real = 0,
            ~vert: vert :: VertAlignment = #'center,
+           ~order: order :: OverlayOrder = #'front,
            ~epoch: epoch :: EpochAlignment = #'center,
            ~duration: duration :: DurationAlignment = #'sustain,
            p :: Pict, ...) :~ Pict:
@@ -420,12 +429,26 @@ fun beside(~sep: sep ::Real = 0,
         nothing
     | [p :: _StaticPict, ...]:
         let all_instances = [p._instances, ...]
-        match vert
-        | #'top: static_pict(rkt.#{ht-append}(sep, p.handle, ...), all_instances)
-        | #'topline: static_pict(rkt.#{htl-append}(sep, p.handle, ...), all_instances)
-        | #'center: static_pict(rkt.#{hc-append}(sep, p.handle, ...), all_instances)
-        | #'baseline: static_pict(rkt.#{hbl-append}(sep, p.handle, ...), all_instances)
-        | #'bottom: static_pict(rkt.#{hb-append}(sep, p.handle, ...), all_instances)
+        let hand:
+          if order == #'front
+          | match vert
+            | #'top: rkt.#{ht-append}(sep, p.handle, ...)
+            | #'topline: rkt.#{htl-append}(sep, p.handle, ...)
+            | #'center: rkt.#{hc-append}(sep, p.handle, ...)
+            | #'baseline: rkt.#{hbl-append}(sep, p.handle, ...)
+            | #'bottom: rkt.#{hb-append}(sep, p.handle, ...)
+          | let [g, ...] = [rkt.launder(rkt.ghost(p.handle)), ...]
+            let g_hand:
+              match vert
+              | #'top: rkt.#{ht-append}(sep, g, ...)
+              | #'topline: rkt.#{htl-append}(sep, g, ...)
+              | #'center: rkt.#{hc-append}(sep, g, ...)
+              | #'baseline: rkt.#{hbl-append}(sep, g, ...)
+              | #'bottom: rkt.#{hb-append}(sep, g, ...)
+            for values(hand = g_hand) (p_hand: [p.handle, ...],
+                                       g: [g, ...]):
+              rkt.#{pin-under}(hand, g, rkt.#{lt-find}, p_hand)
+        static_pict(hand, all_instances)
     | ps:
         convert(ps, epoch, duration, retry)
 
@@ -445,6 +468,7 @@ namespace beside:
 
 fun stack(~sep: sep :: Real = 0,
           ~horiz: horiz :: HorizAlignment = #'center,
+          ~order: order :: OverlayOrder = #'front,
           ~epoch: epoch :: EpochAlignment = #'center,
           ~duration: duration :: DurationAlignment = #'sustain,
           p :: Pict, ...) :~ Pict:
@@ -454,10 +478,22 @@ fun stack(~sep: sep :: Real = 0,
         nothing
     | [p :: _StaticPict, ...]:        
         let all_instances = [p._instances, ...]
-        match horiz
-        | #'left: static_pict(rkt.#{vl-append}(sep, p.handle, ...), all_instances)
-        | #'center: static_pict(rkt.#{vc-append}(sep, p.handle, ...), all_instances)
-        | #'right: static_pict(rkt.#{vr-append}(sep, p.handle, ...), all_instances)
+        let hand:
+          if order == #'front
+          | match horiz
+            | #'left: rkt.#{vl-append}(sep, p.handle, ...)
+            | #'center: rkt.#{vc-append}(sep, p.handle, ...)
+            | #'right: rkt.#{vr-append}(sep, p.handle, ...)
+          | let [g, ...] = [rkt.launder(rkt.ghost(p.handle)), ...]
+            let g_hand:
+              match horiz
+              | #'left: rkt.#{vl-append}(sep, g, ...)
+              | #'center: rkt.#{vc-append}(sep, g, ...)
+              | #'right: rkt.#{vr-append}(sep, g, ...)
+            for values(hand = g_hand) (p_hand: [p.handle, ...],
+                                       g: [g, ...]):
+              rkt.#{pin-under}(hand, g, rkt.#{lt-find}, p_hand)
+        static_pict(hand, all_instances)
     | ps:
         convert(ps, epoch, duration, retry)
 
@@ -473,6 +509,7 @@ namespace stack:
 
 fun overlay(~horiz: horiz :: HorizAlignment = #'center,
             ~vert: vert :: VertAlignment = #'center,
+            ~order: order :: OverlayOrder = #'front,
             ~epoch: epoch :: EpochAlignment = #'center,
             ~duration: duration :: DurationAlignment = #'sustain,
             p :: Pict, ...) :~ Pict:
@@ -482,7 +519,8 @@ fun overlay(~horiz: horiz :: HorizAlignment = #'center,
         nothing
     | [p :: _StaticPict, ...]:
         let all_instances = [p._instances, ...]
-        let [p, ...] = [p._handle, ...]
+        let ps = [p._handle, ...]
+        let [p, ...] = if order == #'back | ps.reverse() | ps
         static_pict(
           match horiz
           | #'left:
@@ -642,14 +680,20 @@ fun as_width(w):
   | #'inherit: #false
   | ~else: w
 
+fun maybe_pad(p :~ Pict, dw, dh):
+  if dw .= 0 && dh .= 0
+  | p
+  | p.pad(~horiz: dw/2, ~vert: dh/2)
+
 fun rectangle(~around: around :: maybe(Pict) = #false,
               ~width: width :: Real || Pict: around || 32,
-              ~height: height :: Real || Pict: around || 32,
+              ~height: height :: Real || Pict: around || width,
               ~line: line :: MaybeColor = #'inherit,
               ~fill: fill :: MaybeColor = #false,
               ~line_width: line_width :: LineWidth = #'inherit,
               ~rounded: rounded :: maybe(Real || matching(#'default)) = #false,
-              ~refocus: refocus :: maybe(Pict || matching(#'around)) = #false,
+              ~order: order :: OverlayOrder = #'front,
+              ~refocus: refocus :: maybe(Pict || matching(#'around)) = #'around,
               ~epoch: epoch :: EpochAlignment = #'center,
               ~duration: duration :: DurationAlignment = #'sustain) :~ Pict:
   recur retry(around = around, width = width, height = height, ghosted = #false):
@@ -694,11 +738,18 @@ fun rectangle(~around: around :: maybe(Pict) = #false,
         let r :~ Pict:
           match around
           | around :: _StaticPict:
-              static_pict(rkt.#{cc-superimpose}(r, around._handle), [around._instances])
+              static_pict(if order == #'front
+                          | rkt.#{cc-superimpose}(r, around._handle)
+                          | rkt.#{cc-superimpose}(around._handle, r),
+                          [around._instances])
           | ~else: static_pict(r, empty_instances)
-        if refocus
-        | r.refocus(if refocus == #'around | around | refocus)
-        | r
+        match refocus
+        | #false: r
+        | #'around:
+            if around
+            | maybe_pad(r.refocus(around), width - Pict.width(around), height - Pict.height(around))
+            | r
+        | ~else: r.refocus(refocus)
     | ~else:
         convert_some([around, width, height], epoch, duration, retry)
 
@@ -722,7 +773,8 @@ fun square(~around: around :: maybe(Pict) = #false,
            ~line: line :: MaybeColor = #'inherit,
            ~fill: fill :: MaybeColor = #false,
            ~line_width: line_width :: LineWidth = #'inherit,
-           ~refocus: refocus :: maybe(Pict || matching(#'around)) = #false,              
+           ~order: order :: OverlayOrder = #'front,
+           ~refocus: refocus :: maybe(Pict || matching(#'around)) = #'around,              
            ~epoch: epoch :: EpochAlignment = #'center,
            ~duration: duration :: DurationAlignment = #'sustain) :~ Pict:
   let size:
@@ -737,19 +789,22 @@ fun square(~around: around :: maybe(Pict) = #false,
             ~line: line,
             ~fill: fill,
             ~line_width: line_width,
+            ~order: order,
             ~refocus: refocus,
             ~epoch: epoch,
             ~duration: duration)
 
 fun ellipse(~around: around :: maybe(Pict) = #false,
             ~width: width :: Real || Pict: around || 32,
-            ~height: height :: Real || Pict: around || 32,
+            ~height: height :: Real || Pict: around || width,
             ~arc: arc :: maybe(matching(#'cw || #'ccw)) = #false,
             ~start: start :: Real = 0,
             ~end: end :: Real = 2 * math.pi,
             ~line: line :: MaybeColor = #'inherit,
             ~fill: fill :: MaybeColor = #false,
             ~line_width: line_width :: LineWidth = #'inherit,
+            ~order: order :: OverlayOrder = #'front,
+            ~refocus: refocus :: maybe(Pict || matching(#'around)) = #'around,
             ~epoch: epoch :: EpochAlignment = #'center,
             ~duration: duration :: DurationAlignment = #'sustain) :~ Pict:
   recur retry(around = around, width = width, height = height, ghosted = #false):
@@ -786,10 +841,21 @@ fun ellipse(~around: around :: maybe(Pict) = #false,
               rkt.blank(width,
                         height)
         let r = if ghosted | r.ghost() | r
-        match around
-        | around :: _StaticPict:
-           static_pict(rkt.#{cc-superimpose}(r, around._handle), [around._instances])
-        | ~else: static_pict(r, empty_instances)
+        let r :~ Pict:
+          match around
+          | around :: _StaticPict:
+              static_pict(if order == #'front
+                          | rkt.#{cc-superimpose}(r, around._handle)
+                          | rkt.#{cc-superimpose}(around._handle, r),
+                          [around._instances])
+          | ~else: static_pict(r, empty_instances)
+        match refocus
+        | #false: r
+        | #'around:
+            if around
+            | maybe_pad(r.refocus(around), width - Pict.width(around), height - Pict.height(around))
+            | r
+        | ~else: r.refocus(refocus)
     | ~else:
         convert_some([around, width, height], epoch, duration, retry)
 
@@ -802,6 +868,7 @@ fun circle(~around: around :: maybe(Pict) = #false,
            ~line: line :: MaybeColor = #'inherit,
            ~fill: fill :: MaybeColor = #false,
            ~line_width: line_width :: LineWidth = #'inherit,
+           ~refocus: refocus :: maybe(Pict || matching(#'around)) = #'around,
            ~epoch: epoch :: EpochAlignment = #'center,
            ~duration: duration :: DurationAlignment = #'sustain) :~ Pict:
   let size = match size | p :: Pict: math.max(p.width, p.height) | ~else: size
@@ -814,6 +881,7 @@ fun circle(~around: around :: maybe(Pict) = #false,
           ~line: line,
           ~fill: fill,
           ~line_width: line_width,
+          ~refocus: refocus,
           ~epoch: epoch,
           ~duration: duration)
 
@@ -1017,13 +1085,13 @@ fun right_bottom(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
 fun bottom_right(q :: Pict, ~dx: dx = 0, ~dy: dy = 0) :~ Find:
   _Find(q, offset(rkt.#{rb-find}, dx, dy))
 
-fun connect(p :: Pict,
+fun connect(~on: p :: Pict,
             from :: Find,
             to :: Find,
             ~style: style :: matching(#'line || #'arrow || #'arrows) = #'line,
             ~line: color :: Color || String || matching(#'inherit) = #'inherit,
             ~line_width: width :: LineWidth = #'inherit,
-            ~order: order :: matching(#'front || #'back) = #'front,
+            ~order: order :: OverlayOrder = #'front,
             ~arrow_size: arrow_size :: Real = 16,
             ~arrow_solid: solid = #true,
             ~arrow_hidden: hidden = #false,
@@ -1062,7 +1130,7 @@ fun connect(p :: Pict,
                          #{#:end-pull}: end_pull,
                          #{#:line-width}: as_width(width),
                          #{#:color}: as_color(color),
-                         #{#:under?}: order == #'back,
+                         #{#:under?}: order == #'front,
                          #{#:label}: label && (label != nothing) && StaticPict.handle(label),
                          #{#:x-adjust-label}: label_dx,
                          #{#:y-adjust-label}: label_dy,
@@ -1076,7 +1144,7 @@ fun connect(p :: Pict,
 fun pin(q :: Pict,
         ~on: p :: Pict,
         ~at: at :: Find,
-        ~order: order :: matching(#'front || #'back) = #'front,
+        ~order: order :: OverlayOrder = #'front,
         ~epoch: epoch :: EpochAlignment = #'center,
         ~duration: duration :: DurationAlignment = #'sustain) :~ Pict:
   recur retry(ps = [p, q]):
@@ -1108,7 +1176,7 @@ fun table(rows :: List.of(List.of(Pict)),
           ~pad: ins :: matching((_ :: Real) || [_ :: Real, _ :: Real] || [_ :: Real, _ :: Real, _ :: Real, _ :: Real]) = 0,
           ~line: line_c :: maybe(String || Color || matching(#'inherit)) = #false,
           ~line_width: line_width :: LineWidth = #'inherit,
-          ~order: order :: matching(#'front || #'back) = #'back,
+          ~order: order :: OverlayOrder = #'front,
           ~hline: hline :: maybe(String || Color || matching(#'inherit)) = line_c,
           ~hline_width: hline_width :: LineWidth = line_width,
           ~vline: vline :: maybe(String || Color || matching(#'inherit)) = line_c,
@@ -1164,7 +1232,7 @@ fun table(rows :: List.of(List.of(Pict)),
                                  | [l, t, _, _]: values(l, t)
                                  | [h, v]: values(h, v)
                                  | a: values(a, a)
-        let pin: if order == #'back
+        let pin: if order == #'front
                  | rkt.#{pin-under}
                  | rkt.#{pin-over}
         let r:
@@ -1209,7 +1277,7 @@ fun table(rows :: List.of(List.of(Pict)),
                       dy + sep)
         let p = static_pict(r, [elem._instances, ..., ...])
         if line_c
-        | if order == #'back
+        | if order == #'front
           | rectangle(~around: p, ~line: line_c, ~line_width: line_width)
           | overlay(p, rectangle(~around: p.launder().ghost(), ~line: line_c, ~line_width: line_width))
         | p

@@ -165,7 +165,7 @@ fun slide(~title: title :: maybe(String || Pict) = #false,
           content, ...):
   let p = next_to_anim(align_content(sep, horiz, flatten_slide_content(#'slide, [content, ...])))
   let name = if name is_a String | name | to_string(name)
-  let p: assemble_slide(title, layout, p)
+  let p: assemble_slide(title, layout, p, ~lead_in: lead_in)
   when lead_in && !rkt.#{condense?}
   | rkt_play.#{play-n}(~name: name,
                        #{#:skip-first?}: #true,
@@ -196,12 +196,14 @@ fun slide_content(~title: title :: maybe(String || Pict) = #false,
   | assemble_slide(title, layout, p)
   | p
 
-fun assemble_slide(title, layout, p) :~ Pict:  
+fun assemble_slide(title, layout, p, ~lead_in = #false) :~ Pict:  
   match title
   | _ :: pict.NothingPict:
       current_assembler()(#false, layout, p)
   | _ :: String:
-      current_assembler()(titlet(title), layout, p)
+      let title = titlet(title)
+      let title = if lead_in | title.sustain(1).time_pad(~before: -1) | title
+      current_assembler()(title, layout, p)
   | ~else:
       current_assembler()(title, layout, p)
 

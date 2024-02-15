@@ -198,7 +198,8 @@ class TransitionPictEpoch(zero :~ PictEpoch,
   override after() :~ PictEpoch:
     rest.after()
   override sustain(extent):
-    rest.sustain(extent)
+    let [pre, pre_extent, post, post_extent] = rest.sustain(extent)
+    [TransitionPictEpoch(zero, pre), pre_extent, post, post_extent]
   override metadata():
     zero.metadata()
 
@@ -361,7 +362,7 @@ class AnimPict(_epochs :~ List.of(PictEpoch),
 
   private method pad_before(amt) :~ AnimPict:  
     cond
-    | amt == 0: this
+    | amt .= 0: this
     | amt < 0:
         let ([new :~ PictEpoch, ...] && suffix, _):
           for values(suffix :~ List = [], last :~ PictEpoch = _epochs[_epochs.length()-1]):
@@ -395,7 +396,7 @@ class AnimPict(_epochs :~ List.of(PictEpoch),
 
   private method pad_after(amt, as_sustain) :~ AnimPict:
     cond
-    | amt == 0: this
+    | amt .= 0: this
     | amt < 0:
         let ([new :~ PictEpoch, ...] && prefix, _):
           for values(prefix :~ List = [], first :~ PictEpoch = _epochs[0]):

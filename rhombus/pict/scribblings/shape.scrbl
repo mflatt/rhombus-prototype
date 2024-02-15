@@ -34,14 +34,15 @@
   fun rectangle(
     ~around: around :: maybe(Pict) = #false,
     ~width: width :: Real || Pict = around || 32,
-    ~height: height :: Real || Pict = around || 32,
+    ~height: height :: Real || Pict = around || width,
     ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
     ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
     ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
     ~rounded: rounded :: maybe(Real || matching(#'default)) = #false,
+    ~order: order :: OverlayOrder = #'back,
+    ~refocus: refocus_on :: maybe(Pict || matching(#'around)) = #'around,
     ~epoch: epoch_align :: EpochAlignment = #'center,
-    ~duration: duration_align :: DurationAlignment = #'sustain,
-    ~refocus: refocus :: maybe(Pict || matching(#'around)) = #false
+    ~duration: duration_align :: DurationAlignment = #'sustain
   ) :: Pict
 ){
 
@@ -66,16 +67,19 @@
  negative number, it is negated and multipled by the rectangle's width
  and height to get a radius (in each direction) for the rounded corner.
 
+ When the @rhombus(refocus_on) argument is a pict, then
+ @rhombus(Pict.refocus) is used on the resulting pict with
+ @rhombus(refocus_on) as the second argument. If @rhombus(refocus) is
+ @rhombus(#'around) and @rhombus(around) is not @rhombus(#false), then the
+ pict is refocused on @rhombus(around), and then padded if necessary to
+ make the width and height match @rhombus(width) and @rhombus(height).
+
  The @rhombus(epoch_align) and @rhombus(duration_align) arguments are
  used only when @rhombus(around) is supplied, and they are passed on to
  @rhombus(overlay) to combine a static rectangle pict with
- @rhombus(around). If @rhombus(around) is @rhombus(#false), the resulting
- pict is always a @tech{static pict}.
-
- When the @rhombus(refocus) argument is not @rhombus(#false), then
- @rhombus(Pict.refocus) is used on the resulting pict. If
- @rhombus(refocus) is @rhombus(#'around), then the pict is refocused on
- @rhombus(around), otherwise it is refocused on @rhombus(refocus).
+ @rhombus(around). The @rhombus(order) argument is similarly passed along to
+ @rhombus(overlay). If @rhombus(around) is @rhombus(#false), the
+ resulting pict is always a @tech{static pict}.
 
 @examples(
   ~eval: pict_eval
@@ -95,9 +99,10 @@
     ~line: line :: maybe(Color || String || matching(#'inherit)) = #'inherit,
     ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
     ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
+    ~order: order :: OverlayOrder = #'back,
+    ~refocus: refocus_on :: maybe(Pict || matching(#'around)) = #'around,
     ~epoch: epoch_align :: EpochAlignment = #'center,
-    ~duration: duration_align :: DurationAlignment = #'sustain,
-    ~refocus: refocus :: maybe(Pict || matching(#'around)) = #false              
+    ~duration: duration_align :: DurationAlignment = #'sustain
   ) :: Pict
 ){
 
@@ -116,7 +121,7 @@
   fun ellipse(
     ~around: around :: maybe(Pict) = #false,
     ~width: width :: Real || Pict = around || 32,
-    ~height: height :: Real || Pict = around || 32,
+    ~height: height :: Real || Pict = around || width,
     ~arc: arc :: maybe(matching(#'cw || #'ccw)) = #false,
     ~start: start :: Real = 0,
     ~end: end :: Real = 2 * math.pi,
@@ -124,8 +129,10 @@
     ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
     ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
     ~rounded: rounded :: maybe(Real || matching(#'default)) = #false,
+    ~order: order :: OverlayOrder = #'back,
+    ~refocus: refocus_on :: maybe(Pict || matching(#'around)) = #'around,
     ~epoch: epoch_align :: EpochAlignment = #'center,
-    ~duration: duration_align :: DurationAlignment = #'sustain,
+    ~duration: duration_align :: DurationAlignment = #'sustain
   ) :: Pict
 ){
 
@@ -151,8 +158,10 @@
     ~fill: fill :: maybe(Color || String || matching(#'inherit)) = #false,
     ~line_width: line_width :: Real || matching(#'inherit) = #'inherit,
     ~rounded: rounded :: maybe(Real || matching(#'default)) = #false,
+    ~order: order :: OverlayOrder = #'back,
+    ~refocus: refocus_on :: maybe(Pict || matching(#'around)) = #'around,
     ~epoch: epoch_align :: EpochAlignment = #'center,
-    ~duration: duration_align :: DurationAlignment = #'sustain,
+    ~duration: duration_align :: DurationAlignment = #'sustain
   ) :: Pict
 ){
 

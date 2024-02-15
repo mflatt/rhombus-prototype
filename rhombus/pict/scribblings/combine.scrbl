@@ -13,13 +13,20 @@
   fun beside(
     ~sep: sep :: Real = 0,
     ~vert: vert_align :: VertAlignment = #'center,
+    ~order: order :: OverlayOrder = #'front,
     ~duration: duration_align :: DurationAlignment = #'sustain,
     ~epoch: epoch_align :: EpochAlignment = #'center,
     pict :: Pict, ...
   ) :: Pict
 ){
 
- Creates a pict that combines the given @rhombus(pict)s horizontally.
+ Creates a pict that combines the given @rhombus(pict)s horizontally
+ with the first @rhombus(pict) as leftmost.
+
+ If a pict extends horizontally outside its bounding box, then the
+ front-ot-back order of picts can matter for the combined image. The
+ @rhombus(order) argument determines the order of each pict added to the
+ right of the combined image.
 
  The picts are first made concurrent via @rhombus(concurrent), passing
  along @rhombus(duration_align) and @rhombus(epoch_align).
@@ -38,13 +45,20 @@
   fun stack(
     ~sep: sep :: Real = 0,
     ~horiz: horiz_alig :: HorizAlignment = #'center,
+    ~order: order :: OverlayOrder = #'front,
     ~duration: duration_align :: DurationAlignment = #'sustain,
     ~epoch: epoch_align :: EpochAlignment = #'center,
     pict :: Pict, ...
   ) :: Pict
 ){
 
- Creates a pict that combines the given @rhombus(pict)s vertically.
+ Creates a pict that combines the given @rhombus(pict)s vertically with
+ the first @rhombus(pict) as topmost.
+
+ If a pict extends vertically outside its bounding box, then the
+ front-ot-back order of picts can matter for the combined image. The
+ @rhombus(order) argument determines the order of each pict added to the
+ bottom of the combined image.
 
  The picts are first made concurrent via @rhombus(concurrent), passing
  along @rhombus(duration_align) and @rhombus(epoch_align).
@@ -63,13 +77,16 @@
   fun overlay(
     ~horiz: horiz_align :: HorizAlignment = #'center,
     ~vert: vert_align :: VertAlignment = #'center,
+    ~order: order :: OverlayOrder = #'front,
     ~duration: duration_align :: DurationAlignment = #'sustain,
     ~epoch: epoch_align :: EpochAlignment = #'center,
     pict :: Pict, ...
   ) :: Pict
 ){
 
- Creates a pict that combines the given @rhombus(pict)s.
+ Creates a pict that combines the given @rhombus(pict)s by overlaying.
+ The @rhombus(order) argument determines whether later @rhombus(pict)s
+ are placed in front of earlier @rhombus(pict)s or behind them.
 
  The picts are first made concurrent via @rhombus(concurrent), passing
  along @rhombus(duration_align) and @rhombus(epoch_align).
@@ -78,8 +95,11 @@
 
 @examples(
   ~eval: pict_eval
-  overlay(square(~size: 32, ~fill: "lightblue"), circle(~size: 16, ~fill: "lightgreen"))
-  overlay(~horiz: #'right, ~vert: #'bottom, square(~size: 32), circle(~size: 16))
+  overlay(square(~size: 32, ~fill: "lightblue"),
+          circle(~size: 16, ~fill: "lightgreen"))
+  overlay(~horiz: #'right, ~vert: #'bottom, ~order: #'back,
+          square(~size: 32),
+          circle(~size: 16, ~line: "red"))
 )
 
 
@@ -90,7 +110,7 @@
     pict :: Pict,
     ~on: on_pict :: Pict,
     ~at: finder :: Find,
-    ~order: order :: matching(#'front || #'back) = #'front,
+    ~order: order :: OverlayOrder = #'front,
     ~duration: duration_align :: DurationAlignment = #'sustain,
     ~epoch: epoch_align :: EpochAlignment = #'center
   ) :: Pict
@@ -116,13 +136,13 @@
 
 @doc(
   fun connect(
-    on_pict :: Pict,
+    ~on: on_pict :: Pict,
     from :: Find,
     to :: Find,
     ~style: style :: matching(#'line || #'arrow || #'arrows) = #'line,
     ~line: color :: Color || String || matching(#'inherit) = #'inherit,
     ~line_width: width :: Real || matching(#'inherit) = #'inherit,
-    ~order: order :: matching(#'front || #'back) = #'front,
+    ~order: order :: OverlayOrder = #'front,
     ~arrow_size: arrow_size :: Real = 16,
     ~arrow_solid: solid = #true,
     ~arrow_hidden: hidden = #false,
@@ -145,7 +165,7 @@
   ~eval: pict_eval
   def circ = circle(~size: 16, ~fill: "lightgreen")
   def sq = square(~size: 32, ~fill: "lightblue")
-  connect(beside(~sep: 32, sq, circ),
+  connect(~on: beside(~sep: 32, sq, circ),
           Find.right(sq),
           Find.left(circ),
           ~style: #'arrow,
@@ -398,7 +418,17 @@
   annot.macro 'SequentialJoin'
 ){
 
- Recognizes an option for seqntialu joining, which is either
+ Recognizes an option for sequential joining, which is either
  @rhombus(#'step) or @rhombus(#'splice).
+
+}
+
+
+@doc(
+  annot.macro 'OverlayOrder'
+){
+
+ Recognizes an option for overlaying, which is either
+ @rhombus(#'front) or @rhombus(#'back).
 
 }
