@@ -6,7 +6,7 @@
       slideshow open      
       draw.Font)
 
-@title(~tag: "slide"){Slide API}
+@title(~tag: "slide"){Creating Slides}
 
 @doc(
   fun slide(~title: title :: maybe(String || Pict) = #false,

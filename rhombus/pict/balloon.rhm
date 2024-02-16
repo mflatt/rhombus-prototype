@@ -6,6 +6,8 @@ import:
       Pict
       Find
       Color
+      MaybeColor
+      LineWidth
       EpochAlignment
       DurationAlignment
       nothing
@@ -18,6 +20,9 @@ export:
   current_color
   current_horiz_margin
   current_vert_margin
+  spike_to_dx
+  spike_to_dy
+  CompassDirection
     
 Parameter.def current_color :: Color || String:
   bln.#{current-balloon-color}()
@@ -25,11 +30,14 @@ Parameter.def current_horiz_margin :: Real:
   bln.#{current-balloon-x-margin}()
 Parameter.def current_vert_margin :: Real:
   bln.#{current-balloon-y-margin}()
+
+annot.macro 'CompassDirection':
+  'matching(#'n || #'ne || #'e || #'se || #'s || #'sw || #'w || #'nw)'
  
 fun pin(content :: Pict,
         ~on: p :: Pict,
         ~at: at :: Find,
-        ~spike: spike :: matching(#'n || #'ne || #'e || #'se || #'s || #'sw || #'w || #'nw),
+        ~spike: spike :: CompassDirection,
         ~margin: margin :: maybe(Real) = #false,
         ~horiz_margin: hmargin :: Real = margin || current_horiz_margin(),
         ~vert_margin: vmargin :: Real = margin || current_vert_margin(),
@@ -39,9 +47,9 @@ fun pin(content :: Pict,
         ~dy: dy :: Real = bln.#{spike->dy}(spike),
         ~sprout: sprout :: Real = 0.5,
         ~thought: thought = #false,
-        ~fill: color :: maybe(Color || String) = #false,
-        ~line: line_color :: maybe(Color || String) = #false,
-        ~line_width: line_width :: Real = 0,
+        ~fill: color :: MaybeColor = current_color(),
+        ~line: line_color :: MaybeColor = #false,
+        ~line_width: line_width :: LineWidth = #'inherit,
         ~epoch: epoch :: EpochAlignment = #'center,
         ~duration: duration :: DurationAlignment = #'sustain) :~ Pict:
   recur retry_balloon(ps = [p, content]):
@@ -65,9 +73,13 @@ fun pin(content :: Pict,
                              ~dy: dy,
                              ~sprout: sprout,
                              #{#:thought?}: thought,
-                             ~color: (color && as_color(color)) || current_color(),
-                             #{#:line-color}: line_color,
-                             #{#:line-width}: line_width)
+                             ~color: (color && as_color(color)) || Color(0, 0, 0, 0.0).handle,
+                             #{#:line-color}: line_color || Color(0, 0, 0, 0.0).handle,
+                             #{#:line-width}: if line_color
+                                              | if line_width == #'inherit
+                                                | 1
+                                                | line_width
+                                              | 0)
         )
     | [p, content]:
         animate_map([p, content],
@@ -130,3 +142,9 @@ fun as_color(color):
   | #'inherit: #false
   | s :: String: s
   | c :: Color: c.handle
+
+fun spike_to_dx(spike :: CompassDirection):
+  bln.#{spike->dx}(spike)
+  
+fun spike_to_dy(spike :: CompassDirection):
+  bln.#{spike->dy}(spike)

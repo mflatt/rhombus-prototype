@@ -37,7 +37,7 @@
     ~height: height :: Real || Pict = around || width,
     ~fill: fill :: MaybeColor = #false,
     ~line: line :: MaybeColor = !fill && #'inherit,
-    ~line_width: line_width ::MaybeWidth = #'inherit,
+    ~line_width: line_width :: LineWidth = #'inherit,
     ~rounded: rounded :: maybe(Real || matching(#'default)) = #false,
     ~order: order :: OverlayOrder = #'back,
     ~refocus: refocus_on :: maybe(Pict || matching(#'around)) = #'around,
@@ -98,7 +98,7 @@
     ~size: size :: Real || Pict = around || 32,
     ~fill: fill :: MaybeColor = #false,
     ~line: line :: MaybeColor = !fill && #'inherit,
-    ~line_width: line_width ::MaybeWidth = #'inherit,
+    ~line_width: line_width :: LineWidth = #'inherit,
     ~order: order :: OverlayOrder = #'back,
     ~refocus: refocus_on :: maybe(Pict || matching(#'around)) = #'around,
     ~epoch: epoch_align :: EpochAlignment = #'center,
@@ -127,7 +127,7 @@
     ~end: end :: Real = 2 * math.pi,
     ~fill: fill :: MaybeColor = #false,
     ~line: line :: MaybeColor = !fill && #'inherit,
-    ~line_width: line_width ::MaybeWidth = #'inherit,
+    ~line_width: line_width :: LineWidth = #'inherit,
     ~rounded: rounded :: maybe(Real || matching(#'default)) = #false,
     ~order: order :: OverlayOrder = #'back,
     ~refocus: refocus_on :: maybe(Pict || matching(#'around)) = #'around,
@@ -156,7 +156,7 @@
     ~end: end :: Real = 2 * math.pi,
     ~fill: fill :: MaybeColor = #false,
     ~line: line :: MaybeColor = !fill && #'inherit,
-    ~line_width: line_width ::MaybeWidth = #'inherit,
+    ~line_width: line_width :: LineWidth = #'inherit,
     ~rounded: rounded :: maybe(Real || matching(#'default)) = #false,
     ~order: order :: OverlayOrder = #'back,
     ~refocus: refocus_on :: maybe(Pict || matching(#'around)) = #'around,
@@ -179,7 +179,7 @@
     [pt :: draw.PointLike.to_point, ...],
     ~fill: fill :: MaybeColor = #false,
     ~line: line :: MaybeColor = !fill && #'inherit,
-    ~line_width: line_width ::MaybeWidth = #'inherit
+    ~line_width: line_width :: LineWidth = #'inherit
   ) :: Pict
 ){
 
@@ -198,7 +198,7 @@
     ~dx: dx :: Real = 0,
     ~dy: dy :: Real = 0,
     ~line: color :: MaybeColor = #'inherit,
-    ~line_width: width ::MaybeWidth = #'inherit
+    ~line_width: width :: LineWidth = #'inherit
   ) :: Pict
 ){
 
@@ -283,5 +283,23 @@
 
  Converts a static pict value compatible with the Racket
  @racketmodname(pict) library into a @rhombus(Pict, ~annot) value.
+
+}
+
+@doc(
+  annot.macro 'MaybeColor'
+){
+
+ A color specification, either @rhombus(#false), a string, a
+ @rhombus(draw.Color) object, or @rhombus(#'inherit).
+
+}
+
+@doc(
+  annot.macro 'LineWidth'
+){
+
+ A line width specification, either a @rhombus(Real) or
+ @rhombus(#'inherit).
 
 }

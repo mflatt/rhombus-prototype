@@ -25,6 +25,12 @@ and steps concurrent to other animated picts provided in the same
 @table_of_contents()
 
 @include_section("overview.scrbl")
-@include_section("api.scrbl")
+@include_section("pict.scrbl")
+@include_section("shape.scrbl")
+@include_section("combine.scrbl")
+@include_section("find.scrbl")
+@include_section("text.scrbl")
+@include_section("radial.scrbl")
+@include_section("balloon.scrbl")
 
 @close_eval(pict_eval)

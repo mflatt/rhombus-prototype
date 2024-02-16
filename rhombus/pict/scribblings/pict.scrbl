@@ -6,7 +6,7 @@
       pict open
       draw)
 
-@title(~tag: "pict"){Picts}
+@title(~tag: "pict"){Pict Objects}
 
 @doc(
   annot.macro 'Pict'
