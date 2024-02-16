@@ -118,10 +118,11 @@ fun superscript(arg, ...) :~ Pict:
 
 fun strikethrough(~line: line :: MaybeColor = #'inherit,
                   ~line_width: line_width :: LineWidth = 3,
+                  ~dy: dy = 0,
                   arg, ...) :~ Pict:
   let p = t(arg, ...)
   pict.pin(~on: p,
-           ~at: pict.Find.left_top(p, ~dy: 0.75 * p.ascent),
+           ~at: pict.Find.left_top(p, ~dy: dy + 0.75 * p.ascent),
            pict.line(~dx: p.width, ~line: line, ~line_width: line_width))
 
 // ----------------------------------------

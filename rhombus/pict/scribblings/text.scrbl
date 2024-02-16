@@ -80,6 +80,24 @@ paragraph typesetting.
 }
 
 @doc(
+  fun strikethrough(content, ...,
+                    ~line: line :: MaybeColor = #'inherit,
+                    ~line_width: line_width :: LineWidth = 3,
+                    ~dy: dy = 0) :: Pict
+){
+
+ Like @rhombus(t), but a horizontal line is added on top of the
+ resulting @tech{pict}. The @rhombus(line), @rhombus(line_width), and
+ @rhombus(dy) arguments affect the striketrough line.
+
+ @examples(
+  ~eval: pict_eval
+  @strikethrough{wrong}.scale(2)
+)
+
+}
+
+@doc(
  expr.macro 'boldly($content_expr, ...)'
  expr.macro 'boldly: $body; ...'
  expr.macro 'italicly($content_expr, ...)'
