@@ -4,7 +4,8 @@
     meta_label:
       rhombus open
       slideshow open      
-      draw.Font)
+      draw.Font
+    "show.rhm" open)
 
 @(def pict_doc = ModulePath 'lib("rhombus/pict/scribblings/rhombus-pict.scrbl")')
 
@@ -60,11 +61,16 @@ and this talk
 produce the same result, which is a slide presentation that has two
 slides, ``Hello'' followed by ``World.''
 
+@show_result(
+  slide(switch(@t{Hello},
+               @t{World}))
+)
+
 Here's an example that takes more advantage of passing a single animated
 pict to @rhombus(slide)---where the @rhombus(Pict.sustain) call is
 needed to create an ending slide with ``World'' fully faded in:
 
-@rhombusblock(
+@show(
   fun fade_out(p :: Pict): animate(fun (n): p.alpha(1-n))
   fun fade_in(p :: Pict): animate(fun (n): p.alpha(n))
 
@@ -89,13 +95,13 @@ generally a good strategy to have transitions arrive at a same-sized
 pict, but when that's inconvenient, a single animated pict is often
 better.
 
-@section{The @rhombus(slide) Staging Sublanguage}
+@section{Staging with the @rhombus(slide) Sublanguage}
 
 Suppose that instead of fading from ``Hello'' to ``World'', we want to
 end up with both ``Hello'' and ``World'' on the ending slide but reveal
 them one at a time. We could implement that using @rhombus(sequential):
 
-@rhombusblock(
+@show(
   slide(stack(~sep: 24,
               & sequential(@t{Hello},
                            @t{World})))
@@ -110,7 +116,7 @@ multipl pict arguments, it combines them with @rhombus(stack) and an
 amount of space that defaults to @rhombus(slide.gap), which is the
 constant @rhombus(24).
 
-@rhombusblock(
+@show(
   slide(@t{Hello},
         @t{World})
 )
@@ -121,8 +127,138 @@ after the @rhombus(slide.next) to be shifted sequentially after a stack
 of picts before @rhombus(slide.next), achieving the same result as
 @rhombus(stack) and @rhombus(sequential) above:
 
-@rhombusblock(
+@show(
   slide(@t{Hello},
         slide.next,
         @t{World})
 )
+
+The @rhombus(slide.alts) function is similar to @rhombus(switch). It
+takes any number of arguments and produces those arguments in sequence.
+
+@show(
+  slide(@t{1. Make a talk},
+        slide.alts(@para{draft},
+                   @para{@strikethrough{draft} complete}),
+        slide.next,
+        @t{2. Show the talk to others})
+)
+
+The main difference between @rhombus(slide.alts) and @rhombus(switch) is
+that each argument to @rhombus(slide.alts) is treated as content in the
+@rhombus(slide) sublanguage, so it can include @rhombus(slide.next).
+Multiple content elements for a single alternative are grouped using a
+list. More generally, the @rhombus(slide) sublanguage allows a list
+anywhere that it allows other content, and the list's elements are
+spliced into the content sequence.
+
+@show(
+  slide(@t{1. Make a talk},
+        slide.alts([@para{draft},
+                    slide.next,
+                    @para{draft2, ...}],
+                   [@strikethrough{drafts},
+                    @para{... complete}]),
+        slide.next,
+        @t{2. Show the talk to others})
+)
+
+Another difference between @rhombus(slide.alts) and @rhombus(switch) is
+that @rhombus(slide.alts) adjusts each of its alternatives so that they
+have the same height. That adjustment prevents slide content from
+jumping around on the screen when it appears after the altertaives, and
+it prevents the slide content as a whole from shifting due a height
+change (since content is centered on the screen by default).
+
+@show(
+  slide(@t{1. Make a talk},
+        slide.alts([@para{draft},
+                    slide.next,
+                    @para{draft2, ...}],
+                   @para{complete}),
+        @t{2. Show the talk to others})
+)
+
+@section{Alignment with the @rhombus(slide) Sublanguage}
+
+The staging example illustrates an alignment problem that is common when
+layout out slide content: the ``1. Make...'' and ``2. Show...'' text
+would look better left-aligned instead of centered. The
+@rhombus(slide.align) function takes slide content to be spliced into an
+enclosing sequence, but it adjusts every pict to be stacked in the
+content so that it has the same width, left-aligning the widened picts
+by default (but a @rhombus(~horiz) argument can specify a differnt
+alignment).
+
+@show(
+  slide(slide.align(
+          @t{1. Make a talk},
+          slide.alts(@para{draft},
+                     @para{@strikethrough{draft} complete}),
+          slide.next,
+          @t{2. Show the talk to others}
+        ))
+)
+
+While using @rhombus(slide.align) in our running example looks better,
+the ``draft'' to ``complete'' portion would look better centered. The
+@rhombus(slide.center) function adjusts the effect of an enclosing
+@rhombus(slide.align) to override alignment for the arguments of
+@rhombus(slide.center). The @rhombus(slide.center) function is a
+shorthand for @rhombus(slide.horiz) with @rhombus(~horiz: #'center).
+
+@show(
+  slide(slide.align(
+          @t{1. Make a talk},
+          slide.center(
+            slide.alts(@para{draft},
+                       @para{@strikethrough{draft} complete})
+          ),
+          slide.next,
+          @t{2. Show the talk to others}
+        ))
+)
+
+The running example almost looks right, but independently centering
+``draft'' and its strikethough with ``complete'' makes the ``draft''
+text shift leftward as the slides advance. To make those nested picts to
+be left-aligned with respect to each other, we can use a nested
+@rhombus(slide.align).
+
+@show(
+  slide(slide.align(
+          @t{1. Make a talk},
+          slide.center(
+            slide.align(
+              slide.alts(@para{draft},
+                         @para{@strikethrough{draft} complete})
+            )
+          ),
+          slide.next,
+          @t{2. Show the talk to others}
+        ))
+)
+
+@section{Slide Content as a Pict}
+
+The staging and alignment features of the @rhombus(slide) sublanguage
+could be implemented directly with @rhombusmodname(pict) animation
+primitives, but the @rhombus(slide) sublanguage can save some tedious
+orchestration of @rhombus(sequential) and @rhombus(Pict.pad) over lists
+of content picts. Meanwhile, when an animated pict is used as content
+for the slide sublanguage, that animation composes naturally with any
+animation steps that are created by the sublanguage.
+
+The revserse direcion is also possible. The @rhombus(slide_pict)
+function takes slide content and produces the same (potentially)
+animated pict that @rhombus(slide) would create for the same content.
+That pict can then be passed to other functions that work on animated
+picts instead of the @rhombus(slide) sublanguage.
+
+@show(
+  def steps = slide_pict(@para{Step 1},
+                         slide.next,
+                         @para{Step2})
+  slide(rectangle(~around: steps.pad(32)))
+)
+

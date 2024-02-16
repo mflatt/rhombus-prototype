@@ -36,6 +36,9 @@
  (or one of its shorthands: @rhombus(slide.left), @rhombus(slide.center),
  or @rhombus(slide.right)):
 
+ @margin_note{See @secref("overview") for an introduction to this
+  @rhombus(slide) staging and alignment sublanguage.}
+
  @itemlist(
 
  @item{Nested lists are flattened and spliced.}

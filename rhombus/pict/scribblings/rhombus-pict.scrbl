@@ -3,7 +3,8 @@
 @(import:
     meta_label:
       pict open
-      draw)
+      draw
+    "pict_eval.rhm" open)
 
 @title{Rhombus Pict: Functional Pictures}
 
@@ -25,3 +26,5 @@ and steps concurrent to other animated picts provided in the same
 
 @include_section("overview.scrbl")
 @include_section("api.scrbl")
+
+@close_eval(pict_eval)

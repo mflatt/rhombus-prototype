@@ -7,6 +7,7 @@
       rhombus open
       pict open
       draw
+    "pict_eval.rhm" open
     "timeline.rhm" open
     // to sequence examples
     "static-overview.scrbl")

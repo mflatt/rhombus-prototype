@@ -1,3 +1,3 @@
 #lang info
 
-(define scribblings '(("rhombus-slideshow.scrbl" (multi-page) (gui-library 100))))
+(define scribblings '(("rhombus-slideshow.scrbl" (multi-page) (tool))))

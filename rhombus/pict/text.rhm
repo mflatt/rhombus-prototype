@@ -6,6 +6,8 @@ import:
     expose:
       Pict
       HorizAlignment
+      MaybeColor
+      LineWidth
   lib("pict/main.rkt") as rkt_pict
   lib("racket/string.rkt")
   "private/para.rkt" as rkt
@@ -25,6 +27,7 @@ export:
   roman
   subscript
   superscript
+  strikethrough
 
   // `ly` variants are syntactic forms that `parameterize`
   // the argument expressions, so that `italic` can be nested in
@@ -112,6 +115,14 @@ fun subscript(arg, ...) :~ Pict:
 fun superscript(arg, ...) :~ Pict:
   let p = t(arg, ...)
   p.lift(p.height/3).scale(0.75)
+
+fun strikethrough(~line: line :: MaybeColor = #'inherit,
+                  ~line_width: line_width :: LineWidth = 3,
+                  arg, ...) :~ Pict:
+  let p = t(arg, ...)
+  pict.pin(~on: p,
+           ~at: pict.Find.left_top(p, ~dy: 0.75 * p.ascent),
+           pict.line(~dx: p.width, ~line: line, ~line_width: line_width))
 
 // ----------------------------------------
 

@@ -1,7 +1,7 @@
 #lang scribble/rhombus/manual
 
 @(import:
-    "timeline.rhm".pict_eval
+    "pict_eval.rhm".pict_eval
     meta_label:
       rhombus open
       pict open

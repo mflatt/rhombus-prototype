@@ -8,6 +8,7 @@
       pict open
       draw
     lib("pict/scribblings/pict-diagram.rkt").#{pict-diagram}
+    "pict_eval.rhm" open
     "timeline.rhm" open)
 
 @title(~tag: "static-pict"){Static Picts}
