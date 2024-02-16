@@ -188,7 +188,8 @@ class Pict():
   abstract method clip() :~ Pict
 
   abstract method _time_pad(before :: Int, after :: Int) :~ Pict
-  abstract method time_clip(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict    
+  abstract method time_clip(~keep: keep :: maybe(matching(#'before || #'after)) = #false) :~ Pict
+  method delay(n :: NonnegInt) :~ Pict: time_clip(~keep: #'after).time_pad(~before: 1)
   abstract method sustain(n :: Int = 1) :~ Pict
   abstract method nonsustaining() :~ Pict
   abstract method epoch_set_extent(i :: Int, extent :: NonnegReal) :~ Pict
@@ -831,7 +832,7 @@ fun ellipse(~around: around :: maybe(Pict) = #false,
                                     #{#:color}: as_color(fill),
                                     #{#:draw-border?}: line,
                                     #{#:border-color}: line && as_color(line),
-                                    #{#:border-width}: as_width(line_width))
+                                    #{#:border-width}: line && as_width(line_width))
           | line:
               rkt.#{ellipse}(width,
                              height,

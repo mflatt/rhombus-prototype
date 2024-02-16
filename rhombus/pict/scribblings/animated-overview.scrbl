@@ -268,7 +268,20 @@ beginning of the last epoch. This @deftech{sustain} transformation of an
 animated pict is needed so often that it is part of the definition of an
 animated pict; sustain a pict using @rhombus(Pict.sustain), and the
 details of what sustain means for a pict can be customized in an option
-to @rhombus(animate).
+to @rhombus(animate). The default in @rhombus(animate) is not what we
+want in this case, so we'll create a variant of @rhombus(fade_out) that
+sustains at the desired side of the animation:
+
+@(def fade_out2 = animate(fun (n): circ.alpha(1-n), ~sustain_edge: #'before))
+@(def fade_in_out2 = switch(fade_in, fade_out2).time_pad(~before: -1))
+
+@examples(  
+  ~eval: pict_eval
+  ~defn:
+    def fade_out2 = animate(fun (n): circ.alpha(1-n),
+                            ~sustain_edge: #'before)
+    def fade_in_out2 = switch(fade_in, fade_out2).time_pad(~before: -1)
+)
 
 In fact, sustaining an animated pict is the right choice so often that
 it is the default way that operations like @rhombus(overlay) and
@@ -281,10 +294,10 @@ duration match @rhombus(late_rect):
 @examples(
   ~eval: pict_eval
   ~defn:
-    def together_fade = stack(fade_in_out, late_rect)
+    def together_fade = stack(fade_in_out2, late_rect)
 )
 
-@(def together_fade = stack(fade_in_out, rect.time_pad(~before: 1)))
+@(def together_fade = stack(fade_in_out2, rect.time_pad(~before: 1)))
 
 @timeline(together_fade,
           ~label: "together_fade",
@@ -292,8 +305,9 @@ duration match @rhombus(late_rect):
 
 While sustaining is usually the right choice for combining animated
 picts, functions like @rhombus(overlay) and @rhombus(stack) accept a
-@rhombus(~duration) optional argument. That argument can be
-@rhombus(#'pad) instead of @rhombus(#'sustain) to make them normalize
-durations by padding instead of sustaining. A pict can be made
+@rhombus(~duration) optional argument to select a mode. The argument can be
+@rhombus(#'pad) instead of @rhombus(#'sustain) to normalize
+durations by padding instead of sustaining. Sometimes, the choice is better
+associated with a pict than at a combination, and pict can be made
 nonsustaining through @rhombus(Pict.nonsustaining), which causes
 a sustain on the pict to be the same as time padding.

@@ -51,7 +51,7 @@ fun is_seq_join(v):
 fun animate(proc :: Function.of_arity(1),
             ~bend: bend = rkt.#{fast-middle},
             ~extent: extent :: NonnegReal = 0.5,
-            ~sustain_edge: sustain_edge :: matching(#'before || #'after) = #'before) :~ Pict:
+            ~sustain_edge: sustain_edge :: matching(#'before || #'after) = #'after) :~ Pict:
   let proc = fun (n): proc(bend(n))
   AnimPict(proc, ~extent: extent, ~sustain_edge: sustain_edge)
 
@@ -252,7 +252,7 @@ class AnimPict(_epochs :~ List.of(PictEpoch),
                          ~epochs:
                            _epochs.set(index-1, pre).insert(index, post),
                          ~epoch_extents:
-                           _epoch_extents.set(index-1, pre_extent).insert(index-1, post_extent),
+                           _epoch_extents.set(index-1, pre_extent).insert(index, post_extent),
                          ~duration:
                            _duration + 1)
         p.maybe_sustain(max_epoch)

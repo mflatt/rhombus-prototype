@@ -25,7 +25,7 @@ export:
 
   // flattens nested lists in arguments:
   slide
-  slide_content
+  slide_pict
 
   nonarchival
   interactive
@@ -185,13 +185,13 @@ fun slide(~title: title :: maybe(String || Pict) = #false,
                            #{#:skip-last?}: #true,
                            fun (n): p.snapshot(i, n).handle)
 
-fun slide_content(~title: title :: maybe(String || Pict) = #false,
-                  ~full: full = title && #true,
-                  ~sep: sep :: Real = gap,
-                  ~horiz: horiz :: pict.HorizAlignment = #'center,
-                  ~layout: layout :: SlideLayout = #'auto,
-                  content, ...) :~ Pict:
-  let p = next_to_anim(align_content(sep, horiz, flatten_slide_content(#'slide_content, [content, ...])))
+fun slide_pict(~title: title :: maybe(String || Pict) = #false,
+               ~full: full = title && #true,
+               ~sep: sep :: Real = gap,
+               ~horiz: horiz :: pict.HorizAlignment = #'center,
+               ~layout: layout :: SlideLayout = #'auto,
+               content, ...) :~ Pict:
+  let p = next_to_anim(align_content(sep, horiz, flatten_slide_content(#'slide_pict, [content, ...])))
   if full
   | assemble_slide(title, layout, p)
   | p
@@ -269,25 +269,31 @@ fun align_content(sep, horiz, contents):
               values(math.max(max_w, w),
                      accum.add(Align(sep, horiz, recorded, w)))
       [max_w, accum]
-  recur widen (w = width, sep = sep, horiz = horiz, cs :: List = recorded):
+  fun make_widener(width, horiz, prev):
+    fun (p :~ Pict):
+      prev(match horiz
+           | #'left: p.pad(~right: width - p.width)
+           | #'center: p.pad(~horiz: (width - p.width) / 2)
+           | #'right: p.pad(~left: width - p.width))      
+  recur widen (w = width, sep = sep, cs :: List = recorded,
+               widener = make_widener(width, horiz, values)):
     List.append(
       & for List (c: cs):
         match c
         | p :: Pict:
-            [match horiz
-             | #'left: p.pad(~right: width - p.width)
-             | #'center: p.pad(~horiz: (width - p.width) / 2)
-             | #'right: p.pad(~left: width - p.width)]
+            [widener(p)]
         | next :: Next: [next]
         | Alts([alt, ...]):
-            [Alts([widen(w, sep, horiz, alt), ...])]
+            [Alts([widen(w, sep, alt, widener), ...])]
         | Horiz(h_sep, horiz, cs):
-            let mid = widen(w, if h_sep == #'inherit | sep | h_sep, horiz, cs)
+            let mid = widen(w, if h_sep == #'inherit | sep | h_sep, cs,
+                            make_widener(w, horiz, widener))
             if h_sep == #'inherit
             | mid
             | [SetSep(sep, h_sep)] ++ mid ++ [SetSep(sep, sep)]
         | Align(align_sep, horiz, cs, w):
-            let mid = widen(w, if align_sep == #'inherit | sep | align_sep, horiz, cs)
+            let mid = widen(w, if align_sep == #'inherit | sep | align_sep, cs,
+                            make_widener(w, horiz, widener))
             if align_sep == #'inherit
             | mid            
             | [SetSep(sep, align_sep)] ++ mid ++ [SetSep(sep, sep)]
