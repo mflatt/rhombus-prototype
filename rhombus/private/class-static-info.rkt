@@ -11,6 +11,7 @@
          "call-result-key.rkt"
          "function-arity-key.rkt"
          "function-arity.rkt"
+         "dot-provider-key.rkt"
          "static-info.rkt"
          "class-able.rkt")
 

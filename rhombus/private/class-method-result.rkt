@@ -126,7 +126,7 @@
            (define all-static-infos
              (if all-count
                  (for/foldr ([all-static-infoss (for/list ([_ (in-range all-count)])
-                                                  '())]
+                                                  #'())]
                              #:result (if (eqv? all-count 1)
                                           #`#,(car all-static-infoss)
                                           #`((#%values #,all-static-infoss))))
