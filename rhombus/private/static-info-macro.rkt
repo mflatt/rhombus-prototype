@@ -39,7 +39,8 @@
 
 (define+provide-space statinfo rhombus/statinfo
   #:fields
-  (macro))
+  (macro
+   key))
 
 (begin-for-syntax
   (define-name-root statinfo_meta
@@ -64,23 +65,51 @@
      values_key
      indirect_key)))
 
-(define-for-syntax (make-static-info-macro-macro in-space)
+(define-for-syntax (make-static-info-macro-macro in-space convert-id)
   (definition-transformer
     (lambda (stx)
       (syntax-parse stx
         #:datum-literals (group)
         [(_ (_::quotes (group name::name)) (body-tag::block body ...))
          #`((define-syntax #,(in-space #'name.name)
-              (convert-static-info 'name.name (rhombus-body-at body-tag body ...))))]))))
+              (#,convert-id 'name.name (rhombus-body-at body-tag body ...))))]))))
 
 (define-defn-syntax macro
-  (make-static-info-macro-macro in-static-info-space))
+  (make-static-info-macro-macro in-static-info-space #'convert-static-info))
+
+(define-defn-syntax key
+  (definition-transformer
+    (lambda (stx)
+      (syntax-parse stx
+        #:datum-literals (group)
+        [(_ name::name (body-tag::block
+                        (~and
+                         (~seq (group kw clause-block) ...)
+                         (~seq
+                          (~alt (~optional (group #:union
+                                                  (union-tag::block
+                                                   union-body ...)))
+                                (~optional (group #:intersect
+                                                  (intersect-tag::block
+                                                   intersect-body ...))))
+                          ...))))
+         (unless (attribute union-tag)
+           (raise-syntax-error #f "missing a `~union` clause" stx))
+         (unless (attribute intersect-tag)
+           (raise-syntax-error #f "missing an `~intersect` clause" stx))
+         #`((define-syntax name.name
+              (make-key (~@ kw (rhombus-body-expression clause-block)) ...)))]))))
 
 (define-for-syntax (convert-static-info who stx)
   (unless (syntax? stx)
     (raise-bad-macro-result who "static info" stx))
   (define si (syntax->list (pack who stx)))
   (static-info (lambda () si)))
+
+(define-for-syntax (convert-static-info-key who val)
+  (unless (static-info-key? val)
+    (raise-argument-error* 'statinfo.key rhombus-realm "static info key" val))
+  val)
 
 (define-for-syntax (pack who stx)
   (pack-static-infos who (unpack-term stx who #f)))
@@ -94,6 +123,15 @@
   (unless (identifier? id)
     (raise-argument-error* who rhombus-realm "Identifier" id-in))
   id)
+
+(define-for-syntax (make-key #:union union #:intersect intersect)
+  (define (check-proc union)
+    (unless (and (procedure? union)
+                 (procedure-arity-includes? union 2))
+      (raise-argument-error* 'statinfo.key rhombus-realm "Function.of_arity(2)" union)))
+  (check-proc union)
+  (check-proc intersect)
+  (static-info-key union intersect))
 
 (begin-for-syntax
   (define/arity (statinfo_meta.pack stx)
