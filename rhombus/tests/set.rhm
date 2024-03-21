@@ -403,3 +403,80 @@ check:
   s[s] := #true
   to_string(s)
   ~is "#0=MutableSet{#0#}"
+
+block:
+  class Posn(x, y)
+  let a = Posn(1, 2)
+  let b = Posn(1, 2)
+  let ab = Box(1)
+  let bb = Box(1)
+  check a === b ~is #false
+  def s1 = Set.by(===){ a, b }
+  def s2 = Set.by(is_number_or_object){ a, b, 1 / 2, 2 / 4 }
+  def s3 = Set.by(is_now){ ab, bb }
+  check s1[a] ~is #true
+  check s1[b] ~is #true
+  check s2[a] ~is #true
+  check s2[b] ~is #true
+  check s2[1/2] ~is #true
+  check s2.length() ~is 3
+  check s3[ab] ~is #true
+  check s3.length() ~is 1
+  let str = to_string(s1)
+  check str ~is "Set.by(===){Posn(1, 2), Posn(1, 2)}"
+  check to_string(s2).substring(0, 28) ~is "Set.by(is_number_or_object){"
+  check to_string(s3).substring(0, 15) ~is "Set.by(is_now){"
+  check s1 is_a Set ~is #true
+  check s1 is_a Set.by(===) ~is #true
+  check s1 is_a Set.by(==) ~is #false
+  check Set{} is_a Set.by(==) ~is #true
+  check s2 is_a Set.by(===) ~is #false
+  check s2 is_a Set.by(is_number_or_object) ~is #true
+  check s3 is_a Set.by(===) ~is #false
+  check s3 is_a Set.by(is_now) ~is #true
+  check (for Set.by(===) (i: 0..1): i) ~is Set.by(===){ 0 }
+  check (for Set.by(is_now) (i: 0..1): i) ~is Set.by(is_now){ 0 }
+  check (for Set.by(is_number_or_object) (i: 0..1): i) ~is Set.by(is_number_or_object){ 0 }
+  let [x, ...] = [1, 2, 3]
+  check Set.by(===){ x, ... } ~is Set.by(===){ 1, 2, 3 }
+
+  import rhombus/meta open
+  expr.macro 'check_set_by $(map_by :: Term)':
+    'block:
+       use_static
+       check Set.by($map_by){} ~is Set.by($map_by){}
+       check Set.by($map_by){} ~is_a Set.by($map_by)
+       check Set.by($map_by)(1) ~is Set.by($map_by){ 1 }
+       check Set.by($map_by){} ~is_a Set.by($map_by).of(String)
+       check Set.by($map_by){ "x" } ~is_a Set.by($map_by).of(String)
+       check Set.by($map_by){ "x" } is_a Set.by($map_by).of(String) ~is #true
+       check Set.by($map_by){ "x" } is_a Set.by($map_by).of(Number) ~is #false
+       check Set.by($map_by){} ++ { 0 } ~is Set.by($map_by){ 0 }
+       check Set.by($map_by){} ++ { 0, 2 } ~is Set.by($map_by){ 0, 2 }
+       check Set.by($map_by){ x, $('...')} ~is Set.by($map_by){ 1, 2, 3 }
+       check Set.by($map_by){ x, $('...')}.length() ~is 3
+       check [Set.by($map_by){ x }, $('...')] ~is [Set.by($map_by){ 1 },
+                                                   Set.by($map_by){ 2 },
+                                                   Set.by($map_by){ 3 }]
+       
+       check (for Set.by($map_by) (i: 0..1): i) ~is Set.by($map_by){ 0 }
+       block:
+         let Set.by($map_by){ v, $('...') } = Set.by($map_by){ "x" }
+         check [v, $('...')] ~is ["x"]
+       block:
+         let Set.by($map_by){ 1, & rest } = Set.by($map_by){ 1, 2 }
+         check rest ~is_a Set.by($map_by)
+         check rest[2] ~is #true
+       let m4 = MutableSet.by($map_by){}
+       m4[0] := #true
+       check m4[0] ~is #true
+       check m4 ~is_now MutableSet.by($map_by){ 0 }
+       check m4 ~is_now MutableSet.by($map_by)(0)
+       check m4 ~is_a MutableSet.by($map_by)
+       check [MutableSet.by($map_by){ x }, $('...')] ~is_now [MutableSet.by($map_by){ 1 },
+                                                              MutableSet.by($map_by){ 2 },
+                                                              MutableSet.by($map_by){ 3 }]'
+  check_set_by ==
+  check_set_by ===
+  check_set_by is_now
+  check_set_by is_number_or_object

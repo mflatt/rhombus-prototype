@@ -478,3 +478,79 @@ check:
   m[1] := m
   to_string(m)
   ~is "#0=MutableMap{1: #0#, 3: 4}"
+
+block:
+  class Posn(x, y)
+  let a = Posn(1, 2)
+  let b = Posn(1, 2)
+  let ab = Box(1)
+  let bb = Box(1)
+  check a === b ~is #false
+  def m1 = Map.by(===){ a: 1, b: 2 }
+  def m2 = Map.by(is_number_or_object){ a: 1, b: 2, 1 / 2: 3, 2 / 4: 4 }
+  def m3 = Map.by(is_now){ ab: 1, bb: 2 }
+  check m1[a] ~is 1
+  check m1[b] ~is 2
+  check m2[a] ~is 1
+  check m2[b] ~is 2
+  check m2[1/2] ~is 4
+  check m2.length() ~is 3
+  check m3[ab] ~is 2
+  check m3.length() ~is 1
+  let str = to_string(m1)
+  check (str == "Map.by(===){Posn(1, 2): 1, Posn(1, 2): 2}" || str == "Map.by(===){Posn(1, 2): 2, Posn(1, 2): 1}") ~is #true
+  check to_string(m2).substring(0, 28) ~is "Map.by(is_number_or_object){"
+  check to_string(m3).substring(0, 15) ~is "Map.by(is_now){"
+  check m1 is_a Map ~is #true
+  check m1 is_a Map.by(===) ~is #true
+  check m1 is_a Map.by(==) ~is #false
+  check {} is_a Map.by(==) ~is #true
+  check m2 is_a Map.by(===) ~is #false
+  check m2 is_a Map.by(is_number_or_object) ~is #true
+  check m3 is_a Map.by(===) ~is #false
+  check m3 is_a Map.by(is_now) ~is #true
+  check (for Map.by(===) (i: 0..1): values(i, i+1)) ~is Map.by(===){ 0: 1 }
+  check (for Map.by(is_now) (i: 0..1): values(i, i+1)) ~is Map.by(is_now){ 0: 1 }
+  check (for Map.by(is_number_or_object) (i: 0..1): values(i, i+1)) ~is Map.by(is_number_or_object){ 0: 1 }
+  let [x, ...] = [1, 2, 3]
+  check Map.by(===){ x: x, ...} ~is Map.by(===){ 1: 1, 2: 2, 3: 3 }
+
+  import rhombus/meta open
+  expr.macro 'check_map_by $(map_by :: Term)':
+    'block:
+       use_static
+       check Map.by($map_by){} ~is Map.by($map_by){}
+       check Map.by($map_by){} ~is_a Map.by($map_by)
+       check Map.by($map_by)([1, 2]) ~is Map.by($map_by){ 1: 2 }
+       check Map.by($map_by){} ~is_a Map.by($map_by).of(String, Number)
+       check Map.by($map_by){ "x" : 1 } ~is_a Map.by($map_by).of(String, Number)
+       check Map.by($map_by){ "x" : 1 } is_a Map.by($map_by).of(String, Number) ~is #true
+       check Map.by($map_by){ "x" : 1 } is_a Map.by($map_by).of(Number, String) ~is #false
+       check Map.by($map_by){} ++ { 0: 1 } ~is Map.by($map_by){ 0: 1 }
+       check Map.by($map_by){} ++ { 0: 1, 2: 3 } ~is Map.by($map_by){ 0: 1, 2: 3 }
+       check Map.by($map_by){ x: x, $('...')} ~is Map.by($map_by){ 1: 1, 2: 2, 3: 3 }
+       check Map.by($map_by){ x: x, $('...')}.length() ~is 3       
+       check [Map.by($map_by){ x: x }, $('...')] ~is [Map.by($map_by){ 1 : 1 },
+                                                      Map.by($map_by){ 2 : 2 },
+                                                      Map.by($map_by){ 3 : 3 }]
+       check (for Map.by($map_by) (i: 0..1): values(i, i+1)) ~is Map.by($map_by){ 0: 1 }
+       block:
+         let Map.by($map_by){ 1: v } = Map.by($map_by){ 1: "x" }
+         check v ~is "x"
+       block:
+         let Map.by($map_by){ 1: v, & rest } = Map.by($map_by){ 1: "x", 2 : 3 }
+         check rest ~is_a Map.by($map_by)
+         check rest[2] ~is 3
+       let m4 = MutableMap.by($map_by){}
+       m4[0] := 1
+       check m4[0] ~is 1
+       check m4 ~is_now MutableMap.by($map_by){ 0: 1 }
+       check m4 ~is_now MutableMap.by($map_by)([0, 1])
+       check m4 ~is_a MutableMap.by($map_by)
+       check [MutableMap.by($map_by){ x: x }, $('...')] ~is_now [MutableMap.by($map_by){ 1 : 1 },
+                                                                 MutableMap.by($map_by){ 2 : 2 },
+                                                                 MutableMap.by($map_by){ 3 : 3 }]'
+  check_map_by ==
+  check_map_by ===
+  check_map_by is_now
+  check_map_by is_number_or_object

@@ -24,6 +24,7 @@ export:
   keyword
   pattern
   template
+  map_by
 
 manual.nonterminal:
   expr: block
@@ -45,3 +46,4 @@ manual.nonterminal:
   keyword: block
   pattern: #%quotes
   template: #%quotes
+  map_by: block

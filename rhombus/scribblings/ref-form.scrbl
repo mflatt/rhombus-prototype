@@ -232,3 +232,19 @@
  information on syntax generation.
 
 }
+
+@doc(
+  ~nonterminal_key: block
+  grammar map_by
+){
+
+ In syntax descriptions, @rhombus(map_by) stands for any operator or
+ identifier that is defined as an equality and hashing configration for a
+ map's keys.
+
+ The map configurations exported by @rhombuslangname(rhombus) are
+ @rhombus(==, ~map_by) (the default), @rhombus(===, ~map_by),
+ @rhombus(is_now, ~map_by), and @rhombus(is_number_or_object, ~map_by).
+ New configurations ones can be defined with @top_rhombus(map_by.def).
+
+}

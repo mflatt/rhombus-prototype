@@ -280,9 +280,17 @@
       v
       (lambda ()
         (pretty-listlike
-         (pretty-text (if (mutable-hash? v)
-                          "MutableMap{"
-                          "{"))
+         (pretty-text (cond
+                        [(mutable-hash? v)
+                         (cond
+                           [(hash-eq? v) "MutableMap.by(===){"]
+                           [(hash-eqv? v) "MutableMap.by(is_number_or_object){"]
+                           [(hash-equal? v) "MutableMap.by(is_now){"]
+                           [else "MutableMap{"])]
+                        [(hash-eq? v) "Map.by(===){"]
+                        [(hash-equal? v) "Map.by(is_now){"]
+                        [(hash-eqv? v) "Map.by(is_number_or_object){"]
+                        [else "{"]))
          (for/list ([k+v (in-list (hash->list v #t))])
            (define k (car k+v))
            (define v (cdr k+v))
@@ -297,7 +305,15 @@
                         (print v)))
         (pretty-listlike
          (pretty-text (cond
-                        [(mutable-set? v) "MutableSet{"]
+                        [(mutable-set? v)
+                         (cond
+                           [(hash-eq? (set-ht v)) "MutableSet.by(===){"]
+                           [(hash-equal? (set-ht v)) "MutableSet.by(is_now){"]
+                           [(hash-eqv? (set-ht v)) "MutableSet.by(is_number_or_object){"]
+                           [else "MutableSet{"])]
+                        [(hash-eq? (set-ht v)) "Set.by(===){"]
+                        [(hash-equal? (set-ht v)) "Set.by(is_now){"]
+                        [(hash-eqv? (set-ht v)) "Set.by(is_number_or_object){"]
                         [(null? elems) "Set{"]
                         [else "{"]))
          elems
