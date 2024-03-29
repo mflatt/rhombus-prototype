@@ -17,6 +17,7 @@
          "class-method-result.rkt"
          "index-key.rkt"
          "append-key.rkt"
+         "compare-key.rkt"
          "static-info.rkt"
          "indirect-static-info-key.rkt"
          (submod "dot.rkt" for-dot-provider)
@@ -355,8 +356,10 @@
                                          index-statinfo-indirect-stx indexable?
                                          index-set-statinfo-indirect-stx setable?
                                          append-statinfo-indirect-stx appendable?
+                                         compare-statinfo-indirect-stx comparable?
                                          super-call-statinfo-indirect-id
-                                         #:checked-append? [checked-append? #t])
+                                         #:checked-append? [checked-append? #t]
+                                         #:checked-compare? [checked-compare? #t])
   (define defs
     (for/list ([added (in-list added-methods)])
       #`(define-method-result-syntax #,(added-method-result-id added)
@@ -375,6 +378,7 @@
           #,(or in-final?
                 (eq? (added-method-disposition added) 'final))
           #,checked-append?
+          #,checked-compare?
           #,(added-method-kind added)
           #,(added-method-arity added)
           #,(and callable?
@@ -388,7 +392,10 @@
                  #`[#,index-set-statinfo-indirect-stx #,(added-method-rhs-id added)])
           #,(and appendable?
                  (eq? 'append (syntax-e (added-method-id added)))
-                 #`[#,append-statinfo-indirect-stx #,(added-method-rhs-id added)]))))
+                 #`[#,append-statinfo-indirect-stx #,(added-method-rhs-id added)])
+          #,(and comparable?
+                 (eq? 'compare_to (syntax-e (added-method-id added)))
+                 #`[#,compare-statinfo-indirect-stx #,(added-method-rhs-id added)]))))
   ;; may need to add info for inherited `call`, etc.:
   (define (add-able which statinfo-indirect-stx able? key defs abstract-args
                     #:use-id [use-id #f]
@@ -419,7 +426,9 @@
          [defs (add-able 'set index-set-statinfo-indirect-stx setable? #'#%index-set defs #'(index val))]
          [defs (add-able 'append append-statinfo-indirect-stx appendable? #'#%append defs #'(val)
                          ;; boxed means "checked" for `#%append`:
-                         #:box-id? checked-append?)])
+                         #:box-id? checked-append?)]
+         [defs (add-able 'compare_to compare-statinfo-indirect-stx comparable? #'#%compare defs #'(val)
+                         #:box-id? checked-compare?)])
     defs))
 
 (define-for-syntax (build-method-result-expression method-result)
