@@ -42,12 +42,12 @@
   (make-struct-type-property 'Comparable))
 
 (define-annotation-syntax Comparable
-  (identifier-annotation #'comparable? #'((#%compare ((< general<)
-                                                      (<= general<=)
-                                                      (= general=)
-                                                      (!= general!=)
-                                                      (>= general>=)
-                                                      (> general>))))))
+  (identifier-annotation comparable? ((#%compare ((< general<)
+                                                  (<= general<=)
+                                                  (= general=)
+                                                  (!= general!=)
+                                                  (>= general>=)
+                                                  (> general>))))))
 
 (define (comparable? v)
   (or (real? v)
@@ -96,7 +96,7 @@
                   null))
 
 (define-syntax compare-to-result
-  (method-result #'exact-integer? #t 1 "Int" int-static-infos 4))
+  (method-result #'exact-integer? #t 1 "Int" (get-int-static-infos) 4))
 
 (define-syntax boolean-result
   (method-result #'boolean? #t 1 "Boolean" #'() 4))

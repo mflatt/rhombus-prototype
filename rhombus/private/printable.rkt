@@ -81,7 +81,7 @@
    [special PrintDesc.special]))
 
 (define-annotation-syntax PrintDesc
-  (identifier-annotation #'print-description? #'()))
+  (identifier-annotation print-description? ()))
 
 (define (print-description? pd)
   (or (PrintDesc? pd)

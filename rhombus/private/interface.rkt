@@ -335,8 +335,8 @@
                        [dot-providers (add-super-dot-providers #'internal-name-instance #f supers)])
            (list
             #`(define-annotation-syntax internal-name
-                (identifier-annotation (quote-syntax internal-name?)
-                                       (quote-syntax ((#%dot-provider dot-providers)))))))
+                (identifier-annotation internal-name?
+                                       ((#%dot-provider dot-providers))))))
          null)
      (list
       (build-syntax-definition/maybe-extension
@@ -347,9 +347,9 @@
                                    #'make-annotation-prefix-operator
                                    "interface")
            (with-syntax ([dot-providers (add-super-dot-providers #'name-instance #f supers)])
-             #`(identifier-annotation (quote-syntax name?)
-                                      (quasisyntax ((#%dot-provider name-instance)
-                                                    . indirect-static-infos))))))))))
+             #`(identifier-annotation name?
+                                      ((#%dot-provider name-instance)
+                                       . indirect-static-infos)))))))))
 
 (define-for-syntax (build-interface-desc supers parent-names options
                                          method-mindex method-names method-vtable method-results method-private dots

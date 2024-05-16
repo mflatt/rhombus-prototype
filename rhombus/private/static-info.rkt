@@ -199,7 +199,7 @@
   (syntax-parse stx
     [(_ id:identifier #:defined defined:id)
      #`(define-syntax #,(in-static-info-space #'id)
-         (static-info (lambda () defined)))]
+         (static-info defined))]
     [(_ id:identifier rhs ...)
      #`(define-syntax #,(in-static-info-space #'id)
          (static-info (lambda () (list (quasisyntax rhs) ...))))]))

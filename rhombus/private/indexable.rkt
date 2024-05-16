@@ -50,7 +50,7 @@
                              (list)))
 
 (define-annotation-syntax Indexable
-  (identifier-annotation #'indexable? #'((#%index-get indexable-get))))
+  (identifier-annotation indexable? ((#%index-get indexable-get))))
 (define (indexable? v)
   (or (treelist? v)
       (list? v)
@@ -86,8 +86,8 @@
   (method-result #'(lambda (x) #t) #t 1 "Any" #'() 4))
 
 (define-annotation-syntax MutableIndexable
-  (identifier-annotation #'mutable-indexable? #'((#%index-get indexable-get)
-                                                 (#%index-set indexable-set!))))
+  (identifier-annotation mutable-indexable? ((#%index-get indexable-get)
+                                             (#%index-set indexable-set!))))
 (define (mutable-indexable? v)
   (or (mutable-vector? v)
       (mutable-hash? v)

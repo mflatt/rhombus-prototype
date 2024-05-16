@@ -38,7 +38,7 @@
   (make-struct-type-property 'Appendable))
 
 (define-annotation-syntax Appendable
-  (identifier-annotation #'appendable? #'((#%append general-append))))
+  (identifier-annotation appendable? ((#%append general-append))))
 (define (appendable? v)
   (or (treelist? v)
       (list? v)

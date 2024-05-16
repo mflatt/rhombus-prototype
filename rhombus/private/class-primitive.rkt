@@ -115,7 +115,7 @@
          (syntax-local-value
           (datum->syntax #'parent (string->symbol (format "~a-field-list" (syntax-e #'parent)))))
          null)
-     #:with name-static-infos (datum->syntax #'name (string->symbol (format "~a-static-infos" (syntax-e #'name))))
+     #:with get-name-static-infos (datum->syntax #'name (string->symbol (format "get-~a-static-infos" (syntax-e #'name))))
      #:with Name-str (datum->syntax #'here (symbol->immutable-string (syntax-e #'Name)))
      #:with name-instance (datum->syntax #'here (string->symbol (format "~a-instance" (syntax-e #'name))))
      #:with field-list #'((parent-Name.field parent-field-static-infos)
@@ -180,7 +180,7 @@
                   '())
                 (list declaration))
 
-         (define-for-syntax name-static-infos
+         (define-for-syntax (get-name-static-infos)
            #`((#%dot-provider name-instance)
               . instance-static-infos))
 
@@ -192,7 +192,7 @@
                                #'constructor-static-infos])
                   (list #'(define-static-info-syntax name
                             si ...
-                            (#%call-result #,name-static-infos)
+                            (#%call-result #,(get-name-static-infos))
                             (#%function-arity #,arity-mask)
                             (#%indirect-static-info indirect-function-static-info))))
                 '())
@@ -201,7 +201,7 @@
                 (list
                  #'(set-primitive-contract! 'name? Name-str)
                  #'(define-annotation-syntax Name
-                     (identifier-annotation #'name? name-static-infos)))
+                     (identifier-annotation name? #,(get-name-static-infos))))
                 '())
          #,@(if (or transparent? translucent? just-binding?)
                 (list
@@ -213,17 +213,19 @@
                            (values (relocate-id #'head #'name) #'tail)]))))
                  #`(define-binding-syntax Name
                      (binding-transformer
-                      (make-composite-binding-transformer Name-str
-                                                          #'name?
-                                                          (list (quote-syntax parent-Name.field)
-                                                                ...
-                                                                (quote-syntax Name.field)
-                                                                ...)
-                                                          (list (quote-syntax parent-field-static-infos)
-                                                                ...
-                                                                (~? #`field-static-infos #'())
-                                                                ...)
-                                                          #:static-infos name-static-infos))))
+                      (lambda (tail)
+                        (composite-binding-transformer tail
+                                                       Name-str
+                                                       #'name?
+                                                       (list (quote-syntax parent-Name.field)
+                                                             ...
+                                                             (quote-syntax Name.field)
+                                                             ...)
+                                                       (list (quote-syntax parent-field-static-infos)
+                                                             ...
+                                                             (~? #`field-static-infos #'())
+                                                             ...)
+                                                       #:static-infos (get-name-static-infos))))))
                 '())
 
          (define-name-root Name

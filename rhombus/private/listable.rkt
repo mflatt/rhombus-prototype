@@ -42,10 +42,10 @@
                   null))
 
 (define-syntax to-list-result
-  (method-result #'treelist? #t 1 "List" treelist-static-infos 2))
+  (method-result #'treelist? #t 1 "List" (get-treelist-static-infos) 2))
 
 (define-annotation-syntax Listable
-  (identifier-annotation #'listable? #'((#%dot-provider listable-instance))))
+  (identifier-annotation listable? ((#%dot-provider listable-instance))))
 
 (define-dot-provider-syntax listable-instance
   (dot-provider
@@ -61,14 +61,14 @@
 
 ;; also see `to-treelist-who` in "list.rkt"
 (define/method (Listable.to_list v)
-  #:static-infos ((#%call-result #,treelist-static-infos))
+  #:static-infos ((#%call-result #,(get-treelist-static-infos)))
   (to-treelist who v))
 
 (define-annotation-syntax Listable.to_list
-  (identifier-binding-annotation (binding-form #'to_list-infoer
-                                               #'val)
-                                 #'val
-                                 treelist-static-infos))
+  (identifier-binding-annotation #,(binding-form #'to_list-infoer
+                                                 #'val)
+                                 val
+                                 #,(get-treelist-static-infos)))
 
 (define-syntax (to_list-infoer stx)
   (syntax-parse stx
