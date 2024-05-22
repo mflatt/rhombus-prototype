@@ -1,10 +1,13 @@
 #lang racket/base
 (require (for-syntax racket/base
                      syntax/parse/pre
+                     enforest/name-parse
                      "srcloc.rkt")
          "expression.rkt"
          "binding.rkt"
          "repetition.rkt"
+         "entry-point.rkt"
+         "immediate-callee.rkt"
          "parse.rkt"
          (submod "function-parse.rkt" for-call)
          (submod "indexable.rkt" for-ref)
@@ -41,7 +44,11 @@
                     #%parens
                     #%brackets
                     #%braces
-                    #%call))
+                    #%call)
+         (for-space rhombus/entry_point
+                    #%parens)
+         (for-space rhombus/immediate_callee
+                    #%parens))
 
 (define-syntax #%body
   (expression-transformer
@@ -146,6 +153,78 @@
                ;; eagerly parse content of parentheses; we could choose to
                ;; delay parsing by using `rhombus-expression`, instead
                [e::expression (values (relocate+reraw (maybe-respan #'head) #'e.parsed) #'tail)])]))]))))
+
+(define-entry-point-syntax #%parens
+  (entry-point-transformer
+   ;; parse function:
+   (lambda (stx adjustments)
+     (syntax-parse stx
+       [(_ (~and head (_::parens . args)))
+        (let ([args (syntax->list #'args)])
+          (cond
+            [(null? args)
+             (raise-syntax-error #f "empty entry point" #'head)]
+            [(pair? (cdr args))
+             (raise-syntax-error #f "too many expressions" #'head)]
+            [else
+             (syntax-parse (car args)
+               #:literals (rhombus-_)
+               ;; check for anonymous-function shorthand:
+               [(_ ... rhombus-_ . _) (build-anonymous-function (car args) #'head
+                                                                #:adjustments adjustments)]
+               [(~var e (:entry-point adjustments)) #'e.parsed]
+               [_ (raise-syntax-error #f "not an entry point" #'head)])]))]))
+   ;; extract arity:
+   (lambda (stx)
+     (syntax-parse stx
+       #:datum-literals (group)
+       [(_ (~and head (_::parens arg-g)))
+        (syntax-parse #'arg-g
+          #:literals (rhombus-_)
+          [(_ ... rhombus-_ . _)
+           (for/sum ([t (in-list (cdr (syntax->list #'arg-g)))])
+             (if (and (identifier? t)
+                      (free-identifier=? t #'rhombus-_))
+                 1
+                 0))]
+          [e::entry-point-arity #'e.parsed]
+          [_ #false])]
+       [_ #false]))))
+
+(define-immediate-callee-syntax #%parens
+  (immediate-callee-transformer
+   ;; parse function:
+   (lambda (stx static-infoss op-stx op-mode)
+     (syntax-parse stx
+       [(_ (~and head (_::parens arg)) . tail)
+        #:when (syntax-parse #'tail
+                 [() #t]
+                 [(n::name . _)
+                  (case (expression-relative-precedence op-mode op-stx 'infix #'n.name)
+                    [(stronger same same-on-left) #t]
+                    [else #f])]
+                 [_ #f])
+        (syntax-parse #'arg
+          #:literals (rhombus-_)
+          ;; check for anonymous-function shorthand:
+          [(_ ... rhombus-_ . _)
+           (pack-immediate-callee (build-anonymous-function #'arg #'head
+                                                            #:argument-static-infoss static-infoss)
+                                  #'tail)]
+          [(~var e (:immediate-callee static-infoss #f #f))
+           #'e.parsed]
+          [e::expression
+           (pack-immediate-callee #'e.parsed #'tail)])]
+       [_
+        (case op-mode
+          [(prefix)
+           (syntax-parse #`(group . #,stx)
+             [(~var e (:prefix-op+expression+tail op-stx))
+              (pack-immediate-callee #'e.parsed #'e.tail)])]
+          [else
+           (syntax-parse #`(group . #,stx)
+             [(~var e (:infix-op+expression+tail op-stx))
+              (pack-immediate-callee #'e.parsed #'e.tail)])])]))))
 
 (define-binding-syntax #%parens
   (binding-transformer

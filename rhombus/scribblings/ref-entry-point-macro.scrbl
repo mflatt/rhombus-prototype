@@ -63,7 +63,7 @@
   the latter case, the function should be potentially adjusted with extra
   leading arguments and a wrapper for the body, where the adjustments are
   provided via a @rhombus(entry_point_meta.Adjustment, ~class) value for
-  @rhombus(adj_id). Adjusts might add a ``self'' argument for a method,
+  @rhombus(adj_id). Adjustments might add a ``self'' argument for a method,
   for example, and wrap a body to bind names for direct access to object
   fields and methods.}
 

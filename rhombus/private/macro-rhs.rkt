@@ -223,17 +223,18 @@
                 (cond
                   [(eq? case-shape 'cond)
                    ;; shortcut for a simple identifier macro; `self` and `tail` are bound
-                   #`[#t (let ([self-id self])
-                           (define-syntax #,(in-static-info-space #'self-id) (static-info get-syntax-static-infos))
-                           #,@(maybe-bind-all #'all-id #'self-id #'make-all #'tail-pattern #'tail)
-                           #,@(maybe-bind-tail #'tail-pattern #'tail)
-                           #,(maybe-return-tail
-                              (if (eq? kind 'rule)
-                                  (convert-rule-template #'(tag rhs ...)
-                                                         (maybe-cons #'all-id (list #'self-id)))
-                                  #`(rhombus-body-expression (tag rhs ...)))
-                              #'tail-pattern
-                              #'tail))]]
+                   #`[#t
+                      (let ([self-id self])
+                        (define-syntax #,(in-static-info-space #'self-id) (static-info get-syntax-static-infos))
+                        #,@(maybe-bind-all #'all-id #'self-id #'make-all #'tail-pattern #'tail)
+                        #,@(maybe-bind-tail #'tail-pattern #'tail)
+                        #,(maybe-return-tail
+                           (if (eq? kind 'rule)
+                               (convert-rule-template #'(tag rhs ...)
+                                                      (maybe-cons #'all-id (list #'self-id)))
+                               #`(rhombus-body-expression (tag rhs ...)))
+                           #'tail-pattern
+                           #'tail))]]
                   [else
                    (macro-clause #'self-id #'all-id '()
                                  #'tail-pattern
@@ -405,12 +406,14 @@
                                                 _
                                                 tail-pattern
                                                 rhs)
-                                    #`[#t (let ([#,self-id self])
-                                            (define-syntax #,(in-static-info-space self-id) (static-info get-syntax-static-infos))
-                                            #,@(maybe-bind-all all-id self-id #'make-all #'tail-pattern #'tail)
-                                            #,@(maybe-bind-tail #'tail-pattern #'tail)
-                                            #,(wrap-for-tail
-                                               #`(rhombus-body-expression rhs)))]]))
+                                    #`[#t
+                                       (let ([#,self-id self])
+                                         #,(generate-simple-pattern-check self-id #'tail-pattern #'tail)
+                                         (define-syntax #,(in-static-info-space self-id) (static-info get-syntax-static-infos))
+                                         #,@(maybe-bind-all all-id self-id #'make-all #'tail-pattern #'tail)
+                                         #,@(maybe-bind-tail #'tail-pattern #'tail)
+                                         #,(wrap-for-tail
+                                            #`(rhombus-body-expression rhs)))]]))
                             #,@(if else-case
                                    #`([else #,else-case])
                                    null))]
@@ -428,7 +431,7 @@
                                                 _
                                                 tail-pattern
                                                 rhs)
-                                    (define-values (pattern idrs sidrs vars can-be-empty?) (convert-pattern #`(group (op $) _ . tail-pattern)
+                                    (define-values (pattern idrs sidrs vars can-be-empty?) (convert-pattern #`(group (op $) _Term . tail-pattern)
                                                                                                             #:as-tail? #t
                                                                                                             #:splice? #t
                                                                                                             #:splice-pattern values))
@@ -443,7 +446,7 @@
                                          (define #,self-id self)
                                          (define-syntax #,(in-static-info-space self-id) (static-info get-syntax-static-infos))
                                          #,@(if (syntax-e all-id)
-                                                #`((define #,all-id (make-all (cons self tail)))
+                                                #`((define #,all-id (make-all (cons self (unpack-tail tail #f #f))))
                                                    (define-syntax #,(in-static-info-space all-id) (static-info get-syntax-static-infos)))
                                                 '())
                                          #,(wrap-extra
