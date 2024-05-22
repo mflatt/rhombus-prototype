@@ -37,8 +37,8 @@
                      parse-transformer-definition-sequence-rhs))
 
 (begin-for-syntax
-  (struct parsed (fixity name opts-stx prec-stx assc-stx parsed-right?
-                         ;; implementation is function stx if< `parsed-right?`,
+  (struct parsed (fixity name opts-stx prec-stx assc-stx parsed-right? extra-kw-args
+                         ;; implementation is function stx if `parsed-right?`,
                          ;; or a clause over #'self and maybe #'left otherwise
                          impl))
   (define (maybe-cons id ids) (if (syntax-e id) (cons id ids) ids)))
@@ -145,6 +145,7 @@
                  infix
                  _
                  opt
+                 (extra-kw-id ...)
                  prec
                  assc
                  parsed-right-id
@@ -159,11 +160,12 @@
              #'prec
              #'assc
              (and (syntax-e #'parsed-right-id) #t)
+             (syntax->list #'(extra-kw-id ...))
              (cond
                [(syntax-e #'parsed-right-id)
                 (define right-id #'parsed-right-id)
                 (define extra-args (treelist->list (entry-point-adjustment-prefix-arguments adjustments)))
-                #`(lambda (#,@extra-args left #,right-id self-id)
+                #`(lambda (#,@extra-args left #,right-id self-id extra-kw-id ...)
                     (define-syntax #,(in-static-info-space #'left) (static-info get-syntax-static-infos))
                     (define-syntax #,(in-static-info-space right-id) (static-info get-syntax-static-infos))
                     (define-syntax #,(in-static-info-space #'self-id) (static-info get-syntax-static-infos))
@@ -188,6 +190,7 @@
                  prefix
                  _
                  opt
+                 (extra-kw-id ...)
                  prec
                  assc ; only non-#f if main (i.e., specified before `match` in the definition)
                  parsed-right-id
@@ -201,11 +204,12 @@
              #'prec
              #'assc
              (and (syntax-e #'parsed-right-id) #t)
+             (syntax->list #'(extra-kw-id ...))
              (cond
                [(syntax-e #'parsed-right-id)
                 (define arg-id #'parsed-right-id)
                 (define extra-args (treelist->list (entry-point-adjustment-prefix-arguments adjustments)))
-                #`(lambda (#,@extra-args #,arg-id self-id)
+                #`(lambda (#,@extra-args #,arg-id self-id extra-kw-id ...)
                     (define-syntax #,(in-static-info-space arg-id) (static-info get-syntax-static-infos))
                     (define-syntax #,(in-static-info-space #'self-id) (static-info get-syntax-static-infos))
                     #,@(if (syntax-e #'all-id)
@@ -246,6 +250,7 @@
     [(pre-parsed _
                  _
                  prefix
+                 _
                  _
                  _
                  _
@@ -302,7 +307,7 @@
             #,(if (parsed-parsed-right? p)
                   (parsed-impl p)
                   (let ([extra-args (treelist->list (entry-point-adjustment-prefix-arguments adjustments))])
-                    #`(lambda (#,@extra-args #,@(if prefix? '() (list #'left)) tail self)
+                    #`(lambda (#,@extra-args #,@(if prefix? '() (list #'left)) tail self #,@(parsed-extra-kw-args p))
                         #,(adjust-result
                            adjustments
                            2
@@ -323,7 +328,9 @@
 (define-for-syntax (parse-operator-definition-rhs orig-stx pre-parsed
                                                   space-sym
                                                   make-prefix-id make-infix-id
-                                                  #:adjustments [adjustments no-adjustments])
+                                                  #:adjustments [adjustments no-adjustments]
+                                                  #:extra-static-infoss [extra-static-infoss #'()]
+                                                  #:extra-shapes [extra-shapes '()])
   (define case-shape (select-case-shape pre-parsed))
   (define p (parse-one-macro-definition pre-parsed adjustments case-shape))
   (define op (parsed-name p))
@@ -335,7 +342,9 @@
 (define-for-syntax (parse-operator-definitions-rhs orig-stx pre-parseds
                                                    space-sym
                                                    make-prefix-id make-infix-id prefix+infix-id
-                                                   #:adjustments [adjustments no-adjustments])
+                                                   #:adjustments [adjustments no-adjustments]
+                                                   #:extra-static-infoss [extra-static-infoss #'()]
+                                                   #:extra-shapes [extra-shapes '()])
   (define case-shape 'syntax-parse)
   (define ps (map (lambda (p) (parse-one-macro-definition p adjustments case-shape)) pre-parseds))
   (define prefixes (for/list ([p (in-list ps)] #:when (eq? 'prefix (parsed-fixity p))) p))

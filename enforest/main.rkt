@@ -132,10 +132,10 @@
              infix-operator-ref/sc-args) (syntax-parse #'form-class
                                            [(_ sc-arg ...) (list #'(lambda (ref v) (ref v sc-arg ...))
                                                                  #'(sc-arg ...)
-                                                                 #'(lambda (stx sc-arg ...)
-                                                                     (prefix-operator-ref stx sc-arg ...))
-                                                                 #'(lambda (stx sc-arg ...)
-                                                                     (infix-operator-ref stx sc-arg ...)))]
+                                                                 #'(lambda (v sc-arg ...)
+                                                                     (prefix-operator-ref v))
+                                                                 #'(lambda (v sc-arg ...)
+                                                                     (infix-operator-ref v)))]
                                            [_ (list #'(lambda (ref v) (ref v))
                                                     #'()
                                                     #'prefix-operator-ref
@@ -149,7 +149,7 @@
                     ;; The calls to `transform-out` and `transform-in` here are in case
                     ;; of an enclosing macro transformer, analogous to the use of
                     ;; `syntax-local-introduce` within `local-expand`
-                    #:with parsed (transform-in (enforest (transform-out #'tail)))))
+                    #:with parsed (transform-in (enforest (transform-out #'tail) send-sc-args))))
 
          (define prefix-operator-ref* prefix-operator-ref/sc-args)
          (define infix-operator-ref* infix-operator-ref/sc-args)

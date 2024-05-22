@@ -82,7 +82,9 @@
       [(_ [orig-stx base-stx init-scope-stx
            meta-name enforest?
            name
-           space-path-name make-prefix-operator make-infix-operator make-prefix+infix-operator]
+           space-path-name
+           make-prefix-operator make-infix-operator make-prefix+infix-operator
+           (extra-kw ...)]
           [#:ctx forward-base-ctx forward-ctx]
           exports
           [option stx-params]
@@ -90,6 +92,10 @@
        #:with scope-stx ((make-syntax-delta-introducer #'forward-ctx #'forward-base-ctx) #'init-scope-stx)
        (define options (parse-space-meta-clause-options #'orig-stx (syntax-e #'transformer?) #'(option ...)))
        (define class-name (hash-ref options '#:syntax_class #'#f))
+       (define class-arguments (hash-ref options '#:syntax_class_arguments #f))
+       (when class-arguments
+         (unless (= (length class-arguments) (length (syntax->list #'(extra-kw ...))))
+           (raise-syntax-error #f "syntax class argument count does not match macro definer's keyword count" class-name)))
        (define prefix-more-class-name (hash-ref options '#:syntax_class_prefix_more #'#f))
        (define infix-more-class-name (hash-ref options '#:syntax_class_infix_more #'#f))
        (define space-reflect-name (hash-ref options '#:reflection #'#f))
@@ -122,98 +128,134 @@
              (define/arity (#,unpack-id stx [fail-k #f])
                #:static-infos ((#%call-result (#,(quote-syntax unsyntax) (get-syntax-static-infos))))
                (unpack-parsed '#,parsed-tag stx fail-k)))))
-       (cond
-         [(syntax-e #'enforest?)
-          #`(begin
-              (define-name-root #,(expose #'meta-name)
-                #:fields
-                (#,@(filter-missing
-                     #`([#,class-name _class-name]
-                        [#,prefix-more-class-name _prefix-more-class-name]
-                        [#,infix-more-class-name _infix-more-class-name]
-                        [#,space-reflect-name _space]
-                        [#,pack-id #,pack-id]
-                        [#,unpack-id #,unpack-id]))
-                 . #,exs))
-              (define in-new-space (make-interned-syntax-introducer/add 'space-path-name))
-              (property new-prefix-operator prefix-operator)
-              (property new-infix-operator infix-operator)
-              (struct new-prefix+infix-operator (prefix infix)
-                #:property prop:new-prefix-operator (lambda (self) (new-prefix+infix-operator-prefix self))
-                #:property prop:new-infix-operator (lambda (self) (new-prefix+infix-operator-infix self)))
-              (define-rhombus-enforest
-                #:syntax-class :base
-                #:enforest parse-group
-                #:prefix-more-syntax-class :prefix-more
-                #:infix-more-syntax-class :infix-more
-                #:desc #,desc
-                #:operator-desc #,desc-operator
-                #:parsed-tag #,parsed-tag
-                #:in-space in-new-space
-                #:prefix-operator-ref new-prefix-operator-ref
-                #:infix-operator-ref new-infix-operator-ref
-                #:check-result #,macro-result
-                #:make-identifier-form #,identifier-transformer)
-              (define-syntax _class-name (make-syntax-class #':base
-                                                            #:kind 'group
-                                                            #:fields #'((parsed parsed parsed 0 unpack-term*))
-                                                            #:root-swap '(parsed . group)))
-              (define-syntax _prefix-more-class-name (make-syntax-class #':prefix-more
-                                                                        #:kind 'group
-                                                                        #:fields #'((parsed parsed #f 0 unpack-term*)
-                                                                                    (tail #f tail tail unpack-tail-list*))
-                                                                        #:root-swap '(parsed . group)
-                                                                        #:arity 2))
-              (define-syntax _infix-more-class-name (make-syntax-class #':infix-more
-                                                                       #:kind 'group
-                                                                       #:fields #'((parsed parsed #f 0 unpack-term*)
-                                                                                   (tail #f tail tail unpack-tail-list*))
-                                                                       #:root-swap '(parsed . group)
-                                                                       #:arity 2))
-              (define make-prefix-operator (make-make-prefix-operator new-prefix-operator
+       (with-syntax ([:base-decl (if class-arguments
+                                     #`(:base #,@class-arguments)
+                                     #':base)]
+                     [base-arity-mask (if class-arguments
+                                          (arithmetic-shift 1 (length class-arguments))
+                                          #f)]
+                     [more-arity-mask (if class-arguments
+                                          (arithmetic-shift 1 (+ 1 (length class-arguments)))
+                                          2)])
+         (define add-args
+           (case-lambda
+             [(ref-id struct-id protocol1? args1 args2 struct-proc-id proc-parent-spec)
+              (if class-arguments
+                  #`(lambda (v)
+                      (define r (#,ref-id v))
+                      (and r
+                           (struct-copy #,struct-id r
+                                        [proc #,@proc-parent-spec
+                                              (if (#,protocol1? v)
+                                                  (lambda #,args1
+                                                    ((#,struct-proc-id r) #,@args1 #,@class-arguments))
+                                                  (lambda #,args2
+                                                    ((#,struct-proc-id r) #,@args2 #,@class-arguments)))])))
+                  ref-id)]
+             [(ref-id struct-id args1 args2 struct-proc-id proc-parent-spec)
+              (define protocol1? #`(lambda (v) (eq? (operator-protocol v) 'automatic)))
+              (add-args ref-id struct-id protocol1? args1 args2 struct-proc-id  proc-parent-spec)]
+             [(ref-id struct-id args struct-proc-id)
+              (add-args ref-id struct-id #`(lambda (v) #f) args args struct-proc-id #'())]))
+         (cond
+           [(syntax-e #'enforest?)
+            #`(begin
+                (define-name-root #,(expose #'meta-name)
+                  #:fields
+                  (#,@(filter-missing
+                       #`([#,class-name _class-name]
+                          [#,prefix-more-class-name _prefix-more-class-name]
+                          [#,infix-more-class-name _infix-more-class-name]
+                          [#,space-reflect-name _space]
+                          [#,pack-id #,pack-id]
+                          [#,unpack-id #,unpack-id]))
+                   . #,exs))
+                (define in-new-space (make-interned-syntax-introducer/add 'space-path-name))
+                (property new-prefix-operator prefix-operator)
+                (property new-infix-operator infix-operator)
+                (struct new-prefix+infix-operator (prefix infix)
+                  #:property prop:new-prefix-operator (lambda (self) (new-prefix+infix-operator-prefix self))
+                  #:property prop:new-infix-operator (lambda (self) (new-prefix+infix-operator-infix self)))
+                (define-rhombus-enforest
+                  #:syntax-class :base-decl
+                  #:enforest parse-group
+                  #:prefix-more-syntax-class :prefix-more
+                  #:infix-more-syntax-class :infix-more
+                  #:desc #,desc
+                  #:operator-desc #,desc-operator
+                  #:parsed-tag #,parsed-tag
+                  #:in-space in-new-space
+                  #:prefix-operator-ref #,(add-args #'new-prefix-operator-ref
+                                                    #'prefix-operator #'(form stx) #'(tail)
+                                                    #'operator-proc #'(#:parent operator))
+                  #:infix-operator-ref #,(add-args #'new-infix-operator-ref
+                                                   #'infix-operator #'(form1 form2 stx)  #'(form1 tail)
+                                                   #'operator-proc #'(#:parent operator))
+                  #:check-result #,macro-result
+                  #:make-identifier-form #,identifier-transformer)
+                (define-syntax _class-name (make-syntax-class #':base
+                                                              #:kind 'group
+                                                              #:arity base-arity-mask
+                                                              #:fields #'((parsed parsed parsed 0 unpack-term*))
+                                                              #:root-swap '(parsed . group)))
+                (define-syntax _prefix-more-class-name (make-syntax-class #':prefix-more
+                                                                          #:kind 'group
+                                                                          #:fields #'((parsed parsed #f 0 unpack-term*)
+                                                                                      (tail #f tail tail unpack-tail-list*))
+                                                                          #:root-swap '(parsed . group)
+                                                                          #:arity more-arity-mask))
+                (define-syntax _infix-more-class-name (make-syntax-class #':infix-more
+                                                                         #:kind 'group
+                                                                         #:fields #'((parsed parsed #f 0 unpack-term*)
+                                                                                     (tail #f tail tail unpack-tail-list*))
+                                                                         #:root-swap '(parsed . group)
+                                                                         #:arity more-arity-mask))
+                (define make-prefix-operator (make-make-prefix-operator new-prefix-operator
+                                                                        (quote #,(and pack-and-unpack? parsed-tag))))
+                (define make-infix-operator (make-make-infix-operator new-infix-operator
                                                                       (quote #,(and pack-and-unpack? parsed-tag))))
-              (define make-infix-operator (make-make-infix-operator new-infix-operator
-                                                                    (quote #,(and pack-and-unpack? parsed-tag))))
-              (define make-prefix+infix-operator new-prefix+infix-operator)
-              #,@(build-pack-and-unpack)
-              (maybe-skip
-               #,space-reflect-name
-               (define _space (space-name 'space-path-name))))]
-         [else
-          #`(begin
-              (define-name-root #,(expose #'meta-name)
-                #:fields
-                #,(filter-missing
-                   #`([#,class-name _class-name]
-                      [#,space-reflect-name _space]
-                      . #,exs)))
-              (define in-new-space (make-interned-syntax-introducer/add 'space-path-name))
-              (maybe-skip
-               class-name
-               (property new-transformer transformer))
-              (maybe-skip
-               class-name
-               (define-rhombus-transform
-                 #:syntax-class :base
-                 #:transform parse-group
-                 #:desc #,desc
-                 #:parsed-tag #,parsed-tag
-                 #:in-space in-new-space
-                 #:transformer-ref new-transformer-ref
-                 #:check-result #,macro-result))
-              (maybe-skip
-               class-name
-               (define-syntax _class-name (make-syntax-class #':base
-                                                             #:kind 'group
-                                                             #:fields #'((parsed parsed parsed 0 unpack-term*))
-                                                             #:root-swap '(parsed . group))))
-              (maybe-skip
-               class-name
-               (define make-prefix-operator (make-make-transformer 'name new-transformer)))
-              #,@(build-pack-and-unpack)
-              (maybe-skip
-               #,space-reflect-name
-               (define _space (space-name 'space-path-name))))])])))
+                (define make-prefix+infix-operator new-prefix+infix-operator)
+                #,@(build-pack-and-unpack)
+                (maybe-skip
+                 #,space-reflect-name
+                 (define _space (space-name 'space-path-name))))]
+           [else
+            #`(begin
+                (define-name-root #,(expose #'meta-name)
+                  #:fields
+                  #,(filter-missing
+                     #`([#,class-name _class-name]
+                        [#,space-reflect-name _space]
+                        . #,exs)))
+                (define in-new-space (make-interned-syntax-introducer/add 'space-path-name))
+                (maybe-skip
+                 class-name
+                 (property new-transformer transformer))
+                (maybe-skip
+                 class-name
+                 (define-rhombus-transform
+                   #:syntax-class :base-decl
+                   #:transform parse-group
+                   #:desc #,desc
+                   #:parsed-tag #,parsed-tag
+                   #:in-space in-new-space
+                   #:transformer-ref #,(add-args #'new-transformer-ref
+                                                 #'transformer #'(stx) #'transformer-proc)
+                   #:check-result #,macro-result))
+                (maybe-skip
+                 class-name
+                 (define-syntax _class-name (make-syntax-class #':base
+                                                               #:kind 'group
+                                                               #:fields #'((parsed parsed parsed 0 unpack-term*))
+                                                               #:root-swap '(parsed . group)
+                                                               #:arity base-arity-mask)))
+                (maybe-skip
+                 class-name
+                 (define make-prefix-operator (make-make-transformer 'name new-transformer)))
+                #,@(build-pack-and-unpack)
+                (maybe-skip
+                 #,space-reflect-name
+                 (define _space (space-name 'space-path-name))))]))])))
 
 (define-for-syntax (filter-missing flds)
   (for/list ([fld (in-list (syntax->list flds))]
@@ -243,14 +285,14 @@
      [(eq? protocol 'automatic)
       (if parsed-tag
           (procedure-rename
-           (lambda (form stx) (proc (tag form parsed-tag) stx))
+           (lambda (form stx . more) (apply proc (tag form parsed-tag) stx more))
            (object-name proc))
           proc)]
      [else
       (procedure-rename
-       (lambda (tail)
+       (lambda (tail . more)
          (finish (lambda () (syntax-parse tail
-                              [(head . tail) (proc (pack-tail #'tail #:after #'head) #'head)]))
+                              [(head . tail) (apply proc (pack-tail #'tail #:after #'head) #'head more)]))
                  proc))
        (object-name proc))])))
 
@@ -262,24 +304,24 @@
      [(eq? protocol 'automatic)
       (if parsed-tag
           (procedure-rename
-           (lambda (form1 form2 stx) (proc (tag form1 parsed-tag) (tag form2 parsed-tag) stx))
+           (lambda (form1 form2 stx . more) (apply proc (tag form1 parsed-tag) (tag form2 parsed-tag) stx more))
            (object-name proc))
           proc)]
      [else
       (procedure-rename
-       (lambda (form1 tail)
+       (lambda (form1 tail . more)
          (finish
           (lambda () (syntax-parse tail
-                       [(head . tail) (proc (tag form1 parsed-tag) (pack-tail #'tail #:after #'head) #'head)]))
+                       [(head . tail) (apply proc (tag form1 parsed-tag) (pack-tail #'tail #:after #'head) #'head more)]))
           proc))
        (object-name proc))])
    assc))
 
 (define ((make-make-transformer name new-transformer) proc)
   (new-transformer
-   (lambda (stx)
+   (lambda (stx . more)
      (syntax-parse stx
-       [(head . tail) (proc (pack-tail #'tail) #'head)]))))
+       [(head . tail) (apply proc (pack-tail #'tail) #'head more)]))))
 
 (define (finish thunk proc)
   (define-values (form new-tail)
