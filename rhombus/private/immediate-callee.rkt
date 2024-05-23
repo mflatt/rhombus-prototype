@@ -20,7 +20,7 @@
 
   (property immediate-callee-transformer transformer ())
 
-  (define (check-immediate-callee-result form proc)
+  (define (check-immediate-callee-result form proc static-infoss op-stx op-mode)
     (unless (and (syntax? form)
                  (syntax-parse form
                    [(term . tail) #t]
@@ -38,11 +38,7 @@
     #:desc "immediate-callee form"
     #:parsed-tag #:rhombus/immediate_callee
     #:in-space in-immediate-callee-space
-    #:transformer-ref (lambda (v)
-                        (define t (immediate-callee-transformer-ref v))
-                        (and t (transformer
-                                (lambda (stx)
-                                  ((transformer-proc t) stx static-infoss op-stx op-mode)))))
+    #:transformer-ref immediate-callee-transformer-ref
     #:check-result check-immediate-callee-result))
 
 (define-syntax (define-immediate-callee-syntax stx)

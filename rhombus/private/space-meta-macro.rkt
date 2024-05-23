@@ -109,7 +109,7 @@
                                       #`(make-check-syntax (quote name)
                                                            (quote #,parsed-tag)
                                                            #,(and pack-and-unpack?
-                                                                  #`(lambda (e) (parse-group e))))))
+                                                                  #`(lambda (e env) (apply parse-group e env))))))
        (define identifier-transformer (hash-ref options '#:identifier_transformer #'values))
        (define expose (make-expose #'scope-stx #'base-stx))
        (define exs (parse-exports #'(combine-out . exports) expose))
@@ -137,26 +137,6 @@
                      [more-arity-mask (if class-arguments
                                           (arithmetic-shift 1 (+ 1 (length class-arguments)))
                                           2)])
-         (define add-args
-           (case-lambda
-             [(ref-id struct-id protocol1? args1 args2 struct-proc-id proc-parent-spec)
-              (if class-arguments
-                  #`(lambda (v)
-                      (define r (#,ref-id v))
-                      (and r
-                           (struct-copy #,struct-id r
-                                        [proc #,@proc-parent-spec
-                                              (if (#,protocol1? v)
-                                                  (lambda #,args1
-                                                    ((#,struct-proc-id r) #,@args1 #,@class-arguments))
-                                                  (lambda #,args2
-                                                    ((#,struct-proc-id r) #,@args2 #,@class-arguments)))])))
-                  ref-id)]
-             [(ref-id struct-id args1 args2 struct-proc-id proc-parent-spec)
-              (define protocol1? #`(lambda (v) (eq? (operator-protocol v) 'automatic)))
-              (add-args ref-id struct-id protocol1? args1 args2 struct-proc-id  proc-parent-spec)]
-             [(ref-id struct-id args struct-proc-id)
-              (add-args ref-id struct-id #`(lambda (v) #f) args args struct-proc-id #'())]))
          (cond
            [(syntax-e #'enforest?)
             #`(begin
@@ -185,12 +165,8 @@
                   #:operator-desc #,desc-operator
                   #:parsed-tag #,parsed-tag
                   #:in-space in-new-space
-                  #:prefix-operator-ref #,(add-args #'new-prefix-operator-ref
-                                                    #'prefix-operator #'(form stx) #'(tail)
-                                                    #'operator-proc #'(#:parent operator))
-                  #:infix-operator-ref #,(add-args #'new-infix-operator-ref
-                                                   #'infix-operator #'(form1 form2 stx)  #'(form1 tail)
-                                                   #'operator-proc #'(#:parent operator))
+                  #:prefix-operator-ref new-prefix-operator-ref
+                  #:infix-operator-ref new-infix-operator-ref
                   #:check-result #,macro-result
                   #:make-identifier-form #,identifier-transformer)
                 (define-syntax _class-name (make-syntax-class #':base
@@ -239,8 +215,7 @@
                    #:desc #,desc
                    #:parsed-tag #,parsed-tag
                    #:in-space in-new-space
-                   #:transformer-ref #,(add-args #'new-transformer-ref
-                                                 #'transformer #'(stx) #'transformer-proc)
+                   #:transformer-ref new-transformer-ref
                    #:check-result #,macro-result))
                 (maybe-skip
                  class-name
@@ -333,7 +308,7 @@
   (values form
           (unpack-tail new-tail proc #f)))
 
-(define ((make-check-syntax name parsed-tag recur) form proc)
+(define ((make-check-syntax name parsed-tag recur) form proc . env)
   (unless (syntax? form)
     (raise-bad-macro-result (proc-name proc) (symbol->immutable-string name) form))
   (if recur
@@ -345,7 +320,7 @@
         [_
          (cond
            [(unpack-tail form #f #f)
-            => (lambda (g) (recur g))]
+            => (lambda (g) (recur g env))]
            [else
             (raise-bad-macro-result (proc-name proc) (symbol->immutable-string name) form)])])
       form))
