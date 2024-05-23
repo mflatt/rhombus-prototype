@@ -87,7 +87,7 @@
 ;;   * a successful comparison:
 ;;       - 'stronger (left takes precedence)
 ;;       - 'weaker (right takes precedence)
-;;   * an error comparision, where the result desribes why:
+;;   * an error comparision, where the result describes why:
 ;;       - 'inconsistent-prec
 ;;       - 'inconsistent-assoc
 ;;       - 'same (error because no associativity)

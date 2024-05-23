@@ -16,11 +16,12 @@
 (begin-for-syntax
   (provide (property-out immediate-callee-transformer)
            :immediate-callee
-           pack-immediate-callee)
+           pack-immediate-callee
+           unpack-immediate-callee)
 
   (property immediate-callee-transformer transformer ())
 
-  (define (check-immediate-callee-result form proc static-infoss op-stx op-mode)
+  (define (check-immediate-callee-result form proc static-infoss op-mode op-stx)
     (unless (and (syntax? form)
                  (syntax-parse form
                    [(term . tail) #t]
@@ -30,11 +31,14 @@
 
   (define (pack-immediate-callee stx tail)
     #`(#,stx . #,tail))
+  (define (unpack-immediate-callee stx)
+    (syntax-parse stx
+      [(stx . tail) (values #'stx #'tail)]))
 
   (define in-immediate-callee-space (make-interned-syntax-introducer/add 'rhombus/immediate_callee))
 
   (define-rhombus-transform
-    #:syntax-class (:immediate-callee static-infoss op-stx op-mode)
+    #:syntax-class (:immediate-callee static-infoss op-mode op-stx)
     #:desc "immediate-callee form"
     #:parsed-tag #:rhombus/immediate_callee
     #:in-space in-immediate-callee-space

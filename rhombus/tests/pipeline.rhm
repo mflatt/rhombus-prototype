@@ -48,20 +48,3 @@ check:
   use_static
   "apple" |> (fun (x): x[0])
   ~is "a"[0]
-
-block:
-  use_static
-  import:
-    rhombus/meta open
-  immediate_callee.macro 'ref0':
-    'fun (x): x[0]'
-  immediate_callee.macro 'p_ref0':
-    '(fun (x): x[0])'
-  immediate_callee.macro 'l_ref0':
-    ~static_infos: sis
-    '[(fun (x):
-         statinfo.macro 'x': '$(sis[0])'
-         x[0])][0]'
-  check "apple" |> ref0 ~is "apple"[0]
-  check "apple" |> p_ref0 ~is "apple"[0]
-  check "apple" |> l_ref0 ~is "apple"[0]

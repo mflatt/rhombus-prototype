@@ -2,7 +2,8 @@
 (require (for-syntax racket/base
                      syntax/parse/pre
                      enforest/name-parse
-                     "srcloc.rkt")
+                     "srcloc.rkt"
+                     "pack.rkt")
          "expression.rkt"
          "binding.rkt"
          "repetition.rkt"
@@ -20,7 +21,8 @@
          (submod "literal.rkt" for-info)
          "is-static.rkt"
          (only-in "underscore.rkt"
-                  [_ rhombus-_]))
+                  [_ rhombus-_])
+         "operator-compare.rkt")
 
 (provide (for-space #f
                     #%body
@@ -194,16 +196,11 @@
 (define-immediate-callee-syntax #%parens
   (immediate-callee-transformer
    ;; parse function:
-   (lambda (stx static-infoss op-stx op-mode)
+   (lambda (stx static-infoss op-mode op-stx)
      (syntax-parse stx
        [(_ (~and head (_::parens arg)) . tail)
-        #:when (syntax-parse #'tail
-                 [() #t]
-                 [(n::name . _)
-                  (case (expression-relative-precedence op-mode op-stx 'infix #'n.name)
-                    [(stronger same same-on-left) #t]
-                    [else #f])]
-                 [_ #f])
+        #:when (ends-parse? 'parens op-mode op-stx (pack-tail #'tail)
+                            #f expression-relative-precedence expression-infix-operator-ref)
         (syntax-parse #'arg
           #:literals (rhombus-_)
           ;; check for anonymous-function shorthand:
@@ -211,8 +208,9 @@
            (pack-immediate-callee (build-anonymous-function #'arg #'head
                                                             #:argument-static-infoss static-infoss)
                                   #'tail)]
-          [(~var e (:immediate-callee static-infoss #f #f))
-           #'e.parsed]
+          [(~var e (:immediate-callee static-infoss 'prefix #'none))
+           (define-values (parsed new-tail) (unpack-immediate-callee #'e.parsed))
+           (pack-immediate-callee parsed #'tail)]
           [e::expression
            (pack-immediate-callee #'e.parsed #'tail)])]
        [_

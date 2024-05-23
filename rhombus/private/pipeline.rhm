@@ -19,7 +19,7 @@ expr.macro '$arg |> $tail ...':
   let arg_si = statinfo_meta.pack(statinfo_meta.gather(arg))
   let (func, tail):
     match '$tail ...'
-    | '$(func :: immediate_callee_meta.Parsed([arg_si], self, #'infix))':
+    | '$(func :: immediate_callee_meta.Parsed([arg_si], #'infix, self))':
         values(func, '$func.tail ...')
     | '$(func :: expr_meta.AfterInfixParsed(self))':
         values(func, '$func.tail ...')
