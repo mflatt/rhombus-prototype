@@ -130,3 +130,14 @@ check:
       let nonesuch = 8
   ~throws "exported identifier defined later"
 
+block:
+  import rhombus/meta open
+  namespace A:
+    export:
+      only_space namespace:
+        B
+    namespace B:
+      export x
+      def x = "x"
+
+  check A.B.x ~is "x"

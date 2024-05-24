@@ -71,7 +71,8 @@
                         (define sub-id (if prefix
                                            (build-name prefix field-id)
                                            field-id))
-                        (let ([id (get #f what sub-id in-space)])
+                        (let ([id (or (get #f what sub-id in-space)
+                                      (get #f what sub-id in-name-root-space))])
                           (and id
                                (or (not binding-end?)
                                    (syntax-local-value* (in-space id) binding-ref))
