@@ -10,13 +10,15 @@
          "../private/example.rhm"
          "../private/rhombus-doc.rkt"
          "../private/rhombus-spacer.rhm"
-         "../private/manual-text.rhm")
+         "../private/manual-text.rhm"
+         "../private/include_doc.rhm")
 
 (provide (all-from-out scribble/rhombus
                        "../private/rhombus.rhm"
                        "../private/rhombus_typeset.rhm"
                        "../private/rhombus-doc.rkt"
-                       "../private/manual-text.rhm")
+                       "../private/manual-text.rhm"
+                       "../private/include_doc.rhm")
          (rename-out [rhombus:if if])
          (for-space rhombus/decl
                     (rename-out

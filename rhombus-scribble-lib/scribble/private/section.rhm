@@ -17,6 +17,7 @@ fun title(~tag: tag :: maybe(String || List.of(String)) = #false,
           ~version: vers :: maybe(String) = #false,
           ~date: date :: maybe(String) = #false,
           pre_content :: PreContent):
+  ~doc: @List{a b c}
   base.title(~tag: convert_list(tag),
              #{#:tag-prefix}:
                match tag_prefix

@@ -1,0 +1,33 @@
+#lang rhombus/static/and_meta
+import:
+  "doc.rhm".doc
+  meta:
+    rhombus/doc_spec.DocSpec
+
+export:
+  include_doc
+
+expr.macro 'include_doc($mod, $(id :: Identifier), $body)':
+  ~op_stx: self
+  ~all_stx: stx
+  import:      
+    lib("racket/base.rkt")
+  let mod_path :~ ModulePath:
+    try:
+      ModulePath('$mod ! doc')
+      ~catch _:
+        syntax_meta.error("invalid module path", stx, mod)
+  fun bad_export():
+    syntax_meta.error("not exported as a `DocSpec`",
+                      stx,
+                      id)
+  let b = base.#{dynamic-require}(mod_path.s_exp(),
+                                  id.unwrap(),
+                                  bad_export)
+  match b
+  | b :: DocSpec:
+      let [b_content, ...] = [Syntax.replace_scopes(List.repet(b.content), self), ...]
+      let [b, ...] = [Syntax.replace_scopes(List.repet(b.headers), self), ...]
+      '@doc($b, ..., [$b_content, ..., "\n", "\n", $body])'
+  | ~else:
+      bad_export()

@@ -93,3 +93,6 @@
 
 (module+ pack
   (bounce "amalgam/pack.rkt"))
+
+(module+ doc_spec
+  (bounce "amalgam/doc_spec.rhm"))

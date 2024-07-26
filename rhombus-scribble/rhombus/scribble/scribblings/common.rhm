@@ -1,0 +1,12 @@
+#lang rhombus/static/and_meta
+import:
+  meta_label:
+    rhombus open:
+      except:
+        #{#%module-begin}
+    scribble/rhombus/manual open
+
+export:
+  meta_label:
+    all_from(rhombus)
+    all_from(scribble/rhombus/manual)

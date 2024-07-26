@@ -1,0 +1,11 @@
+#lang rhombus/private/amalgam/core
+
+export:
+  DocSpec
+  make_doc_spec
+
+class DocSpec(headers :: List.of(Syntax),
+              content :: List.of(Syntax))
+
+fun make_doc_spec(headers, content):
+  DocSpec(headers, content)

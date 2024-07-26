@@ -1,0 +1,3 @@
+#lang rhombus
+import: scribble/rhombus/manual
+export: all_from(.manual)
