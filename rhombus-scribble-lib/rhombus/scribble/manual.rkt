@@ -1,12 +1,51 @@
 #lang racket/base
+(require (rename-in rhombus/scribble
+                    [if rhombus:if]
+                    [module rhombus:module])
+         (prefix-in manual: scribble/manual)
+         "private/rhombus.rhm"
+         "private/rhombus_typeset.rhm"
+         "private/doc.rhm"
+         "private/docmodule.rhm"
+         "private/example.rhm"
+         "private/rhombus-doc.rkt"
+         "private/rhombus-spacer.rhm"
+         "private/manual-text.rhm"
+         "private/include_doc.rhm")
 
-(require scribble/rhombus/manual)
-(provide (all-from-out scribble/rhombus/manual))
+(provide (all-from-out rhombus/scribble
+                       "private/rhombus.rhm"
+                       "private/rhombus_typeset.rhm"
+                       "private/rhombus-doc.rkt"
+                       "private/manual-text.rhm"
+                       "private/include_doc.rhm")
+         (rename-out [rhombus:if if])
+         (for-space rhombus/decl
+                    (rename-out
+                     [rhombus:module module]))
+         doc
+         (for-space rhombus/defn
+                    nonterminal)
+         nontermref
+         (for-space rhombus/decl
+                    docmodule)
+         rhombusmodname
+         rhombuslangname
+         racketmodname
+         examples
+         make_rhombus_eval
+         close_eval
+         (all-from-out "private/rhombus-spacer.rhm"))
 
-(module reader racket/base
-  (require (submod scribble/rhombus/manual reader))
-  (provide (all-from-out (submod scribble/rhombus/manual reader))))
+(module reader syntax/module-reader
+  #:language 'rhombus/scribble/manual
+  #:read read-proc
+  #:read-syntax read-syntax-proc
+  #:info get-info-proc
+  #:whole-body-readers? #t
+  (require (submod rhombus/scribble reader)))
 
 (module configure-expand racket/base
-  (require (submod scribble/rhombus/manual configure-expand))
-  (provide (all-from-out (submod scribble/rhombus/manual configure-expand))))
+  (require rhombus/expand-config)
+  (provide enter-parameterization
+           exit-parameterization))

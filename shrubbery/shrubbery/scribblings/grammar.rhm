@@ -1,7 +1,7 @@
 #lang rhombus
 
 import:
-  scribble/rhombus open
+  rhombus/scribble open
   scribble/private/util
   lib("scribble/bnf.rkt")
 

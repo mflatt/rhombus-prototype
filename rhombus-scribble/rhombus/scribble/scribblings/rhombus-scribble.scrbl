@@ -6,11 +6,9 @@
 
 Start here.
 
-@docmodule(~lang,
-           ~use_sources: scribble/rhombus,
-           rhombus/scribble)
+@docmodule(~lang, rhombus/scribble)
 
-@include_doc(scribble/private/section, title){
+@include_doc(rhombus/scribble/private/section, title){
 
 The @rhombus(title) function!
 
