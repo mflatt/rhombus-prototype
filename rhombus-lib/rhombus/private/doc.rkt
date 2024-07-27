@@ -1,4 +1,5 @@
 #lang racket/base
+(require "bounce.rkt")
 
-(provide (all-from-out racket/base)
-         (rename-out [begin top]))
+(bounce rhombus
+        (lib "rhombus/doc_spec.rhm"))

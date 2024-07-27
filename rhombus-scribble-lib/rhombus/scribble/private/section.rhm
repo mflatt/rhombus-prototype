@@ -2,6 +2,7 @@
 
 import:
   "util.rhm" open
+  "util.rhm"!convert open  
   lib("scribble/base.rkt")
 
 export:
@@ -11,13 +12,13 @@ export:
   subsubsection
   subsubsub_section
 
-fun title(~tag: tag :: maybe(String || List.of(String)) = #false,
-          ~tag_prefix: tag_prefix :: maybe(String || ModulePath) = #false,
-          ~style: style :: maybe(Style || String || Symbol || List.of(Symbol)) = #false,
+fun title(~tag: tag :: maybe(TagSuffix) = #false,
+          ~tag_prefix: tag_prefix :: maybe(TagPrefix) = #false,
+          ~style: style :: maybe(StyleLike) = #false,
           ~version: vers :: maybe(String) = #false,
           ~date: date :: maybe(String) = #false,
           pre_content :: PreContent):
-  ~doc: @List{a b c}
+  ~doc
   base.title(~tag: convert_list(tag),
              #{#:tag-prefix}:
                match tag_prefix
@@ -28,18 +29,55 @@ fun title(~tag: tag :: maybe(String || List.of(String)) = #false,
              ~date: date,
              pre_content)
 
+meta:
+  // Fairly extreme measures to make a `fun`-generating macro's
+  // doc output typeset correctly. We'll need something more
+  // general, eventually.
+  fun fix_arg_indentation(orig_len, s):
+    match s
+    | '$fun $id $args $rest':
+        let len = '$fun $id'.to_source_string().length() + 1
+        let delta = len - orig_len
+        let '($arg1, ...)' = args
+        let [arg1, ...]:
+          for List (arg1: [arg1, ...]):
+            let prefix = arg1.group_property(#'#{raw-prefix})
+            let new_prefix:
+              recur loop (prefix = prefix):
+                match prefix
+                | s :: String:
+                    if delta > 0
+                    | s ++ String.make(delta, " "[0])
+                    | s.substring(0, s.length() + delta)
+                | Pair(a, PairList.empty):
+                    Pair(loop(a), PairList.empty)
+                | Pair(a, d):
+                    Pair(a, loop(d))
+                | ~else:
+                    prefix
+            if new_prefix
+            | arg1.group_property(#'#{raw-prefix}, new_prefix, #true)
+            | arg1
+        let args = '($arg1, ...)'.relocate(args)
+        '$fun $id $args $rest'
+
 defn.macro 'def_section $section: $rkt_section':
-  'fun $section(~tag: tag :: maybe(String || List.of(String)) = #false,
-                ~tag_prefix: tag_prefix :: maybe(String || ModulePath) = #false,
-                ~style: style :: maybe(Style || String || Symbol || List.of(Symbol)) = #false,
-                pre_content :: PreContent):
-     base . $rkt_section(~tag: convert_list(tag),
-                         #{#:tag-prefix}:
-                           match tag_prefix
-                           | mp :: ModulePath: mp.s_exp()
-                           | ~else: tag_prefix,
-                         ~style: convert_list(style),
-                         pre_content)'
+  fix_arg_indentation(
+    13,
+    'fun $section(~tag: tag :: maybe(TagSuffix) = #false,
+                  ~tag_prefix: tag_prefix :: maybe(TagPrefix) = #false,
+                  ~style: style :: maybe(StyleLike) = #false,
+                  pre_content :: PreContent)
+       :: PartDecl:
+         ~doc
+         base . $rkt_section(~tag: convert_list(tag),
+                             #{#:tag-prefix}:
+                               match tag_prefix
+                               | mp :: ModulePath: mp.s_exp()
+                               | ~else: tag_prefix,
+                             ~style: convert_list(style),
+                             pre_content)'
+  )
 
 def_section section: section
 def_section subsection: subsection

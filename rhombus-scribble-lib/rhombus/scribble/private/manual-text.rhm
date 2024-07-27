@@ -2,6 +2,7 @@
 
 import:
   "util.rhm" open
+  "util.rhm"!convert open 
   lib("scribble/manual.rkt")
 
 export:

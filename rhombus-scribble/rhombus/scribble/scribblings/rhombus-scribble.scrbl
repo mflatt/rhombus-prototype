@@ -4,12 +4,7 @@
 
 @title{Rhombus Scribble}
 
-Start here.
+@table_of_contents()
 
-@docmodule(~lang, rhombus/scribble)
-
-@include_doc(rhombus/scribble/private/section, title){
-
-The @rhombus(title) function!
-
-}
+@include_section("base.scrbl")
+@include_section("manual.scrbl")

@@ -85,13 +85,13 @@
 
 @examples(
   ~eval: macro_eval
-  defn.macro 'enum:
+  defn.macro 'enumerate:
                 $lhs
                 ...':
     let [n, ...] = List.iota([lhs, ...].length())
     'def $lhs = $n
      ...'
-  enum:
+  enumerate:
     a
     b
     c

@@ -1,7 +1,8 @@
 #lang racket/base
 (require (for-syntax racket/base
                      syntax/parse/pre
-                     syntax/strip-context)
+                     syntax/strip-context
+                     "module-path-parse.rkt")
          (submod "module-path.rkt" for-import-export)
          "declaration.rkt"
          "parens.rkt")
@@ -22,8 +23,7 @@
   (declaration-transformer
    (lambda (stx)
      (syntax-parse stx
-       [(_ (~optional (~and start? #:start)
-                      #:defaults ([start? #'#f]))
+       [(_ (~optional #:splice)
            name:identifier
            (~optional (~seq #:key key:identifier)
                       #:defaults ([key #'#f]))
@@ -35,10 +35,9 @@
                 #`(rhombus-module+ name
                                    #:orig #,stx
                                    #:language #f
-                                   #:start? start?
                                    #:key key
                                    body ...))))]
-       [(_ #:start
+       [(_ #:splice
            name:identifier
            (~optional (~seq #:key key:identifier)
                       #:defaults ([key #'#f]))
@@ -51,13 +50,12 @@
                (syntax-e
                 #`(rhombus-module+ name
                                    #:orig #,stx
-                                   #:language lang.parsed
-                                   #:start? #t
+                                   #:language #,(module-path-convert-parsed #'lang.parsed)
                                    #:key key
                                    body ...))))]
        [(_ name:identifier #:lang mp ...+ (_::block body ...))
         #:with lang::module-path #'(group mp ...)
-        #`((module name lang.parsed
+        #`((module name #,(module-path-convert-parsed #'lang.parsed)
              (#,(datum->syntax #'lang.parsed '#%module-begin)
               (top body
                    ...))))]
@@ -73,7 +71,7 @@
                               "late submodules are not supported in an interactive context"
                               stx
                               #'order))
-        #`((module name lang.parsed
+        #`((module name #,(module-path-convert-parsed #'lang.parsed)
              (#,(datum->syntax #'lang.parsed '#%module-begin)
               (top body
                    ...))))]))))
@@ -91,7 +89,7 @@
 ;; `module+`, and need new features for Rhombus, anyway.
 
 (begin-for-syntax
-  (struct mod (key rev-body origs)))
+  (struct mod (key lang-stx rev-body origs)))
 
 (define-syntaxes (rhombus-module+)
   (lambda (stx)
@@ -101,13 +99,12 @@
       [(_ the-submodule
           #:orig orig-stx
           #:language the-lang
-          #:start? start?
           #:key key
           e ...)
        (begin
          ;; This looks it up the first time and is allowed to create a
          ;; list and lift a module-end declaration if necessary:
-         (let ([stxs-box (get-stxs-box stx #'orig-stx #'the-submodule #t #'the-lang (syntax-e #'start?) #'key)])
+         (let ([stxs-box (get-stxs-box stx #'orig-stx #'the-submodule #t #'the-lang #'key)])
            (define m (unbox stxs-box))
            (set-box! stxs-box
                      (struct-copy mod m
@@ -122,26 +119,27 @@
   ;; expansion that uses `module+', so it is effectively
   ;; module-local:
   (define-values (submodule->stxs-box) (make-weak-hash))
-  (define (get-stxs-box ctx-stx form-stx the-submodule-stx lift? lang-stx start? key-stx)
+  (define (get-stxs-box ctx-stx form-stx the-submodule-stx lift? lang-stx key-stx)
     (define key (and key-stx (syntax-e key-stx) key-stx))
     (define bx (hash-ref submodule->stxs-box (syntax-e the-submodule-stx) #f))
     (when bx
       (define m (unbox bx))
-      (when (and form-stx
-                 (or key
-                     (mod-key m))
-                 (or (not key)
-                     (not (mod-key m))
-                     (not (free-identifier=? key (mod-key m)))))
-         (raise-syntax-error #f
-                             "submodule has multiple starts with different keys"
-                             form-stx
-                             the-submodule-stx))
-      (when start?
-        (raise-syntax-error #f
-                            "submodule is already started"
-                            form-stx
-                            the-submodule-stx)))
+      (when form-stx
+        (when (and (or key
+                       (mod-key m))
+                   (or (not key)
+                       (not (mod-key m))
+                       (not (free-identifier=? key (mod-key m)))))
+          (raise-syntax-error #f
+                              "submodule has declarations with different keys"
+                              form-stx
+                              the-submodule-stx))
+        (unless (equal? (syntax->datum lang-stx)
+                        (syntax->datum (mod-lang-stx m)))
+          (raise-syntax-error #f
+                              "submodule has declarations with different languages"
+                              form-stx
+                              the-submodule-stx))))
     (hash-ref! submodule->stxs-box (syntax-e the-submodule-stx)
                (lambda ()
                  (when lift?
@@ -152,7 +150,7 @@
                      ctx-stx
                      (list #'define-module the-submodule-stx lang-stx)
                      ctx-stx)))
-                 (box (mod key null null))))))
+                 (box (mod key lang-stx null null))))))
 
 ;; A use of this form is lifted to the end of the enclosing module
 ;; for each submodule created by `module+':
@@ -160,7 +158,7 @@
   (lambda (stx)
     (syntax-case stx ()
       [(_ the-submodule the-lang)
-       (let* ([stxs-box (get-stxs-box #f #f #'the-submodule #f #f #f #f)]
+       (let* ([stxs-box (get-stxs-box #f #f #'the-submodule #f #f #f)]
               ;; Propagate the lexical context of the first `module+'
               ;; for the implicit `#%module-begin':
               [module-decl

@@ -363,7 +363,7 @@
           (attribute doc)
           #'form-id
           #'(main-name-seq.head-id main-name-seq.tail-id ...)
-          #'([(~@ . name-seq) args-form ret] ...)
+          #'([(~@ . name-seq) args-form (~@ . ret)] ...)
           (attribute doc-kw) stx
           (maybe-add-function-result-definition
            the-name (list #'main-ret.static-infos) arity
@@ -396,7 +396,7 @@
           (attribute doc)
           #'form-id
           #'(name-seq.head-id name-seq.tail-id ...)
-          #'([(~@ . name-seq) args-form ret])
+          #'([(~@ . name-seq) args-form (~@ . ret)])
           (attribute doc-kw) stx
           (maybe-add-function-result-definition
            #'name.name (list #'ret.static-infos) arity
@@ -517,19 +517,20 @@
       #`(rhombus-module+
          #,(datum->syntax #f 'doc doc-kw-stx)
          #:orig #,orig-stx
-         #:language rhombus/private/doc
-         #:start? #f
-         #:key maybe-add-doc
-         (require rhombus/private/doc-spec
-                  rhombus/private/treelist)
-         (provide #,id)
-         (define #,id
-           (make_doc_spec (list->treelist
-                           (syntax->list
-                            (quote-syntax #,(map strip-context (map add-form (syntax->list headers))))))
-                          (list->treelist
-                           (syntax->list
-                            (quote-syntax #,(strip-context gs)))))))
+         #:language (lib "rhombus/doc.rhm")
+         #:key #f
+         (group export #,id)
+         (group def #,id
+                (op =)
+                DocSpec
+                (parens (group List
+                               (parens
+                                #,@(for/list ([header (in-list (syntax->list headers))])
+                                    #`(group Syntax (op |.|) literal (quotes #,(strip-context (add-form header)))))))
+                        (group List
+                               (parens
+                                #,@(for/list ([g (in-list (syntax->list gs))])
+                                     #`(group Syntax (op |.|) literal (quotes #,g))))))))
       defns)]
     [else defns]))
 

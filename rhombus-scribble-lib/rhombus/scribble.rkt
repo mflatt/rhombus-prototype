@@ -6,11 +6,13 @@
          (prefix-in doc: scribble/doclang2)
          scribble/private/manual-defaults
          rhombus/private/bounce
-         "scribble/private/util.rhm")
+         "scribble/private/util.rhm"
+         (submod "scribble/private/util.rhm" convert))
 
 (provide (rename-out [module-begin #%module-begin]))
 
-(bounce "scribble/private/section.rhm"
+(bounce "scribble/private/util.rhm"
+        "scribble/private/section.rhm"
         "scribble/private/include.rhm"
         "scribble/private/block.rhm"
         "scribble/private/element.rhm"
@@ -49,7 +51,7 @@
                         'shrubbery-text-mode-lexer)]
       [(drracket:keystrokes)
        (append (shrubbery:get-info-proc key default make-default)
-               (dynamic-require 'rhombus/scribble/private/indentation 'keystrokes))]
+               (dynamic-require 'scribble/private/indentation 'keystrokes))]
       [(drracket:toolbar-buttons)
        (dynamic-require 'scribble/tools/drracket-buttons 'drracket-buttons)]
       [else (shrubbery:get-info-proc key default make-default)])))
