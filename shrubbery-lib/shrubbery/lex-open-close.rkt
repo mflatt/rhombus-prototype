@@ -52,8 +52,8 @@
 
 ;; stack element representing a `|` that starts a sequence of alternatives;
 ;; shouldn't appear by itself at the head of the stack, but instead
-;; always uder a `multi?` -- -except when trasitioning from a block
-;; to alts mode and the next non-whietsapec/comment token is `|`
+;; always uder a `multi?` --- except when trasitioning from a block
+;; to alts mode and the next non-whitespace/comment token is `|`
 (struct alts (line column) #:prefab)
 
 (define open-tag 'invisible-open-count)
@@ -240,6 +240,7 @@
                                                                2))
                                        (pop))]
                  [(or (opened? frame) (not frame)) (values type status)]
+                 [(alts? frame) (loop type (pop))]
                  [else (error "unrecognized frame at closer" frame)])]
               [(bar-operator)
                (define (consume-frames type stack to-stack)
