@@ -10,3 +10,5 @@
 
 @include_section("rhombus.scrbl")
 @include_section("doc.scrbl")
+@include_section("manual-text.scrbl")
+@include_section("examples.scrbl")

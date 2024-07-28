@@ -17,18 +17,21 @@ export:
   exec
   hash_lang
 
-fun
+fun litchar :~ Element:
+  ~doc
 | litchar(str :: String): manual.litchar(str)
 | litchar(str :: List.of(String)): manual.litchar(& str)
 
 fun deftech(pre_content :: PreContent,
             ~key: key :: maybe(String) = #false,
             ~normalize: normalize = #true,
-            ~use_style: use_style = #true):
-  manual.deftech(pre_content,
-                 ~key: key,
-                 #{#:normalize?}: normalize,
-                 #{#:style?}: use_style)
+            ~use_style: use_style = #true)
+  :~ Element:
+    ~doc
+    manual.deftech(pre_content,
+                   ~key: key,
+                   #{#:normalize?}: normalize,
+                   #{#:style?}: use_style)
 
 fun tech(pre_content :: PreContent,
          ~key: key :: maybe(String) = #false,
@@ -36,32 +39,41 @@ fun tech(pre_content :: PreContent,
          ~doc: doc :: maybe(ModulePath) = #false,
          ~tag_prefixes: prefixes :: maybe(List.of(String)) = #false,
          ~indirect: indirect = #false,
-         ~quiet: quiet = #true):
-  let tech = if quiet | manual.tech | manual.techlink
-  tech(pre_content,
-       ~key: key,
-       #{#:normalize?}: normalize,
-       ~doc: doc && (doc :~ ModulePath).s_exp(),
-       #{#:tag-prefixes}: convert_list(prefixes),
-       #{#:indirect?}: indirect)
+         ~quiet: quiet = #true)
+  :~ Element:
+    ~doc
+    let tech = if quiet | manual.tech | manual.techlink
+    tech(pre_content,
+         ~key: key,
+         #{#:normalize?}: normalize,
+         ~doc: doc && (doc :~ ModulePath).s_exp(),
+         #{#:tag-prefixes}: convert_list(prefixes),
+         #{#:indirect?}: indirect)
 
-fun onscreen(pre_content :: PreContent):
+fun onscreen(pre_content :: PreContent) :~ Element:
+  ~doc
   manual.math(pre_content)
 
-fun defterm(pre_content :: PreContent):
+fun defterm(pre_content :: PreContent) :~ Element:
+  ~doc
   manual.math(pre_content)
 
-fun math(pre_content :: PreContent):
+fun math(pre_content :: PreContent) :~ Element:
+  ~doc
   manual.math(pre_content)
 
-fun filepath(pre_content :: PreContent):
+fun filepath(pre_content :: PreContent) :~ Element:
+  ~doc
   manual.math(pre_content)
 
-fun pkg(pre_content :: PreContent):
+fun pkg(pre_content :: PreContent) :~ Element:
+  ~doc
   manual.tt(pre_content)
 
-fun exec(content :: Content):
+fun exec(content :: Content) :~ Element:
+  ~doc
   manual.exec(content)
 
-fun hash_lang():
+fun hash_lang() :~ Element:
+  ~doc
   manual.#{hash-lang}()
