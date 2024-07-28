@@ -6,6 +6,10 @@
                      rhombus/private/enforest
                      shrubbery/property
                      rhombus/private/name-path-op
+                     rhombus/private/doc-spec
+                     rhombus/private/treelist
+                     rhombus/private/pack
+                     syntax/strip-context
                      "add-space.rkt"
                      "typeset-key-help.rkt")
          racket/symbol
@@ -18,6 +22,7 @@
          "typeset-key-help.rkt"
          "defining-element.rkt"
          shrubbery/print
+         rhombus/private/module-path
          (only-in rhombus/private/name-root
                   name-root-ref
                   in-name-root-space
@@ -81,8 +86,53 @@
                 (group
                  (brackets content-group ...))))
      #:with (_ . err-stx) stx
-     (define forms (map (lambda (stx) (datum->syntax #f (syntax-e stx)))
-                        (syntax->list #'((group-tag form ...) ...))))
+     (define pre-forms (map (lambda (stx) (datum->syntax #f (syntax-e stx)))
+                            (syntax->list #'((group-tag form ...) ...))))
+     ;; expand `~include`s:
+     (define-values (forms bodys)
+       (let loop ([pre-forms pre-forms] [accum '()] [accum-bodys '()])
+         (cond
+           [(null? pre-forms) (values (reverse accum) (reverse accum-bodys))]
+           [else
+            (syntax-parse (car pre-forms)
+              #:datum-literals (group block)
+              [(group #:include mod ... (block (group id:identifier ...) ...))
+               (syntax-parse #'(group mod ...)
+                 [mp::module-path
+                  (define mod-path (module-path-convert-parsed #'mp.parsed))
+                  (let mod-loop ([ids (syntax->list #'(id ... ...))]
+                                 [accum accum]
+                                 [accum-bodys accum-bodys])
+                    (cond
+                      [(null? ids)
+                       (loop (cdr pre-forms) accum accum-bodys)]
+                      [else
+                       (define (bad-export)
+                         (raise-syntax-error #f
+                                             "not exported as a `DocSpec`"
+                                             #'err-stx
+                                             (car ids)))
+                       (define v (dynamic-require `(submod ,(syntax->datum mod-path) doc) (syntax-e (car ids)) bad-export))
+                       (unless (is_doc_spec v) (bad-export))
+                       (define-values (headers content) (doc_spec_split v))
+                       (define (reset-context stx) (unpack-group (replace-context (car ids) stx) 'doc #f))
+                       (mod-loop (cdr ids)
+                                 (append (reverse (map reset-context (treelist->list headers)))
+                                         accum)
+                                 (append (reverse (map reset-context (treelist->list content)))
+                                         accum-bodys))]))]
+                 [_
+                  (raise-syntax-error #f
+                                      "invalid module path"
+                                      #'err-stx
+                                      #'(mod ...))])]
+              [(group #:include . _)
+               (raise-syntax-error #f
+                                   "bad syntax for `~include`"
+                                   #'err-stx
+                                   (car pre-forms))]
+              [else
+               (loop (cdr pre-forms) (cons (car pre-forms) accum) accum-bodys)])])))
      (define transformers (for/list ([form (in-list forms)])
                             (syntax-parse form
                               #:datum-literals (group)

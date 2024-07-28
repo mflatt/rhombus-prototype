@@ -4,7 +4,7 @@
 
 @title(~tag: "section"){Title and Sections}
 
-@include_doc(rhombus/scribble/private/section: title){
+@doc(~include rhombus/scribble/private/section: title){
 
  Declares a title for the document. In the main module of a document,
  this title is the overall title of the document. In A section included
@@ -12,16 +12,16 @@
 
 }
 
-@include_doc(rhombus/scribble/private/section: section){
+@doc(~include rhombus/scribble/private/section: section){
 
  Declares a section at a level nested below @rhombus(title).
 
 }
 
-@include_doc(rhombus/scribble/private/section:
-               subsection
-               subsubsection
-               subsubsub_section){
+@doc(~include rhombus/scribble/private/section:
+       subsection
+       subsubsection
+       subsubsub_section){
 
  Declares sections as further nesting levels. By the
  @rhombus(subsubsub_section) level, the result is simply a paragraph that

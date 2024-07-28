@@ -2,6 +2,7 @@
 (require (for-syntax racket/base
                      syntax/parse/pre
                      syntax/strip-context
+                     shrubbery/property
                      "consistent.rkt"
                      "entry-point-adjustment.rkt"
                      "dotted-sequence.rkt")
@@ -513,6 +514,25 @@
                                 doc)]))
      (define (add-form header)
        #`(group #,form-id #,@header))
+     (define (replace-:~-ret header)
+       (syntax-parse header
+         #:datum-literals (parens op :~)
+         [(pre ... (~and args (parens _ ...))
+               ((~and op-id op) (~and colon-tilde :~))
+               post ...)
+          (datum->syntax header
+                         (append (syntax->list #'(pre ...))
+                                 (list #'args)
+                                 (list (datum->syntax #f
+                                                      (list #'op-id
+                                                            (syntax-raw-property
+                                                             (datum->syntax #'colon-tilde
+                                                                            '::
+                                                                            #'colon-tilde
+                                                                            #'colon-tilde)
+                                                             "::"))))
+                                 (syntax->list #'(post ...))))]
+         [_ header]))
      (cons
       #`(rhombus-module+
          #,(datum->syntax #f 'doc doc-kw-stx)
@@ -526,7 +546,8 @@
                 (parens (group List
                                (parens
                                 #,@(for/list ([header (in-list (syntax->list headers))])
-                                    #`(group Syntax (op |.|) literal (quotes #,(strip-context (add-form header)))))))
+                                     #`(group Syntax (op |.|) literal (quotes #,(replace-:~-ret
+                                                                                 (strip-context (add-form header))))))))
                         (group List
                                (parens
                                 #,@(for/list ([g (in-list (syntax->list gs))])

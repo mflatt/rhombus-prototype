@@ -4,6 +4,6 @@
 
 @title(~tag: "image"){Images}
 
-@include_doc(rhombus/scribble/private/image: image){
+@doc(~include rhombus/scribble/private/image: image){
 
 }

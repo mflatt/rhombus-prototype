@@ -68,7 +68,7 @@ defn.macro 'def_section $section: $rkt_section':
                   ~tag_prefix: tag_prefix :: maybe(TagPrefix) = #false,
                   ~style: style :: maybe(StyleLike) = #false,
                   pre_content :: PreContent)
-       :: PartDecl:
+       :~ PartDecl:
          ~doc
          base . $rkt_section(~tag: convert_list(tag),
                              #{#:tag-prefix}:

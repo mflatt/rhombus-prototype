@@ -4,20 +4,20 @@
 
 @title(~tag: "link"){Hyperlinks}
 
-@include_doc(rhombus/scribble/private/link:
-               hyperlink
-               url){
+@doc(~include rhombus/scribble/private/link:
+       hyperlink
+       url){
 }
 
-@include_doc(rhombus/scribble/private/link:
-               secref
-               Secref
-               seclink
-               docref){
+@doc(~include rhombus/scribble/private/link:
+       secref
+       Secref
+       seclink
+       docref){
 }
 
-@include_doc(rhombus/scribble/private/link:
-               elemtag
-               elemref){
+@doc(~include rhombus/scribble/private/link:
+       elemtag
+       elemref){
 
 }

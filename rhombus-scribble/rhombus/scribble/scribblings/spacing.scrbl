@@ -4,13 +4,13 @@
 
 @title(~tag: "spacing"){Spacing}
 
-@include_doc(rhombus/scribble/private/spacing: linebreak){
+@doc(~include rhombus/scribble/private/spacing: linebreak){
 }
 
-@include_doc(rhombus/scribble/private/spacing: nonbreaking){
+@doc(~include rhombus/scribble/private/spacing: nonbreaking){
 }
 
-@include_doc(rhombus/scribble/private/spacing: hspace){
+@doc(~include rhombus/scribble/private/spacing: hspace){
 }
 
 @doc(

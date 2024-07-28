@@ -39,7 +39,8 @@
     ~space_clause
     ~space_meta_clause
     ~key_comp
-    ~immediate_callee    
+    ~immediate_callee
+    ~doc
 ){
 
  Typesets @rhombus(group) literally as an @rhombus(Element, ~annot) to
@@ -110,9 +111,9 @@
 
 
 @doc(
-  defn.macro 'rhombus_typeset '$id':
-                $body
-                ...'
+  defn.macro '«rhombus_typeset '$id':
+                 $body
+                 ...»'
 ){
 
  Binds @rhombus(id) so that when it is used in @rhombus(rhombus) or

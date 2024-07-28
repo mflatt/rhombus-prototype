@@ -9,3 +9,4 @@
 @local_table_of_contents()
 
 @include_section("rhombus.scrbl")
+@include_section("doc.scrbl")
