@@ -320,21 +320,16 @@
 
 
 @doc(
-  fun configure(~children: children :: List.of(Pict) = [],
-                proc :: Function.of_arity(children.length() + 1),
-                configuration :: Map)
+  fun rebuildable(~children: children :: List.of(Pict),
+                  proc :: Function.of_arity(children.length()))
     :: Pict
 ){
 
- Creates a pict that is like the result of
- @rhombus(proc(& children, configuration)), but where @rhombus(children)
- contains picts that can be adjusted via @rhombus(Pict.replace), and the
- @rhombus(configuration) map can be adjusted via
- @rhombus(Pict.configure).
-
- Unlike a @rhombus(proc) for @rhombus(animate), the @rhombus(proc)
- provided to @rhombus(configure) can produce any @rhombus(Pict, ~annot)
- value, not necessarily a @rhombus(StaticPict, ~annot).
+ Creates a pict that is the same as the result of
+ @rhombus(proc(& children)), but where @rhombus(children) contains picts
+ that can be adjusted via @rhombus(Pict.rebuild), in which case
+ @rhombus(proc) is applied to a list of replacements for the picts in
+ @rhombus(children).
  
 }
   

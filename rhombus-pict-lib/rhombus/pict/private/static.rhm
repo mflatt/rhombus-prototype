@@ -223,51 +223,51 @@ class Pict():
                                 [p],
                                 0 /* extent */))
 
+  method rebuild(adjuster :: Function.of_arity(1)) :~ Pict:
+    let (p, _) = _replace(adjuster, Map.by(===){})
+    p
+
   method replace(from :: Pict, to :: Pict) :~ Pict:
-    let (p, _) = _replace(from, to, Map.by(===){ from : to })
+    let (p, _) = _replace(fun (p): p, Map.by(===){ from : to })
     p
 
-  method configure(key :: !Pict, val) :~ Pict:
-    let (p, _) = _replace(key, val, Map.by(===){})
-    p
+  abstract protected method _replace(adjuster, subst) :~ (Pict, Map)
 
-  abstract protected method _replace(from, to, subst) :~ (Pict, Map)
-
-  protected method _do_replace(key, val, subst :~ Map,
-                               _children, _dependencies, _configuration,
+  protected method _do_replace(adjuster, subst :~ Map,
+                               _children, _dependencies,
                                _rebuild):
     cond
     | subst.has_key(this):
         values(subst[this], subst)
     | ~else:
-        match  _dependencies || _children:
-        | [] when !_configuration:
-            values(this, subst)
-        | [dep, ...]:
-            let ([new_dep, ...], subst :~ Map):
-              for values(new_deps :~ List = [], subst = subst) (dep: [dep, ...]):
-                let (new_dep, new_subst):
-                  match dep
-                  | dep :: Pict: dep._replace(key, val, subst)
-                  | dep :: _Find: dep._replace(key, val, subst)
-                values(new_deps.add(new_dep), new_subst)
-            let configuration:
-              if _configuration && Map.has_key(_configuration, key)
-              | (_configuration :~ Map) ++ { key: val }
-              | _configuration
-            if (configuration == _configuration
-                  && all(new_dep === dep, ...))
-            | values(this, subst)
-            | let new: if configuration
-                       | _rebuild([new_dep, ...] ++ [configuration])
-                       | _rebuild([new_dep, ...])
-              values(new, subst ++ { this: new })
-        | child :~ _StaticPict:
-            let (new_child, subst :~ Map) = child._replace(key, val, subst)
-            if new_child === child
-            | values(this, subst)
-            | let new = _rebuild(new_child)
-              values(new, subst ++ { this: new })
+        let new = adjuster(this)
+        cond
+        | new != this:
+            unless new is_a Pict
+            | error(#'rebuild, "adjust function's result does not satisfy Pict")
+            values(new, subst ++ { this: new })
+        | ~else:
+            match  _dependencies || _children:
+            | []:
+                values(this, subst)
+            | [dep, ...]:
+                let ([new_dep, ...], subst :~ Map):
+                  for values(new_deps :~ List = [], subst = subst) (dep: [dep, ...]):
+                    let (new_dep, new_subst):
+                      match dep
+                      | dep :: Pict: dep._replace(adjuster, subst)
+                      | dep :: _Find: dep._replace(adjuster, subst)
+                    values(new_deps.add(new_dep), new_subst)
+                if (all(new_dep === dep, ...))
+                | values(this, subst)
+                | let new: _rebuild([new_dep, ...])
+                  values(new, subst ++ { this: new })
+            | child :~ _StaticPict:
+                let (new_child, subst :~ Map) = child._replace(adjuster, subst)
+                if new_child === child
+                | values(this, subst)
+                | let new = _rebuild(new_child)
+                  values(new, subst ++ { this: new })
 
 class StaticPict(private _handle,
                  private _children :~ Pict || List,
@@ -421,9 +421,9 @@ class StaticPict(private _handle,
     | sustain(n_epochs)
     | this
 
-  override method _replace(key, val, subst :~ Map):
-    _do_replace(key, val, subst,
-                _children, _dependencies, #false,
+  override method _replace(adjuster, subst :~ Map):
+    _do_replace(adjuster, subst,
+                _children, _dependencies,
                 _rebuild)
 
 annot.delayed_complete SnapshotPict: StaticPict
@@ -517,7 +517,7 @@ class NothingPict():
 
   override method freeze(~scale: scale :: Real = 2.0): this
 
-  override method _replace(from, to): this
+  override method _replace(adjuster): this
 
 def nothing = NothingPict()
 
@@ -1221,10 +1221,10 @@ class Find(private q, private find, private t_find_or_dt, private is_animated):
             #true)
     | this
 
-  private method _replace(from, to, subst :~ Map):
+  private method _replace(adjuster, subst :~ Map):
     cond
     | q:
-        let (new_q, subst) = _Pict._replace(q, from, to, subst)
+        let (new_q, subst) = _Pict._replace(q, adjuster, subst)
         if new_q === q
         | values(this, subst)
         | values(_Find(new_q, find, t_find_or_dt, is_animated),
