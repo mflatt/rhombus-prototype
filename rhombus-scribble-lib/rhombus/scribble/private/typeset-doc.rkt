@@ -4,6 +4,7 @@
                      racket/symbol
                      syntax/parse/pre
                      rhombus/private/enforest
+                     enforest/name-parse
                      shrubbery/property
                      rhombus/private/name-path-op
                      rhombus/private/doc-spec
@@ -534,6 +535,10 @@
        (values #'root
                (syntax->list #'(field ...))
                (full-space-names (string->symbol (keyword->immutable-string (syntax-e #'space)))))]
+      [(_ root:identifier (~seq (op |.|) field:identifier) ... #:at space::name ...)
+       (values #'root
+               (syntax->list #'(field ...))
+               (list (string->symbol (apply string-append (map symbol->string (map syntax-e (syntax->list #'(space.name ...))))))))]
       [(_ root:identifier (~seq (op |.|) field:identifier) ...  (op |.|) (parens (group (op name:identifier))) space:keyword)
        (values #'root
                (syntax->list #'(field ... name))
@@ -550,6 +555,10 @@
        (values #'name
                '()
                (full-space-names (string->symbol (keyword->immutable-string (syntax-e #'space)))))]
+      [(_ (op name:identifier) #:at space::name ...)
+       (values #'name
+               '()
+               (list (string->symbol (apply string-append (map symbol->string (map syntax-e (syntax->list #'(space.name ...))))))))]
       [(_ (op name:identifier))
        (values #'name
                '()
