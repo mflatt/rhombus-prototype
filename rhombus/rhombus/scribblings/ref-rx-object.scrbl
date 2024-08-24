@@ -56,7 +56,7 @@
  created with @rhombus(rx), the entire content (between @rhombus(start)
  and @rhombus(end)) must match for @rhombus(RX.match), while
  @rhombus(RX.match_in) can match a portion of the input. For a regexp
- created with @rhombus(rx), both @rhombus(RX.match) and
+ created with @rhombus(rx_in), both @rhombus(RX.match) and
  @rhombus(RX.match_in) can match a portion of the input.
 
  The @rhombus(RX.match_range) and @rhombus(RX.match_range_in) methods

@@ -228,7 +228,7 @@ bytes to match for a byte-mode @tech{regexp}.
 
  The @rhombus(alnum, ~at rhombus/rx_charset) character set has all ASCII
  letters and digits: @litchar{0}-@litchar{9}, @litchar{a}-@litchar{z},
- and @litchar{A}-@litchar{Z}. The @rhombus(alnum, ~at rhombus/rx_charset)
+ and @litchar{A}-@litchar{Z}. The @rhombus(word, ~at rhombus/rx_charset)
  character set adds @litchar{_}.
 
 @examples(

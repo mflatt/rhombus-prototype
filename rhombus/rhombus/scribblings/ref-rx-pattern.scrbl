@@ -89,7 +89,7 @@ multiplying like the expression @rhombus(*) operator.
 
  A parenthesized pattern is equivalent to the @rhombus(pat) inside the
  parentheses. That is, parentheses are just for grouping and resolving
- precedence mismatches. See @rhombus($, ~at rhombus/rx) for inforation
+ precedence mismatches. See @rhombus($, ~at rhombus/rx) for information
  about @tech{capture groups}, which are not implicitly created by
  parentheses (as they are in some traditional regexp languages).
 
@@ -215,9 +215,13 @@ multiplying like the expression @rhombus(*) operator.
  generally. If a single @rhombus(count) is provided, it specifies an
  exact number of repetitions. If just @rhombus(min) is provided, then it
  specifies a minimum number of repetitions, and there is no maximum.
- Finally, @rhombus(min) and @rhombus(max) both can be specified. A
- @rhombus(count), @rhombus(min), or @rhombus(max) must be a literal
- nonnegative integer.
+ Finally, @rhombus(min) and @rhombus(max) both can be specified.
+ @margin_note{Write @rhombus(0 .. max) to provide only an upper bound.
+  Note that the expression form @rhombus(.. max) creates a range that
+  starts a @rhombus(#neginf), and the intent of requiring a @rhombus(min) for
+  a regexp repetition is to avoid suggesting that negative counts are
+  possible.} A @rhombus(count), @rhombus(min), or @rhombus(max) must be a
+ literal nonnegative integer.
 
 @examples(
   ~eval: rx_eval
@@ -461,8 +465,8 @@ multiplying like the expression @rhombus(*) operator.
  Matches an empty position in the input. The
  @rhombus(word_boundary, ~at rhombus/rx) pattern matches between an
  alphanumeric ASCII character (@litchar{a}-@litchar{z},
- @litchar{A}-@litchar{A}, or @litchar{0}-@litchar{9}) or @litchar{_} and
- another character that is not alphanemeric ot @litchar{_}. The
+ @litchar{A}-@litchar{Z}, or @litchar{0}-@litchar{9}) or @litchar{_} and
+ another character that is not alphanemeric or @litchar{_}. The
  @rhombus(word_continue, ~at rhombus/rx) pattern matches positions that
  do not match @rhombus(word_boundary, ~at rhombus/rx).
 
