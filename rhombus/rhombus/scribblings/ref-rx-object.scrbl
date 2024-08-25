@@ -98,18 +98,18 @@
 )
 
  The @rhombus(input_prefix) argument specifies bytes that effectively
- precede input for the purposes of @rhombus(^, ~at rhombus/rx) and other
- lookback matching. For example, a @rhombus(#"") prefix means that
- @rhombus(bof, ~at rhombus/rx) matches at the beginning of the input,
- while a @rhombus(#"\n") prefix means that a start-of-line
- @rhombus(^, ~at rhombus/rx) can match the beginning of the input, while
- a start-of-file @rhombus(bof, ~at rhombus/rx) cannot.
+ precede input for the purposes of @rhombus(bol, ~at rhombus/rx) and
+ other lookbehind matching. For example, a @rhombus(#"") prefix means
+ that @rhombus(bof, ~at rhombus/rx) matches at the beginning of the
+ input, while a @rhombus(#"\n") prefix means that
+ @rhombus(bol, ~at rhombus/rx) can match the beginning of the input,
+ while a @rhombus(bof, ~at rhombus/rx) cannot.
 
 @examples(
   ~eval: rx_eval
   ~repl:
-    rx'^ "a"*'.match_in("aaa")
-    rx'^ "a"*'.match_in("aaa", ~input_prefix: #"x")
+    rx'bol "a"*'.match_in("aaa")
+    rx'bol "a"*'.match_in("aaa", ~input_prefix: #"x")
 )
 
  If @rhombus(out) is provided as an output port for the
@@ -223,7 +223,7 @@
 
 
 @doc(
-  method (regexp :: RX).max_lookback()
+  method (regexp :: RX).max_lookbehind()
 ){
 
  Reports the maximum number of characters or bytes needed before the
@@ -231,9 +231,9 @@
 
 @examples(
   ~eval: rx_eval
-  rx'lookback("abc")'.max_lookback()
-  rx'any lookback("abc")'.max_lookback()
-  rx'any'.max_lookback()
+  rx'lookbehind("abc")'.max_lookbehind()
+  rx'any lookbehind("abc")'.max_lookbehind()
+  rx'any'.max_lookbehind()
 )
 
 }

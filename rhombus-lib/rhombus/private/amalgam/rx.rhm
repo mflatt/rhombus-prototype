@@ -57,24 +57,24 @@ export:
     ||     // alternatives
     * ? +  // repetitions
     .* .?  // allow combinations of `.` with `*` and `?` without space
-    ! lookahead lookback
+    ! lookahead lookbehind
     word_boundary word_continue
     cut       // keep any match (prevent backtracking sreach) before this `cut`
-    any       // does not include newline
-    char byte // does include newline
+    any       // includes newline
+    char byte // includes newline
     names:
-      .   // alias for `any`
+      .   // match `any` except newline
 
-    ^     // "start"
-    $     // overloaded as "end", capturing-name binding, backreference, and dynamic splicing
-
-    // like ^ and $, but never matches at newlines
+    // beginning/end of file/line
     bof eof
+    bol eol
+
+    $     // capturing-name binding, backreference, or dynamic splicing
  
     // unnamed capture of subsequent pattern
     ~~
 
-    // expects `lookahead`, `lookback`, or `$` backreference --- or `!` before those
+    // expects `lookahead`, `lookbehind`, or `$` backreference --- or `!` before those
     if
 
     // selects byte or char mode explcitly:
@@ -84,10 +84,6 @@ export:
     // adjusts treatment of literal strings in subsequent block:
     case_sensitive
     case_insensitive
-
-    // adjusts treatment of `any` or `.` in subsequent block:
-    enable_newline
-    disable_newline
 
     // Implicit operators, like the one before a literal string;
     // we use `names` here so that these names are not
@@ -139,7 +135,7 @@ meta:
           'splice_regexp($rkt_rx, [$vars_seq, ...], $has_backref, $stx_str)'
         | let rkt_full_rx:
             if is_full
-            | compile('sequence(abs_start, $ast, abs_end)', vars, num_captures, stx)
+            | compile('sequence(bof, $ast, eof)', vars, num_captures, stx)
             | rkt_rx
           // generate static regexp
           '_RX($rkt_rx, $rkt_full_rx, $num_captures, $vars, $has_backref, $stx_str)'
@@ -206,8 +202,6 @@ rx.macro
     unless index.unwrap() is_a PosInt
     | syntax_meta.error("invalid match index", stx, index)
     rx_meta.pack('[backref($index), []]')
-| '$('$')':
-    rx_meta.pack('[end, []]')
 
 // the `if` form supports only certain pattern forms
 rx.macro 'if $tst ... | $(thn :: rx_meta.Parsed) | $(els :: rx_meta.Parsed)':
@@ -224,10 +218,10 @@ rx.macro 'if $tst ... | $(thn :: rx_meta.Parsed) | $(els :: rx_meta.Parsed)':
         lookahead('lookahead', arg, tag)
     | '$(bound_as rx_meta.space: '!') $(tag && bound_as rx_meta.space: 'lookahead')($(arg :: rx_meta.Parsed))':
         lookahead('not_lookahead', arg, tag)
-    | '$(tag && bound_as rx_meta.space: 'lookback')($(arg :: rx_meta.Parsed))':
-        lookahead('lookback', arg, tag)
-    | '$(bound_as rx_meta.space: '!') $(tag && bound_as rx_meta.space: 'lookback')($(arg :: rx_meta.Parsed))':
-        lookahead('not_lookback', arg, tag)
+    | '$(tag && bound_as rx_meta.space: 'lookbehind')($(arg :: rx_meta.Parsed))':
+        lookahead('lookbehind', arg, tag)
+    | '$(bound_as rx_meta.space: '!') $(tag && bound_as rx_meta.space: 'lookbehind')($(arg :: rx_meta.Parsed))':
+        lookahead('not_lookbehind', arg, tag)
   let '[$thn, [$thn_var, ...]]' = rx_meta.unpack(thn)
   let '[$els, [$els_var, ...]]' = rx_meta.unpack(els    )
   rx_meta.pack('[if($tst)($thn, $els), [$var, ..., $thn_var, ..., $els_var, ...]]')
@@ -236,16 +230,16 @@ rx.macro 'lookahead($(arg :: rx_meta.Parsed))':
   ~op_stx: self
   unary('lookahead($self)', arg)
 
-rx.macro 'lookback($(arg :: rx_meta.Parsed))':
+rx.macro 'lookbehind($(arg :: rx_meta.Parsed))':
   ~op_stx: self
-  unary('lookback($self)', arg)
+  unary('lookbehind($self)', arg)
 
 // the `!` operator supports only certain pattern forms
 rx.macro
 | '! $(self && bound_as rx_meta.space:'lookahead')($(arg :: rx_meta.Parsed))':
     unary('not_lookahead($self)', arg)
-| '! $(self && bound_as rx_meta.space:'lookback')($(arg :: rx_meta.Parsed))':
-    unary('not_lookback($self)', arg)
+| '! $(self && bound_as rx_meta.space:'lookbehind')($(arg :: rx_meta.Parsed))':
+    unary('not_lookbehind($self)', arg)
 | '! unicode . $(cat :: Identifier)':
     // make sure the identifier names a Unicode category,
     // but the result is discarded:
@@ -285,12 +279,6 @@ rx.macro 'case_sensitive: $(pat :: rx_meta.Parsed)':
 
 rx.macro 'case_insensitive: $(pat :: rx_meta.Parsed)':
   unary('mode("i")', pat)
-
-rx.macro 'disable_newline: $(pat :: rx_meta.Parsed)':
-  unary('mode("m")', pat)
-
-rx.macro 'enable_newline: $(pat :: rx_meta.Parsed)':
-  unary('mode("-m")', pat)
 
 // unnamed capture group
 rx.macro '~~ $(p_rx :: rx_meta.ParsedAfterPrefix('~~')) $()':
@@ -345,11 +333,11 @@ rx.macro '$left ? $(g :: Greed) $()':
          '$g.tail ...')
 
 rx.macro '.* $(g :: Greed) $()':
-  values(rx_meta.pack('[repeat(0, #inf, $g.mode, #false)(any), []]'),
+  values(rx_meta.pack('[repeat(0, #inf, $g.mode, #false)(any_except_newline), []]'),
          '$g.tail ...')
 
 rx.macro '.? $(g :: Greed) $()':
-  values(rx_meta.pack('[repeat(0, 1, $g.mode, #false)(any), []]'),
+  values(rx_meta.pack('[repeat(0, 1, $g.mode, #false)(any_except_newline), []]'),
          '$g.tail ...')
 
 rx.macro #%comp:
@@ -367,7 +355,7 @@ rx.macro #%comp:
 
 rx.macro '.':
   ~same_as: $
-  rx_meta.pack('[any, []]')
+  rx_meta.pack('[any_except_newline, []]')
 
 rx.macro 'any':
   ~same_as: $
@@ -376,12 +364,12 @@ rx.macro 'any':
 rx.macro 'char':
   ~same_as: $
   ~op_stx: self
-  rx_meta.pack('[string($self)(any_or_newline), []]')
+  rx_meta.pack('[string($self)(any), []]')
 
 rx.macro 'byte':
   ~same_as: $
   ~op_stx: self
-  rx_meta.pack('[bytes($self)(any_or_newline), []]')
+  rx_meta.pack('[bytes($self)(any), []]')
 
 rx.macro 'bytes: $(pat :: rx_meta.Parsed)':
   ~op_stx: self
@@ -391,14 +379,17 @@ rx.macro 'string: $(pat :: rx_meta.Parsed)':
   ~op_stx: self
   unary('string($self)', pat)
 
-rx.macro '^':
-    rx_meta.pack('[start, []]')
+rx.macro 'bol':
+    rx_meta.pack('[bol, []]')
+
+rx.macro 'eol':
+    rx_meta.pack('[eol, []]')
 
 rx.macro 'bof':
-    rx_meta.pack('[abs_start, []]')
+    rx_meta.pack('[bof, []]')
 
 rx.macro 'eof':
-    rx_meta.pack('[abs_end, []]')
+    rx_meta.pack('[eof, []]')
 
 rx.macro 'word_boundary':
   rx_meta.pack('[word_boundary, []]')
@@ -508,7 +499,7 @@ meta:
         let (vars, num_captures): map_vars([var, ...])
         let ast:
           if is_full
-          | 'sequence(abs_start, $ast, abs_end)'
+          | 'sequence(bof, $ast, eof)'
           | ast
         let rkt_rx = compile(ast, vars, num_captures, stx, #false)
         let [[var, index], ...]:

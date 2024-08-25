@@ -165,18 +165,13 @@ check:
   M rx'"x"{2..}' "xxxxx" ~is ["xxxxx"]
 
 check:
-  M rx'any*' "123" ~is ["123"]
-  M rx'any*' "12\n3" ~is #false
-  M rx'char*' "12\n3" ~is ["12\n3"]
+  M rx'. *' "123" ~is ["123"]
   M rx'. *' "12\n3" ~is #false
+  M rx'char*' "12\n3" ~is ["12\n3"]
   M rx'.*' "12\n3" ~is #false
   M rx'.+' "12\n3" ~is #false
-  M rx'(any || newline)*' "12\n3" ~is ["12\n3"]
-  M rx'enable_newline: any*' "12\n3" ~is ["12\n3"]
-  M rx'enable_newline: . *' "12\n3" ~is ["12\n3"]
-  M rx'enable_newline: .*' "12\n3" ~is ["12\n3"]
-  M rx'enable_newline: .+' "12\n3" ~is ["12\n3"]
-  M rx'enable_newline: disable_newline: any*' "12\n3" ~is #false
+  M rx'(. || newline)*' "12\n3" ~is ["12\n3"]
+  M rx'any*' "12\n3" ~is ["12\n3"]
   M rx'.*' "123" ~is ["123"]
   M rx'.+' "123" ~is ["123"]
   M rx'.?' "1" ~is ["1"]
@@ -189,24 +184,24 @@ check:
   M rx'"a" || "b" "c"' "ac" ~is #false
 
 check:
-  M rx'^ "x" * $' "xxx" ~is ["xxx"]
-  P rx'^ "x" * $' "xxx" ~is ["xxx"]
-  M rx'^ "x" * $' "\nxxx" ~is #false
-  P rx'^ "x" * $' "\nxxx" ~is [""]
-  P rx'^ "x" * $' "a\nxxx" ~is ["xxx"]
-  P rx'enable_newline: ^ "x" * $' "\nxxx" ~is #false
+  M rx'bol "x" * eol' "xxx" ~is ["xxx"]
+  P rx'bol "x" * eol' "xxx" ~is ["xxx"]
+  M rx'bol "x" * eol' "\nxxx" ~is #false
+  P rx'bol "x" * eol' "\nxxx" ~is [""]
+  P rx'bol "x" * eol' "a\nxxx" ~is ["xxx"]
+  P rx'bof "x" * eof' "\nxxx" ~is #false
   P rx'bof "x" * eof' "\nxxx" ~is #false
   P rx'bof char * eof' "\nxxx" ~is ["\nxxx"]
 
 check:
   M rx'lookahead("x") any any' "xy" ~is ["xy"]
   M rx'lookahead("x") any any' "yy" ~is #false
-  M rx'any lookback("x") any' "xy" ~is ["xy"]
-  M rx'any lookback("x") any' "yy" ~is #false
+  M rx'any lookbehind("x") any' "xy" ~is ["xy"]
+  M rx'any lookbehind("x") any' "yy" ~is #false
   M rx'!lookahead("x") any any' "xy" ~is #false
   M rx'!lookahead("x") any any' "yy" ~is ["yy"]
-  M rx'any !lookback("x") any' "xy" ~is #false
-  M rx'any !lookback("x") any' "yy" ~is ["yy"]
+  M rx'any !lookbehind("x") any' "xy" ~is #false
+  M rx'any !lookbehind("x") any' "yy" ~is ["yy"]
 
 check:
   M rx'"x" word_boundary any "y"' "x y" ~is ["x y"]
@@ -227,24 +222,24 @@ check:
   M rx'if lookahead("x") | "xx" | "yy"' "yy" ~is ["yy"]
   M rx'if lookahead("x") | "xx" | "yy"' "xy" ~is #false
   M rx'if lookahead("x") | "xx" | "yy"' "yx" ~is #false
-  M rx'any if lookback("x") | "xx" | "yy"' "xxx" ~is ["xxx"]
-  M rx'any if lookback("x") | "xx" | "yy"' "zyy" ~is ["zyy"]
-  M rx'any if lookback("x") | "xx" | "yy"' "xxy" ~is #false
-  M rx'any if lookback("x") | "xx" | "yy"' "zyx" ~is #false
+  M rx'any if lookbehind("x") | "xx" | "yy"' "xxx" ~is ["xxx"]
+  M rx'any if lookbehind("x") | "xx" | "yy"' "zyy" ~is ["zyy"]
+  M rx'any if lookbehind("x") | "xx" | "yy"' "xxy" ~is #false
+  M rx'any if lookbehind("x") | "xx" | "yy"' "zyx" ~is #false
   M rx'if !lookahead("y") | "xx" | "yy"' "xx" ~is ["xx"]
   M rx'if !lookahead("y") | "xx" | "yy"' "yy" ~is ["yy"]
   M rx'if !lookahead("y") | "xx" | "yy"' "xy" ~is #false
   M rx'if !lookahead("y") | "xx" | "yy"' "yx" ~is #false
-  M rx'any if !lookback("z") | "xx" | "yy"' "xxx" ~is ["xxx"]
-  M rx'any if !lookback("z") | "xx" | "yy"' "zyy" ~is ["zyy"]
-  M rx'any if !lookback("z") | "xx" | "yy"' "xxy" ~is #false
-  M rx'any if !lookback("z") | "xx" | "yy"' "zyx" ~is #false
+  M rx'any if !lookbehind("z") | "xx" | "yy"' "xxx" ~is ["xxx"]
+  M rx'any if !lookbehind("z") | "xx" | "yy"' "zyy" ~is ["zyy"]
+  M rx'any if !lookbehind("z") | "xx" | "yy"' "xxy" ~is #false
+  M rx'any if !lookbehind("z") | "xx" | "yy"' "zyx" ~is #false
 
 block:
   // check that `!` and `if` recognize by binding, not by symbolic name
   import:
     rhombus/rx.lookahead as ahead
-    rhombus/rx.lookback as back
+    rhombus/rx.lookbehind as back
     rhombus/rx.(!) as not
   check:
     M rx'!ahead("x") any any' "yy" ~is ["yy"]
@@ -350,12 +345,10 @@ check:
   M rx'["a"-"q"]*' "abcdz" ~is #false
   P rx'["a"-"q"]+' "zabcdz" ~is ["abcd"]
 
-  M rx'[^ "a"]' "a" ~is #false
-  M rx'[^ "a"]' "λ" ~is ["λ"]
   M rx'[! "a"]' "a" ~is #false
   M rx'[! "a"]' "λ" ~is ["λ"]
-  M rx'[^ ("a"--"a")]' "a" ~is ["a"]
-  M rx'[^ ("a"--"a")]' "λ" ~is ["λ"]
+  M rx'[! ("a"--"a")]' "a" ~is ["a"]
+  M rx'[! ("a"--"a")]' "λ" ~is ["λ"]
 
   M rx'["z" ("a"-"a")]' "a" ~is ["a"]
   M rx'["z" ("a"-"a")]' "z" ~is ["z"]
@@ -445,9 +438,9 @@ check_throws rx'()*' "repetition operand could match an empty string"
 check_throws rx'()+' "repetition operand could match an empty string"
 check_throws rx'(){1..2}' "repetition operand could match an empty string"
 check_throws rx'()* ~nongreedy' "repetition operand could match an empty string"
-check_throws rx'lookback(.*)' "pattern must match a bounded sequence"
+check_throws rx'lookbehind(.*)' "pattern must match a bounded sequence"
 check_throws rx'($x: .*) $x *' "repetition operand could match an empty string"
-check_throws rx'($x: .*) lookback($x)' "pattern must match a bounded sequence"
+check_throws rx'($x: .*) lookbehind($x)' "pattern must match a bounded sequence"
 check_throws rx'$"5"' "does not satisfy"
 
 block:
@@ -491,10 +484,10 @@ block:
 block:
   // Cooper's original example:
   def noisy_phone_number = rx'
-    ^(("+"[digit] /* country code */ space?)?
-        ++ ("(" [digit]{3} ")"|| [digit]{3}) space?
-        ++ ([digit]{3}) ("-")? // telephone prefix with optional dash
-        ++ ([digit]{4})) $ //line number, match must end with last digit
+    bof (("+"[digit] /* country code */ space?)?
+           ++ ("(" [digit]{3} ")"|| [digit]{3}) space?
+           ++ ([digit]{3}) ("-")? // telephone prefix with optional dash
+           ++ ([digit]{4})) eof //line number, match must end with last digit
   '
   // Simplified:
   def phone_number = rx'
@@ -522,7 +515,7 @@ block:
     ip.is_match("256.0.0.0") ~is #false
   
   def rx'($total:
-            ($hour: ^(["0"-"9"] || ("1"["0"-"2"]))) ":"
+            ($hour: (["0"-"9"] || ("1"["0"-"2"]))) ":"
               ++ ($minutes: ["0"-"5"][digit]) space
               ++ ($period: ("a"||"p")"m"))':
     "12:34 pm"

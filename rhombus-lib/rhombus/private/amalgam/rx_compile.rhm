@@ -55,10 +55,11 @@ meta:
     fun check_count(ast, captures):
       match ast
       | 'any': values(1, 1, captures)
-      | 'start': values(0, 0, captures)
-      | 'end': values(0, 0, captures)
-      | 'abs_start': values(0, 0, captures)
-      | 'abs_end': values(0, 0, captures)
+      | 'any_except_newline': values(1, 1, captures)
+      | 'bol': values(0, 0, captures)
+      | 'eol': values(0, 0, captures)
+      | 'bof': values(0, 0, captures)
+      | 'eof': values(0, 0, captures)
       | 'cut($ast)': check_count(ast, captures)
       | 'backref($index)':
           let name = index.unwrap()
@@ -117,14 +118,13 @@ meta:
       | '$('lookahead' || 'not_lookahead')($_)($ast)':
           let (_, _, captures) = check_count(ast, captures)
           values(0, 0, captures)
-      | '$('lookback' || 'not_lookback')($op)($ast)':
+      | '$('lookbehind' || 'not_lookbehind')($op)($ast)':
           let (min, max, captures) = check_count(ast, captures)
           when captures && max == #inf
-          | syntax_meta.error("lookback pattern must match a bounded sequence", stx, op)
+          | syntax_meta.error("lookbehind pattern must match a bounded sequence", stx, op)
           values(0, 0, captures)
       | 'bytes($_)($ast)': check_count(ast, captures)
       | 'string($_)($ast)': check_count(ast, captures)
-      | 'any_or_newline': values(1, 1, captures)
       | 'word_boundary': values(0, 0, captures)
       | 'word_continue': values(0, 0, captures)
 
@@ -133,10 +133,11 @@ meta:
     fun infer_element(ast, imposed):
       match ast
       | 'any': #'any
-      | 'start': #'any
-      | 'end': #'any
-      | 'abs_start': #'any
-      | 'abs_end': #'any
+      | 'any_except_newline': #'any
+      | 'bol': #'any
+      | 'eol': #'any
+      | 'bof': #'any
+      | 'eof': #'any
       | 'cut($ast)': infer_element(ast, imposed)
       | 'backref($index)': #'any
       | 'backref_or_splice($index)': #'any
@@ -197,9 +198,9 @@ meta:
           infer_element(ast, imposed)
       | 'not_lookahead($_)($ast)':
           infer_element(ast, imposed)
-      | 'lookback($_)($ast)':
+      | 'lookbehind($_)($ast)':
           infer_element(ast, imposed)
-      | 'not_lookback($_)($ast)':
+      | 'not_lookbehind($_)($ast)':
           infer_element(ast, imposed)                
       | 'bytes($op)($ast)':
           when imposed == #'char
@@ -213,7 +214,6 @@ meta:
           match infer_element(ast, #'char)
           | #'mix: #'mix
           | ~else: #'char
-      | 'any_or_newline': #'any
       | 'word_boundary': #'any
       | 'word_continue': #'any
 
@@ -247,7 +247,7 @@ meta:
     | join([a, b, ...]): a +! join([b, ...])
 
     //  produces a string or list; see `+!` above
-    fun compile(ast, mode, ~in_seq: in_seq = #false, ~group: group = in_seq):
+    fun compile(ast, ~in_seq: in_seq = #false, ~group: group = in_seq):
       fun return(s):
         if group
         | if s is_a String && String.length(s) < 2
@@ -260,26 +260,22 @@ meta:
         | return(s)
       match ast
       | 'any':
-          if mode == #'enable_newline
-          | "."
-          | "(?m:.)"          
-      | 'start':
-          if mode == #'enable_newline
-          | "^"
-          | "(?m:^)"
-      | 'end':
-          if mode == #'enable_newline
-          | "$"
-          | "(?m:$)"
-      | 'abs_start':
+          "."
+      | 'any_except_newline':
+          "(?m:.)"
+      | 'bol':
+          "(?m:^)"
+      | 'eol':
+          "(?m:$)"
+      | 'bof':
           "^"
-      | 'abs_end':
+      | 'eof':
           "$"
       | 'cut($ast)':
-          "(?>" +! compile(ast, mode) +! ")"
+          "(?>" +! compile(ast) +! ")"
       | 'backref_or_splice($index)':
           if !can_splice || vars.get(index.unwrap(), #false)
-          | compile('backref($index)', mode, ~in_seq: in_seq, ~group: group)
+          | compile('backref($index)', ~in_seq: in_seq, ~group: group)
           | [index]
       | 'splice($expr)':
           when !can_splice
@@ -299,13 +295,7 @@ meta:
           | syntax_meta.error("invalid backreference index", stx, index)            
       | 'mode($mode_str)($ast)':
           let mode_str = mode_str.unwrap()
-          match mode_str
-          | "-m":
-              compile(ast, #'enable_newline)
-          | "m":
-              compile(ast, #'disable_newline)
-          | ~else:
-              "(?" ++ mode_str ++ ":" +! compile(ast, mode) +! ")"
+          "(?" ++ mode_str ++ ":" +! compile(ast) +! ")"
       | 'literal($str)':
           let pat = to_string(meta_base.#{regexp-quote}(str.unwrap()))
           return(if pat is_a Bytes | Bytes.latin1_string(pat) | pat)
@@ -314,11 +304,11 @@ meta:
       | 'not_unicode($cat)':
           "\\P{" +& cat.unwrap() +& "}"          
       | 'sequence($(ast :: Group))':
-          compile(ast, mode, ~in_seq: in_seq, ~group: group)
+          compile(ast, ~in_seq: in_seq, ~group: group)
       | 'sequence($ast, ...)':
-          return_alts(join([compile(ast, mode, ~in_seq: #true), ...]))
+          return_alts(join([compile(ast, ~in_seq: #true), ...]))
       | 'repeat($min, $max, $rmode, $op)($ast)':
-          let base = compile(ast, mode, ~group: #true)
+          let base = compile(ast, ~group: #true)
           let min = min.unwrap()
           let max = max.unwrap()
           let (g_pre :~ String, g_post):
@@ -336,41 +326,40 @@ meta:
           | max == #inf: return(g_pre +! base +! "{" +& min +& ",}" ++ g_post)
           | ~else: return(g_pre +! base +! "{" +& min +& "," +& max +& "}" ++ g_post)
       | 'capture($ast)':
-          "(" +! compile(ast, mode) +! ")"
+          "(" +! compile(ast) +! ")"
       | 'or($left, $right)':
-          return(compile(left, mode, ~group: #true) +! "|" +! compile(right, mode, ~group: #true))
+          return(compile(left, ~group: #true) +! "|" +! compile(right, ~group: #true))
       | 'bytes($_)($ast)':
-          compile(ast, mode, ~in_seq: in_seq, ~group: group)
+          compile(ast, ~in_seq: in_seq, ~group: group)
       | 'string($_)($ast)':
-          compile(ast, mode, ~in_seq: in_seq, ~group: group)
+          compile(ast, ~in_seq: in_seq, ~group: group)
       | 'charset($cs)':
           compile_range(cs, elem)
       | 'if($tst)($thn, $els)':
           "(?"
             ++ (match tst
                 | 'backref $_':
-                    let s :~ String = compile(tst, mode)
+                    let s :~ String = compile(tst)
                     "(" ++ s.substring(1, s.length()) ++ ")"
-                | ~else: compile(tst, mode))
-            +! compile(thn, mode, ~group: #true)
+                | ~else: compile(tst))
+            +! compile(thn, ~group: #true)
             +! "|"
-            +! compile(els, mode, ~group: #true)
+            +! compile(els, ~group: #true)
             +! ")"
       | 'lookahead($_)($ast)':
-          "(?=" +! compile(ast, mode) +! ")"
+          "(?=" +! compile(ast) +! ")"
       | 'not_lookahead($_)($ast)':
-          "(?!" +! compile(ast, mode) +! ")"
-      | 'lookback($_)($ast)':
-          "(?<=" +! compile(ast, mode) +! ")"
-      | 'not_lookback($_)($ast)':
-          "(?<!" +! compile(ast, mode) +! ")"
+          "(?!" +! compile(ast) +! ")"
+      | 'lookbehind($_)($ast)':
+          "(?<=" +! compile(ast) +! ")"
+      | 'not_lookbehind($_)($ast)':
+          "(?<!" +! compile(ast) +! ")"
       | '$(str :: String)':
           return(str.unwrap())
-      | 'any_or_newline': "."
       | 'word_boundary': "\\b"
       | 'word_continue': "\\B"
 
-    let str_or_list = compile(ast, #'disable_newline)
+    let str_or_list = compile(ast)
     match str_or_list
     | str :: String:
         // generate a Racket regexp
@@ -457,8 +446,8 @@ meta:
       | 'if($tst)($thn, $els)': loop(tst) || loop(thn) || loop(els)
       | 'lookahead($_)($ast)': loop(ast)
       | 'not_lookahead($_)($ast)': loop(ast)
-      | 'lookback($_)($ast)': loop(ast)
-      | 'not_lookback($_)($ast)': loop(ast)
+      | 'lookbehind($_)($ast)': loop(ast)
+      | 'not_lookbehind($_)($ast)': loop(ast)
       | 'bytes($_)($ast)': loop(ast)
       | 'string($_)($ast)': loop(ast)
       | ~else: #false

@@ -247,21 +247,19 @@ multiplying like the expression @rhombus(*) operator.
   rx.macro 'byte'
 ){
 
- Matches a single character or byte. The @rhombus(., ~at rhombus/rx) or
- @rhombus(any, ~at rhombus/rx) patterns are equivalent, and they do not
- match a newline character unless they are used under
- @rhombus(enable_newline, ~at rhombus/rx). The
- @rhombus(char, ~at rhombus/rx) and @rhombus(byte, ~at rhombus/rx)
- patterns match any character or byte, including a newline, and also
- imply that that the enclosing @tech{regexp} matches strings or byte
- strings, respectively.
+ Matches a single character or byte. The @rhombus(., ~at rhombus/rx)
+ pattern matches any character or byte except a newline, while
+ @rhombus(any, ~at rhombus/rx) also matches a newline. The
+ @rhombus(char, ~at rhombus/rx) and @rhombus(byte, ~at rhombus/rx) forms
+ are like @rhombus(any, ~at rhombus/rx) and also imply that that the
+ enclosing @tech{regexp} matches strings or byte strings, respectively.
 
 @examples(
   ~eval: rx_eval
   ~repl:
     rx'.'.match("a")
     rx'.'.match("\n")
-    rx'enable_newline: .'.match("\n")
+    rx'any'.match("\n")
   ~repl:
     rx'char'.match("\n")
     rx'byte'.match("\n")
@@ -291,58 +289,60 @@ multiplying like the expression @rhombus(*) operator.
 }
 
 @doc(
-  rx.macro '^'
   rx.macro 'bof'
+  rx.macro 'bol'
 ){
+ 
+ Matches the start of input with @rhombus(bof, ~at rhombus/rx) or the 
+ position after a newline with @rhombus(bol, ~at rhombus/rx).
 
- Matches the start of input or, in the case of
- @rhombus(^, ~at rhombus/rx) when not under @rhombus(enable_newline), the
- position after a newline. The @rhombus(bof, ~at rhombus/rx) operator
- always matches the beginning of input and is not affected by
- @rhombus(enable_newline).
-
- A regexp created with @rhombus(rx) (as opposed to @rhombus(rx_in) is
+ A regexp created with @rhombus(rx) (as opposed to @rhombus(rx_in)) is
  implicitly prefixed with @rhombus(bof) for use with methods like
  @rhombus(Regexp.match) (as opposed to @rhombus(Regexp.match_in)).
 
 @examples(
   ~eval: rx_eval
   ~repl:
-    rx'^ "a"'.match_in("a")
-    rx'^ "a"'.match_in("xa")
-    rx'^ "a"'.match_in("x\na")
+    rx'bof "a"'.match_in("a")
+    rx'bol "a"'.match_in("x\na")
     rx'bof "a"'.match_in("x\na")
-    rx'enable_newline: ^ "a"'.match_in("x\na")
 )
 
 }
 
 @doc(
-  rx.macro '$'
   rx.macro 'eof'
+  rx.macro 'eol'
+){
+ 
+ Matches the end of input with @rhombus(eof, ~at rhombus/rx) or the 
+ position before a newline with @rhombus(eol, ~at rhombus/rx).
+
+ A regexp created with @rhombus(rx) (as opposed to @rhombus(rx_in)) is
+ implicitly suffixed with @rhombus(eof) for use with methods like
+ @rhombus(Regexp.match) (as opposed to @rhombus(Regexp.match_in)).
+
+@examples(
+  ~eval: rx_eval
+  ~repl:
+    rx'"a" eof'.match_in("a")
+    rx'"a" eol'.match_in("a\nx")
+    rx'"a" eof'.match_in("a\nx")
+)
+
+}
+
+@doc(
   rx.macro '$ $identifier: $pat'
   rx.macro '$ $identifier'
   rx.macro '$ $int'
   rx.macro '$ $expr'
 ){
 
- The @rhombus($, ~at rhombus/rx) operator is overloaded for multiple
+ The @rhombus($, ~at rhombus/rx) operator is overloaded for related
  uses:
 
 @itemlist(
-
- @item{When not followed by anything, @rhombus($, ~at rhombus/rx)
-  matches the end of input or the position before a newline, analogous to
-  the way that @rhombus(^, ~at rhombus/rx) matches the start of input or
-  the position after a newline. The @rhombus(eof, ~at rhombus/rx) operator
-  matches the end of input.
-
-  @examples(
-  ~eval: rx_eval
-  ~repl:
-    rx'"a" $'.match_in("a")
-    rx'"a" $'.match_in("az")
-  )}
 
  @item{When followed by an identifier and a @colon for a block
   containing @rhombus(pat), @rhombus($, ~at rhombus/rx) creates a
@@ -437,22 +437,22 @@ multiplying like the expression @rhombus(*) operator.
 
 @doc(
   rx.macro 'lookahead($pat)'
-  rx.macro 'lookback($pat)'
+  rx.macro 'lookbehind($pat)'
   rx.macro '! lookahead($pat)'
-  rx.macro '! lookback($pat)'
+  rx.macro '! lookbehind($pat)'
 ){
 
  Matches an empty position in the input where the subsequent (for
  @rhombus(lookahead, ~at rhombus/rx)) or preceding (for
- @rhombus(lookback, ~at rhombus/rx)) input matches @rhombus(pat)---or
+ @rhombus(lookbehind, ~at rhombus/rx)) input matches @rhombus(pat)---or
  does not match, when a @rhombus(!, ~at rhombus/rx) prefix is used.
 
 @examples(
   ~eval: rx_eval
   rx'. "a" lookahead("p")'.match_in("cat nap")
   rx'. "a" !lookahead("t")'.match_in("cat nap")
-  rx'lookback("n") "a" .'.match_in("cat nap")
-  rx'!lookback("c") "a" .'.match_in("cat nap")
+  rx'lookbehind("n") "a" .'.match_in("cat nap")
+  rx'!lookbehind("c") "a" .'.match_in("cat nap")
 )
 }
 
@@ -481,16 +481,16 @@ multiplying like the expression @rhombus(*) operator.
 
 @doc(
   rx.macro 'if lookahead($pat) | $then_pat | $else_pat'
-  rx.macro 'if lookback($pat) | $then_pat | $else_pat'
+  rx.macro 'if lookbehind($pat) | $then_pat | $else_pat'
   rx.macro 'if ! lookahead($pat) | $then_pat | $else_pat'
-  rx.macro 'if ! lookback($pat) | $then_pat | $else_pat'
+  rx.macro 'if ! lookbehind($pat) | $then_pat | $else_pat'
   rx.macro 'if #,(rhombus($, ~at rhombus/rx)) $identifier | $then_pat | $else_pat'
   rx.macro 'if #,(rhombus($, ~at rhombus/rx)) $int | $then_pat | $else_pat'
 ){
 
  Matches as @rhombus(then_pat) or @rhombus(else_pat), depending on the
  form immediately after @rhombus(if), which must be either a
- @rhombus(lookahead, ~at rhombus/rx), @rhombus(lookback, ~at rhombus/rx),
+ @rhombus(lookahead, ~at rhombus/rx), @rhombus(lookbehind, ~at rhombus/rx),
  or @tech{backreference} pattern.
 
 @examples(
@@ -557,41 +557,6 @@ multiplying like the expression @rhombus(*) operator.
   ~eval: rx_eval
   rx'"hello"'.match("HELLO")
   rx'case_insensitive: "hello"'.match("HELLO")
-)
-
-}
-
-@doc(
-  rx.macro 'enable_newline: $pat'
-  rx.macro 'disable_newline: $pat'
-){
-
- Adjusts the meaning of @rhombus(any, ~at rhombus/rx),
- @rhombus(^, ~at rhombus/rx), and @rhombus($, ~at rhombus/rx), in
- @rhombus(pat):
-
-@itemlist(
-
- @item{@rhombus(enable_newline, ~at rhombus/rx) allows
-  @rhombus(any, ~at rhombus/rx) to match newlines and causes
-  @rhombus(^, ~at rhombus/rx) and @rhombus($, ~at rhombus/rx) to match
-  only at the beginning and end of the input.}
-
- @item{@rhombus(disable_newline, ~at rhombus/rx) prevents
-  @rhombus(any, ~at rhombus/rx) from matching newlines and allows
-  @rhombus(^, ~at rhombus/rx) and @rhombus($, ~at rhombus/rx) to match
-  just before and after newlines. This is the default mode.}
-
-)
-
-@examples(
-  ~eval: rx_eval
-  ~repl:
-    rx'"x" any "y"'.match("x\ny")
-    rx'enable_newline: "x" any "y"'.match("x\ny")
-  ~repl:
-    rx'^ "x" $'.match_in("a\nx\nz")
-    rx'enable_newline: ^ "x" $'.match_in("a\nx\nz")
 )
 
 }

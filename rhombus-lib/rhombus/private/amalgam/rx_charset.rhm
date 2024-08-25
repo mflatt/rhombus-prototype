@@ -32,7 +32,7 @@ export:
     rx_charset_meta
 
   only_space rx_charset:
-    ^ !
+    !
     -
     && || --
     names:
@@ -71,13 +71,6 @@ rx_charset.macro '#%literal $(s :: String)':
       cs.union(Charset(ch, ch))
   rx_charset_meta.pack(cs, s)
 
-rx_charset.macro '^ $right':
-  ~weaker_than: ~other
-  ~all_stx: stx
-  rx_charset_meta.pack(rx_charset_meta.unpack(right).invert(),
-                       stx)
-
-// alias for `^`:
 rx_charset.macro '! $right':
   ~weaker_than: ~other
   ~all_stx: stx

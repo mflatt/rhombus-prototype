@@ -137,7 +137,6 @@ bytes to match for a byte-mode @tech{regexp}.
 
 
 @doc(
-  rx_charset.macro '^ $charset'
   rx_charset.macro '! $charset'
 ){
 
@@ -147,8 +146,8 @@ bytes to match for a byte-mode @tech{regexp}.
 
 @examples(
   ~eval: rx_eval
-  rx'[^ "a" - "z"]'.is_match("n")
-  rx'[^ "a" - "z"]'.is_match("0")
+  rx'[! "a" - "z"]'.is_match("n")
+  rx'[! "a" - "z"]'.is_match("0")
 )
 
 }

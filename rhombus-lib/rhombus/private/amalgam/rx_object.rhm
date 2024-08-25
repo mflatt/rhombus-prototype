@@ -96,7 +96,7 @@ class RX(private _rkt_partial_rx,
   match_method is_match_in(input, start_pos, end_pos, output_port, input_prefix):
     base.#{regexp-match?}(_rkt_partial_rx, input, start_pos, end_pos, output_port, input_prefix)
 
-  method max_lookback():
+  method max_lookbehind():
     base.#{regexp-max-lookbehind}(_rkt_partial_rx)
 
   method matches(input :: String || Bytes || Port.Input,
