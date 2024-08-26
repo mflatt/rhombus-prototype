@@ -10,7 +10,9 @@
 @examples(
   ~eval: rx_eval
   ~hidden:
-    import rhombus/rx open
+    import:
+      rhombus/rx open
+      rhombus/meta open
 )
 
 @title(~tag: "rx-pattern"){Regexp Patterns}
@@ -21,6 +23,16 @@ operators overlap with expression operators, but they have different
 meanings and precedence in a pattern. For example, the pattern operator
 @rhombus(*, ~at rhombus/rx) creates a repetition pattern, instead of
 multiplying like the expression @rhombus(*) operator.
+
+@doc(
+  space.enforest rx
+){
+
+ The @tech{space} for pattern operators that can be used within
+ @rhombus(rx) and @rhombus(rx_in) forms.
+
+}
+
 
 @doc(
   rx.macro '#%literal $string'
@@ -629,5 +641,56 @@ multiplying like the expression @rhombus(*) operator.
 )
 
 }
+
+
+@doc(
+  ~meta
+  def rx_meta.space :: SpaceMeta
+){
+
+ A compile-time value that identifies the same space as
+ @rhombus(rx, ~space). See also @rhombus(SpaceMeta, ~annot).
+
+}
+
+
+@doc(
+  ~nonterminal:
+    macro_patterns: expr.macro ~defn
+  defn.macro 'rx.macro macro_patterns'
+){
+
+ Like @rhombus(expr.macro, ~defn), but defines a new @tech{regexp} operator.
+
+@examples(
+  ~eval: rx_eval
+  ~defn:
+    // match number from 0 to 10**n-1:
+    rx.macro 'upto_e($(n :: Int))':
+      let n = n.unwrap()
+      if n == 1
+      | 'digit'
+      | '["1"-"9"] digit{$(n-1)} || upto_e($(n-1))'
+    rx.macro 'pct':
+      '("100" || upto_e(2)) "%"'
+  ~repl:
+    rx'pct "/" pct "/" pct'.is_match("1%/42%/100%")
+)
+
+}
+
+
+@doc(
+  ~meta
+  syntax_class rx_meta.Parsed
+  syntax_class rx_meta.AfterPrefixParsed(name :: Name)
+  syntax_class rx_meta.AfterInfixParsed(name :: Name)
+){
+
+ Analogous to @rhombus(expr_meta.Parsed, ~stxclass), etc., but for
+ regexp patterns.
+
+}
+
 
 @close_eval(rx_eval)

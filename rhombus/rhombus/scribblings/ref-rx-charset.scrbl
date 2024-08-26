@@ -10,17 +10,29 @@
 @examples(
   ~eval: rx_eval
   ~hidden:
-    import rhombus/rx open
+    import:
+      rhombus/rx open
+      rhombus/meta open
 )
 
 @title(~tag: "rx-charset"){Regexp Character Sets}
 
-A @deftech{character set} is written with @brackets in a regular
-expression pattern (via the implicit
+A @deftech{character set} is written with @brackets in a @{regexp}
+pattern (via the implicit
 @rhombus(#%brackets, ~at rhombus/rx) operator). A character set
 represents a set of @rhombus(Char)s, but as long as the characters range
 in Unicode value from 0 to 255, a character set can be used as a set of
 bytes to match for a byte-mode @tech{regexp}.
+
+@doc(
+  space.enforest rx_charset
+){
+
+ The @tech{space} for character set operators that can be used within
+ @brackets in a regexp pattern.
+
+}
+
 
 @doc(
   rx_charset.macro '#%literal $string'
@@ -373,5 +385,51 @@ bytes to match for a byte-mode @tech{regexp}.
 )
 
 }
+
+
+@doc(
+  ~meta
+  def rx_charset_meta.space :: SpaceMeta
+){
+
+ A compile-time value that identifies the same space as
+ @rhombus(rx_charset, ~space). See also @rhombus(SpaceMeta, ~annot).
+
+}
+
+
+@doc(
+  ~nonterminal:
+    macro_patterns: expr.macro ~defn
+  defn.macro 'rx_charset.macro macro_patterns'
+){
+
+ Like @rhombus(expr.macro, ~defn), but defines a @tech{character set}
+ operator.
+
+@examples(
+  ~eval: rx_eval
+  ~defn:
+    rx_charset.macro 'octal': '"0"-"7"'
+    rx_charset.macro 'maybe $charset': '$charset "?"'
+  ~repl:
+    rx'[maybe(octal) "!"]*'.match("3?!4")
+    rx'[maybe(octal)]'.match("8")
+)
+
+}
+
+@doc(
+  ~meta
+  syntax_class rx_charset_meta.Parsed
+  syntax_class rx_charset_meta.AfterPrefixParsed(name :: Name)
+  syntax_class rx_charset_meta.AfterInfixParsed(name :: Name)
+){
+
+ Analogous to @rhombus(expr_meta.Parsed, ~stxclass), etc., but for
+ regexp character ranges.
+
+}
+
 
 @close_eval(rx_eval)

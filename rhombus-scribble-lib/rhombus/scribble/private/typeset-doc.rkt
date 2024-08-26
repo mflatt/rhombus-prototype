@@ -13,6 +13,8 @@
                      syntax/strip-context
                      (lib "shrubbery/render/private/add-space.rkt")
                      "typeset-key-help.rkt")
+         (for-label (only-in rhombus
+                             meta))
          racket/symbol
          (prefix-in typeset-meta: (lib "shrubbery/render/private/typeset_meta.rhm"))
          "metavar.rkt"
@@ -29,14 +31,16 @@
                   in-name-root-space
                   name-root-quote)
          (only-in "rhombus.rhm"
-                  rhombusblock_etc)
+                  rhombusblock_etc
+                  [rhombus rhombus:rhombus])
          (only-in rhombus/parse
                   rhombus-expression)
          (only-in scribble/manual
                   hspace
                   racketvarfont
                   racketidfont
-                  tt)
+                  tt
+                  smaller)
          (submod scribble/racket id-element)
          (only-in scribble/core
                   table
@@ -81,9 +85,10 @@
                       (~optional (group #:nonterminal_key (block nt-key-g)))
                       (~optional (group #:nonterminal (block
                                                        (group nt-id (block nt-id-key-g))
-                                                       ...))))
+                                                       ...)))
+                      (~optional (group (~and meta-tag (~or #:meta #:also_meta)))))
                 ...
-                ((~and group-tag group) form ...) ...
+                (~seq ((~and group-tag group) form ...) ...)
                 (group
                  (brackets content-group ...))))
      #:with (_ . err-stx) stx
@@ -332,6 +337,10 @@
      (with-syntax ([(typeset ...) typesets]
                    [(kind-str ...) (map car kind-strss)]
                    [(include-body ...) include-bodys]
+                   [(meta-sep ...) (if (attribute meta-tag)
+                                       (let ([nl (datum->syntax stx "\n")])
+                                         (list nl nl))
+                                       '())]
                    [(sep ...) (if (null? include-bodys)
                                   '()
                                   (let ([nl (datum->syntax stx "\n")])
@@ -361,6 +370,17 @@
                typeset
                ...)
               '(kind-str ...)))
+            #,@(if (attribute meta-tag)
+                   #`((smaller "Provided "
+                               #,(if (eq? (syntax-e #'meta-tag) '#:also_meta)
+                                     "both normally and  "
+                                     "")
+                               "as "
+                               (rhombus-expression
+                                (group rhombus:rhombus (parens (group meta) (group #:expo))))
+                               ".")
+                      meta-sep ...)
+                   null)
             (rhombus-expression include-body)
             ...
             sep ...

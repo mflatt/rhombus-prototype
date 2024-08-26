@@ -11,8 +11,10 @@ space.enforest rx_charset:
   macro_definer macro
   meta_namespace rx_charset_meta:
     description "character set"
+    reflection space
     parse_syntax_class Parsed
-    parse_infix_more_syntax_class Infix_Parsed
+    parse_prefix_more_syntax_class AfterPrefixParsed
+    parse_infix_more_syntax_class AfterInfixParsed
     parsed_packer do_pack
     parsed_unpacker do_unpack
     export:

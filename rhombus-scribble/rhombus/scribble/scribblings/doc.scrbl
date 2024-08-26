@@ -84,6 +84,8 @@
     ~literal:
       id ...
       ...
+    ~meta
+    ~also_meta
   grammar nt_key_ref:
     $op_or_id_name
     $op_or_id_name $nonterm_op_or_id_name
@@ -186,6 +188,12 @@
   terated as literals (no metavariables) in @rhombus(entry)s. This form is
   normally not needed, since identifiers used without a @rhombus($, ~bind)
   in @rhombus(entry)s are generally treated as literal.}
+
+ @item{A @rhombus(~meta) form indicates that the documented bindings are
+  provided @rhombus(meta, ~expo), while @rhombus(~also_meta) indicates
+  that the documented bindings are provided both normally and
+  @rhombus(meta, ~expo). At most one of @rhombus(~meta) and
+  @rhombus(~also_meta) can be used. }
 
 )
 

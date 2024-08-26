@@ -21,8 +21,8 @@ space.enforest rx:
   meta_namespace rx_meta:
     description "rx"
     parse_syntax_class Parsed
-    parse_prefix_more_syntax_class ParsedAfterPrefix
-    parse_infix_more_syntax_class ParsedAfterInfix
+    parse_prefix_more_syntax_class AfterPrefixParsed
+    parse_infix_more_syntax_class AfterInfixParsed
     reflection space
 
     export:
@@ -156,7 +156,7 @@ expr.macro
     ~all_stx: stx
     rx_macro(stx, pat, #false)
 
-rx.macro'$left #%index $(next :: rx_meta.ParsedAfterInfix('#%juxtapose')) $()':
+rx.macro'$left #%index $(next :: rx_meta.AfterInfixParsed('#%juxtapose')) $()':
   ~weaker_than: #%parens #%juxtapose ++
   ~same_as: #%brackets
   values(binary('sequence', left, next),
@@ -269,7 +269,7 @@ rx.macro '$left ++ $right':
   ~same_as: #%juxtapose
   binary('sequence', left, right)
 
-rx.macro '$left #%call $(next :: rx_meta.ParsedAfterInfix('#%juxtapose')) $()':
+rx.macro '$left #%call $(next :: rx_meta.AfterInfixParsed('#%juxtapose')) $()':
   ~same_as: #%juxtapose ++
   values(binary('sequence', left, next),
          '$next.tail ...')
@@ -281,12 +281,11 @@ rx.macro 'case_insensitive: $(pat :: rx_meta.Parsed)':
   unary('mode("i")', pat)
 
 // unnamed capture group
-rx.macro '~~ $(p_rx :: rx_meta.ParsedAfterPrefix('~~')) $()':
+rx.macro '~~ $right':
   ~same_as: #%parens
   ~stronger_than: #%juxtapose #%call ++ #%comp
-  let '[$p, [$p_var, ...]]' = rx_meta.do_unpack(p_rx)
-  values(rx_meta.pack('[capture($p), [#false, $p_var, ...]]'),
-         '$p_rx.tail ...')
+  let '[$p, [$p_var, ...]]' = rx_meta.do_unpack(right)
+  rx_meta.pack('[capture($p), [#false, $p_var, ...]]')
 
 rx.macro ||:
   ~weaker_than: ~other
