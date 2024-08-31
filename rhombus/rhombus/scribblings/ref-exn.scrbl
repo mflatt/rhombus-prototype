@@ -68,7 +68,7 @@
   ~repl:
     try:
       1/0
-      ~catch exn :: Exn.Fail.Contract.DivideByZero:
+      ~catch exn :: Exn.Fail.Annot.DivideByZero:
         "handled"
   ~repl:
     try:
@@ -101,39 +101,23 @@
 
 }
 
-@doc(
-  fun error(message :: ReadableString)
-    :: None
-  fun error(
-    who :: maybe(ReadableString || Symbol || Identifier || Operator),
-    message :: ReadableString
-  ) :: None
-){
-
- Throws the @rhombus(Exn.Fail, ~class) exception with @rhombus(message) as the
- message and @rhombus(Continuation.Marks.current()) as the continuation
- marks. If @rhombus(who) is not @rhombus(#false), it is added to the
- beginning of the message, and a @litchar{: } separator is added in
- between.
-
-}
 
 @doc(
   class Exn(message :: ReadableString, marks :: Continuation.Marks)
   class Exn.Fail():
     extends Exn
-  class Exn.Fail.Contract():
+  class Exn.Fail.Annot():
     extends Exn.Fail
-  class Exn.Fail.Contract.Arity():
-    extends Exn.Fail.Contract
-  class Exn.Fail.Contract.DivideByZero():
-    extends Exn.Fail.Contract
-  class Exn.Fail.Contract.NonFixnumResult():
-    extends Exn.Fail.Contract
-  class Exn.Fail.Contract.Continuation():
-    extends Exn.Fail.Contract
-  class Exn.Fail.Contract.Variable(id :: Symbol):
-    extends Exn.Fail.Contract
+  class Exn.Fail.Annot.Arity():
+    extends Exn.Fail.Annot
+  class Exn.Fail.Annot.DivideByZero():
+    extends Exn.Fail.Annot
+  class Exn.Fail.Annot.NonFixnumResult():
+    extends Exn.Fail.Annot
+  class Exn.Fail.Annot.Continuation():
+    extends Exn.Fail.Annot
+  class Exn.Fail.Annot.Variable(id :: Symbol):
+    extends Exn.Fail.Annot
   class Exn.Fail.Syntax(exprs :: PairList.of(Syntax)):
     extends Exn.Fail
   class Exn.Fail.Syntax.Unbound():

@@ -3,7 +3,7 @@
 block:
   import "static_arity.rhm"
   static_arity.check:
-    error([who], msg)
+    error(msg, clause, ...)
 
 block:
   use_static
@@ -52,19 +52,19 @@ block:
     v is_a Exn ~is #true
 
 check:
-  error(#'example, "~a oops")
+  error(~who: #'example, "~a oops")
   ~throws "~a oops"
 
 block:
   check:
-    error("who-str", "message")
+    error(~who: "who-str", "message")
     ~throws values("who-str: ", "message")
   check:
-    error(#'who_sym, "message")
+    error(~who: #'who_sym, "message")
     ~throws values("who_sym: ", "message")
   check:
-    error(Syntax.make(#'who_id), "message")
+    error(~who: Syntax.make(#'who_id), "message")
     ~throws values("who_id: ", "message")
   check:
-    error(Syntax.make_op(#'who_op), "message")
+    error(~who: Syntax.make_op(#'who_op), "message")
     ~throws values("who_op: ", "message")
