@@ -55,7 +55,7 @@
 (define-exn Fail exn:fail
   #:parent Exn exn
   #:fields ()
-  #:children (Contract
+  #:children (Annot
               Syntax
               Read
               Filesystem
@@ -64,7 +64,7 @@
               Unsupported
               User))
 
-(define-exn Contract exn:fail:contract
+(define-exn Annot exn:fail:contract
   #:parent Fail exn:fail
   #:fields ()
   #:children (Arity
@@ -74,27 +74,27 @@
               Variable))
 
 (define-exn Arity exn:fail:contract:arity
-  #:parent Contract exn:fail:contract
+  #:parent Annot exn:fail:contract
   #:fields ()
   #:children ())
 
 (define-exn DivideByZero exn:fail:contract:divide-by-zero
-  #:parent Contract exn:fail:contract
+  #:parent Annot exn:fail:contract
   #:fields ()
   #:children ())
 
 (define-exn NonFixnumResult exn:fail:contract:non-fixnum-result
-  #:parent Contract exn:fail:contract
+  #:parent Annot exn:fail:contract
   #:fields ()
   #:children ())
 
 (define-exn Continuation exn:fail:contract:continuation
-  #:parent Contract exn:fail:contract
+  #:parent Annot exn:fail:contract
   #:fields ()
   #:children ())
 
 (define-exn Variable exn:fail:contract:variable
-  #:parent Contract exn:fail:contract
+  #:parent Annot exn:fail:contract
   #:fields ([(id)])
   #:children ())
 
