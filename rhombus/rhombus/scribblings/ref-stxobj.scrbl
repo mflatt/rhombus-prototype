@@ -60,8 +60,10 @@ Metadata for a syntax object can include a source location and the raw
   stx.strip_scopes()
   stx.replace_scopes(like_stx)
   stx.relocate(to)
+  stx.relocate_group(to)
   stx.relocate_span(like_stxes)
   stx.property(key, ...)
+  stx.group_property(key, ...)
   stx.to_source_string()
 )
 
@@ -871,27 +873,37 @@ Metadata for a syntax object can include a source location and the raw
 }
 
 @doc(
-  fun Syntax.relocate(stx :: Syntax,
-                      to :: maybe(Syntax || Srcloc))
+  fun Syntax.relocate(stx :: Term,
+                      to :: maybe(Term || Srcloc))
+    :: Syntax
+  fun Syntax.relocate_group(stx :: Group,
+                            to :: maybe(Group))
     :: Syntax
 ){
 
  Returns a syntax object like @rhombus(stx), except that the metadata of
  @rhombus(to) replaces metadata in @rhombus(stx) when @rhombus(to) is a
  syntax object, or just the source location is changed to match
- @rhombus(to) when it is not a syntax object.
+ @rhombus(to) when it is not a syntax object. When @rhombus(to) is
+ @rhombus(#false), then metadata is removed from @rhombus(stx).
 
- When @rhombus(to) is a syntax object, the specific source of metadata from @rhombus(to) depends on
- its shape. If it is a single-term parenthesis, brackets, braces,
- quotes, block or alternatives form, then metadata is taken from the
- leading tag in the representation of the form. In the case of a
- single-term operator, metadata is taken from the operator token, not
- the @tt{op} tag. In the case of a group syntax object, metadata is
- taken from the @tt{group} tag.
+ Syntax-object metedata exists at both term and group layers, and it
+ exists separately at each layer for a group that contains a single term.
+ The @rhombus(Syntax.relocate) method uses and adjusts term-level
+ metadata, while @rhombus(Syntax.relocate_group) method uses and adjusts
+ group-level metadata. A group does not have a source location
+ independent of its content, so @rhombus(Syntax.relocate_group) does not
+ accept a @rhombus(Srcloc, ~annot) as @rhombus(to).
 
- In the same way, metadata is applied to @rhombus(stx) based on its
- shape. Transferring metadata thus makes the most sense when
- @rhombus(stx) and @rhombus(to) have the same shape.
+ When a term is a parenthesis, brackets, braces, quotes, block or
+ alternatives form, then metadata is specifically associated with the
+ leading tag in the underlying representation of the form. In the case of
+ a single-term operator, metadata is taken from the operator token, not
+ the @tt{op} tag. For a group syntax object, metadata is associated
+ @tt{group} tag in its underlying representation.
+
+ See also @rhombus(Syntax.property) and @rhombus(Syntax.group_property)
+ for accessing or updating specific properties with in metadata.
 
 }
 

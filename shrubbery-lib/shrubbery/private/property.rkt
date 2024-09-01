@@ -41,4 +41,5 @@
 (define syntax-opaque-raw-property
   (case-lambda
     [(stx) (syntax-property stx 'opaque-raw)]
-    [(stx val) (syntax-property stx 'opaque-raw val)]))
+    [(stx val) (syntax-property stx 'opaque-raw val)]
+    [(stx val keep?) (syntax-property stx 'opaque-raw val keep?)]))

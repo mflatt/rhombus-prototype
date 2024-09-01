@@ -89,7 +89,8 @@
                                    #:splice-pattern [splice-pattern #f]
                                    #:allow-fltten? [allow-flatten? #f]
                                    #:make-describe-op [make-describe-op (lambda (e name) e)]
-                                   #:improve-repetition-constraints [improve-repetition-constraints (lambda (ps gs) ps)])
+                                   #:improve-repetition-constraints [improve-repetition-constraints (lambda (ps gs) ps)]
+                                   #:raw-trimming-barrier [raw-trimming-barrier (lambda (idrs) idrs)])
   (let convert ([e e] [empty-ok? splice?] [depth 0] [as-tail? as-tail?] [splice? splice?])
     (syntax-parse e
       #:datum-literals (group parens brackets braces block quotes multi alts)
@@ -102,10 +103,10 @@
        #:when p
        (values p new-idrs new-sidrs new-vars #f)]
       [((~or* parens brackets braces quotes multi block)
-        (group (~var $-id (:$ in-space)) (~var esc (:esc tail-any-escape? #f))))
+        (~and g (group (~var $-id (:$ in-space)) (~var esc (:esc tail-any-escape? #f)))))
        #:when (and (zero? depth) (not as-tail?))
        ;; Analogous special case, but for blocks (maybe within an `alts`), etc.
-       #:do [(define-values (p new-idrs new-sidrs new-vars) (handle-multi-escape #'$-id.name #'esc.term e splice?))]
+       #:do [(define-values (p new-idrs new-sidrs new-vars) (handle-multi-escape #'$-id.name #'esc.term e #'g splice?))]
        #:when p
        (values p new-idrs new-sidrs new-vars #f)]
       [((~and tag (~or* parens brackets braces quotes multi block))
@@ -137,7 +138,7 @@
              [(g . gs)
               (define-values (p new-ids new-sidrs new-vars nested-can-be-empty?) (convert #'g #f a-depth #f #f))
               (loop #'gs new-ids new-sidrs new-vars
-                    (append (or pend-idrs '()) idrs)
+                    (append (or (raw-trimming-barrier pend-idrs) '()) idrs)
                     (append (or pend-sidrs '()) sidrs)
                     (append (or pend-vars '()) vars)
                     (cons p ps) really-can-be-empty? #f #f depth
@@ -148,7 +149,7 @@
               (define-values (p0 new-ids0 new-sids0 new-vars0 nested-can-be-empty?0) (convert #'g0 #f a-depth #f #f))
               (define-values (p1 new-ids1 new-sids1 new-vars1 nested-can-be-empty?1) (convert #'g1 #f a-depth #f #f))
               (loop #'gs (append new-ids0 new-ids1) (append new-sids0 new-sids1) (append new-vars0 new-vars1)
-                    (append (or pend-idrs '()) idrs)
+                    (append (or (raw-trimming-barrier pend-idrs) '()) idrs)
                     (append (or pend-sidrs '()) sidrs)
                     (append (or pend-vars '()) vars)
                     (list* p1 p0 ps) really-can-be-empty? #f #f depth
@@ -177,7 +178,7 @@
            #:datum-literals (op)
            [()
             (finish (reverse ps) tail
-                    (append (or pend-idrs '()) idrs)
+                    (append (or (raw-trimming-barrier pend-idrs) '()) idrs)
                     (append (or pend-sidrs '()) sidrs)
                     (append (or pend-vars '()) vars)
                     really-can-be-empty?
@@ -190,7 +191,7 @@
                             as-tail?))
             (define-values (id new-idrs new-sidrs new-vars) (handle-tail-escape #'op.name #'op.term e))
             (loop #'() #f #f #f
-                  (append new-idrs (or pend-idrs '()) idrs)
+                  (append new-idrs (or (raw-trimming-barrier pend-idrs) '()) idrs)
                   (append new-sidrs (or pend-sidrs '()) sidrs)
                   (append new-vars (or pend-vars '()) vars)
                   ps really-can-be-empty? #f id depth
@@ -202,7 +203,7 @@
                             (identifier? #'op.term)))
             (define-values (id new-idrs new-sidrs new-vars) (handle-block-tail-escape #'op.name #'op.term e))
             (loop #'() #f #f #f
-                  (append new-idrs (or pend-idrs '()) idrs)
+                  (append new-idrs (or (raw-trimming-barrier pend-idrs) '()) idrs)
                   (append new-sidrs (or pend-sidrs '()) sidrs)
                   (append new-vars (or pend-vars '()) vars)
                   ps really-can-be-empty? #f id depth
@@ -231,7 +232,7 @@
                               (improve-repetition-constraints ps #'gs)
                               ps)])
                   (loop #'gs #f #f #f
-                        (append new-pend-idrs idrs)
+                        (append (raw-trimming-barrier new-pend-idrs) idrs)
                         (append new-pend-sidrs sidrs)
                         (append new-pend-vars vars)
                         (cons (quote-syntax ...) ps) can-be-empty? #f #f depth
@@ -245,7 +246,7 @@
                (cond
                  [tail?
                   (finish (reverse ps) pat
-                          (append new-idrs (or pend-idrs '()) idrs)
+                          (append (raw-trimming-barrier new-idrs) (or (raw-trimming-barrier pend-idrs) '()) idrs)
                           (append new-sidrs (or pend-sidrs '()) sidrs)
                           (append new-vars (or pend-vars '()) vars)
                           really-can-be-empty?
@@ -253,7 +254,7 @@
                           needs-group-check?)]
                  [else
                   (loop #'n-gs new-idrs new-sidrs new-vars
-                        (append (or pend-idrs '()) idrs)
+                        (append (or (raw-trimming-barrier pend-idrs) '()) idrs)
                         (append (or pend-sidrs '()) sidrs)
                         (append (or pend-vars '()) vars)
                         (cons pat ps)
@@ -357,7 +358,7 @@
                   (lambda ($-id e in-e)
                     (handle-escape/match-head $-id e in-e 'group #f))
                   ;; handle-multi-escape:
-                  (lambda ($-id e in-e splice?)
+                  (lambda ($-id e in-e in-g splice?)
                     (define kind
                       (syntax-parse in-e
                         [(head . _) (if (memq (syntax-e #'head) '(block alts))
@@ -576,26 +577,32 @@
                        (lambda ($-id e in-e tail?)
                          (check-escape e)
                          (define id (car (generate-temporaries (list e))))
+                         (define $-id/raw (copy-raw-suffix $-id e))
                          (values (if tail? id #`(#,(quote-syntax ~@) . #,id))
-                                 (list #`[#,id (pending-unpack #,e unpack-term-list* (quote-syntax #,$-id))]) null null))
+                                 (list #`[#,id (pending-unpack #,e unpack-term-list* (quote-syntax #,$-id/raw))]) null null))
                        ;; handle-group-escape:
                        (lambda ($-id e in-e)
                          (check-escape e)
                          (define id (car (generate-temporaries (list e))))
+                         (define $-id/raw (copy-raw-suffix (copy-raw-prefix $-id in-e) in-e))
                          (values #`(#,(quote-syntax ~@) . #,id)
-                                 (list #`[#,id (pending-unpack #,e unpack-group-list* (quote-syntax #,$-id))]) null null))
+                                 (list #`[#,id (pending-unpack #,e unpack-group-list* (quote-syntax #,$-id/raw))]) null null))
                        ;; handle-multi-escape:
-                       (lambda ($-id e in-e splice?)
+                       (lambda ($-id e in-e in-g splice?)
                          (check-escape e)
                          (define id (car (generate-temporaries (list e))))
+                         (define $-id/raw (copy-raw-suffix (copy-raw-prefix $-id in-g) in-g))
                          (with-syntax ([(tag . _) in-e])
                            (values (no-srcloc #`(tag . #,id))
-                                   (list #`[#,id (pending-unpack #,e unpack-multi* (quote-syntax #,$-id))]) null null)))
+                                   (list #`[#,id (pending-unpack #,e unpack-multi* (quote-syntax #,$-id/raw))]) null null)))
                        ;; adjust-escape-siblings
                        (lambda (idrs)
                          ;; adapt to allow repetitions at different depths where
                          ;; shallower reptitions are copied to match deeper ones
                          (adjust-template-sibling-depths idrs))
+                       #:raw-trimming-barrier
+                       (lambda (idrs)
+                         (and idrs (start-trimming-template-escapes idrs)))
                        ;; deepen-escape
                        (lambda (idrs)
                          (deepen-template-escapes idrs))
@@ -607,13 +614,13 @@
                          (define id (car (generate-temporaries (list e))))
                          (syntax-parse #`(group #,e)
                            [rep::repetition
-                            (values id (list #`[#,id (unpacking 1 0 rep.parsed unpack-tail* (quote-syntax #,name))]) null null)]))
+                            (values id (list #`[#,id (unpacking 1 0 rep.parsed 0 unpack-tail* (quote-syntax #,name))]) null null)]))
                        ;; handle-block-tail-escape:
                        (lambda (name e in-e)
                          (define id (car (generate-temporaries (list e))))
                          (syntax-parse #`(group #,e)
                            [rep::repetition
-                            (values id (list #`[#,id (unpacking 1 0 rep.parsed unpack-multi-tail* (quote-syntax #,name))]) null null)]))
+                            (values id (list #`[#,id (unpacking 1 0 rep.parsed 0 unpack-multi-tail* (quote-syntax #,name))]) null null)]))
                        ;; handle-maybe-empty-sole-group
                        (lambda (tag template idrs sidrs vars)
                          ;; if `template` generates `(group)`, then instead of `(tag (group))`,
@@ -716,12 +723,16 @@
             ([idr (in-list (reverse idrs))])
     (syntax-parse idr
       #:literals (unpacking delaying dependent-unpack)
-      [(id-pat (unpacking depth 0 . u))
-       (values (cons #`[(id-pat (... ...)) (unpacking #,(add1 (syntax-e #'depth)) 0 . u)]
+      [(id-pat (unpacking depth 0 rep-info trim-depth . u))
+       (define new-trim-depth
+         (if (integer? (syntax-e #'trim-depth))
+             (add1 (syntax-e #'trim-depth))
+             #'trim-depth))
+       (values (cons #`[(id-pat (... ...)) (unpacking #,(add1 (syntax-e #'depth)) 0 rep-info #,new-trim-depth . u)]
                      new-idrs)
                (hash-set deepened (extract-idr-name idr) #t))]
-      [(id-pat (unpacking depth k . u))
-       (values (cons #`[id-pat (unpacking depth #,(sub1 (syntax-e #'k)) . u)]
+      [(id-pat (unpacking depth k rep-info trim-depth . u))
+       (values (cons #`[id-pat (unpacking depth #,(sub1 (syntax-e #'k)) rep-info trim-depth . u)]
                      new-idrs)
                deepened)]
       [(id-pat (dependent-unpack ids (converter depth (qs t) . args)))
@@ -738,6 +749,18 @@
                         (converter #,(add1 (syntax-e #'depth)) (qs (t (... ...)))) . args]
                      new-idrs)
                (hash-set deepened (extract-idr-name idr) #t))])))
+
+(define-for-syntax (start-trimming-template-escapes idrs)
+  (for/list ([idr (in-list idrs)])
+    (syntax-parse idr
+      #:literals (unpacking delaying dependent-unpack)
+      [(id-pat (unpacking depth k rep-info trim-depth . u))
+       (define new-trim-depth
+         (if (integer? (syntax-e #'trim-depth))
+             (box-immutable #'trim-depth)
+             #'trim-depth))
+       #`(id-pat (unpacking depth k rep-info #,new-trim-depth . u))]
+      [_ idr])))
 
 (define-for-syntax (extract-idr-name idr)
   (syntax-parse idr
@@ -781,7 +804,7 @@
        ;; Since `e` is under `...`, it needs to parse as a repetition
        (syntax-parse #'(group e)
          [rep::repetition
-          #`[id-pat (unpacking 0 0 rep.parsed . u)]])]
+          #`[id-pat (unpacking 0 0 rep.parsed 0 . u)]])]
       [_ idr])))
 
 (define-for-syntax (deepen-for-repetition idrs template)
@@ -805,7 +828,7 @@
 ;; if we get here, it means that an escape was not under `...`
 (define-syntax (pending-unpack stx)
   (syntax-parse stx
-    [(_ e unpack* $-name) #'(unpack* $-name (rhombus-expression (group e)) 0)]))
+    [(_ e unpack* $-name) #'(unpack* $-name (rhombus-expression (group e)) 0 0)]))
 
 (define-syntax (dependent-unpack stx)
   (syntax-parse stx
@@ -814,7 +837,7 @@
 ;; if we get here, it means that an escape was under some number of `...`
 (define-syntax (unpacking stx)
   (syntax-parse stx
-    [(_ depth k rep-info::repetition-info unpack* $-name)
+    [(_ depth k rep-info::repetition-info trim-depth unpack* $-name)
      (define base-e (repetition-as-nested-lists #'rep-info (syntax-e #'depth) #'for/list))
      (define unpack*-id #'unpack*)
      (cond
@@ -835,7 +858,10 @@
              #'e]
             [e
              #'e]))
-        #`(unpack* $-name #,opt-e depth)])]))
+        (define use-trim-depth (if (integer? (syntax-e #'trim-depth))
+                                   #'trim-depth
+                                   (unbox (syntax-e #'trim-depth))))
+        #`(unpack* $-name #,opt-e depth #,use-trim-depth)])]))
 
 (define-syntax (delaying stx)
   (syntax-parse stx

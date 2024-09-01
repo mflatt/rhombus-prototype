@@ -15,7 +15,13 @@
          respan
          maybe-respan
          with-syntax-error-respan
-         shift-origin)
+         shift-origin
+         raw-prefix
+         raw-suffix
+         copy-raw-prefix
+         copy-raw-suffix
+         trim-raw
+         reset-raw)
 
 ;; Source locations and 'raw properties for shrubbery forms as syntax
 ;; objects:
@@ -111,9 +117,9 @@
                        (or (syntax-raw-property head)
                            (symbol->immutable-string (syntax-e head)))))
 
-(define (reraw src-stx stx)
+(define (reraw src-stx stx #:keep? [keep? #f])
   (define-values (pfx raw sfx) (extract-raw src-stx))
-  (let* ([stx (syntax-opaque-raw-property stx raw)]
+  (let* ([stx (syntax-opaque-raw-property stx raw keep?)]
          [stx (if (null? pfx)
                   stx
                   (syntax-raw-prefix-property stx pfx))]
@@ -124,9 +130,9 @@
 
 ;; `stx` should be a Racket expression, while `src-stx` can be a srcloc
 ;; or a shrubbery form
-(define (relocate+reraw src-stx stx)
+(define (relocate+reraw src-stx stx #:keep? [keep? #f])
   (cond
-    [(syntax? src-stx) (reraw src-stx (relocate (maybe-respan src-stx) stx))]
+    [(syntax? src-stx) (reraw src-stx (relocate (maybe-respan src-stx) stx) #:keep? keep?)]
     [else (relocate src-stx stx)]))
 
 (define (extract-raw stx)
@@ -333,3 +339,105 @@
         (let ([o2 (syntax-property stx 'origin)])
           (syntax-property stx 'origin (if o2 (cons o o2) o)))
         stx)))
+           
+(define raw-prefix
+  (case-lambda
+    [(s)
+     (define e (syntax-e s))
+     (cond
+       [(not (pair? e)) (syntax-raw-prefix-property s)]
+       [(eq? 'op (syntax-e (car e)))
+        (define a (car (let ([p (cdr e)]) (if (syntax? p) (syntax-e p) p))))
+        (syntax-raw-suffix-property a)]
+       [else
+        (syntax-raw-prefix-property (car e))])]
+    [(s prefix)
+     (define e (syntax-e s))
+     (cond
+       [(not (pair? e)) (syntax-raw-prefix-property s prefix)]
+       [(eq? 'op (syntax-e (car e)))
+        (define a (car (let ([p (cdr e)]) (if (syntax? p) (syntax-e p) p))))
+         (if (or prefix
+                 (syntax-raw-suffix-property a))
+            (datum->syntax
+             s
+             (list (car e)
+                   (syntax-raw-prefix-property a prefix))
+             s
+             s)
+            s)]
+       [else
+        (if (or prefix
+                (syntax-raw-prefix-property (car e)))
+            (datum->syntax
+             s
+             (cons (syntax-raw-prefix-property (car e) prefix)
+                   (cdr e))
+             s
+             s)
+            s)])]))
+           
+(define raw-suffix
+  (case-lambda
+    [(s)
+     (define e (syntax-e s))
+     (cond
+       [(not (pair? e)) (syntax-raw-suffix-property s)]
+       [(eq? 'op (syntax-e (car e)))
+        (define a (car (let ([p (cdr e)]) (if (syntax? p) (syntax-e p) p))))
+        (syntax-raw-suffix-property a)]
+       [else
+        (syntax-raw-tail-suffix-property (car e))])]
+    [(s suffix)
+     (define e (syntax-e s))
+     (cond
+       [(not (pair? e)) (syntax-raw-suffix-property s suffix)]
+       [(eq? 'op (syntax-e (car e)))
+        (define a (car (let ([p (cdr e)]) (if (syntax? p) (syntax-e p) p))))
+        (if (or suffix
+                (syntax-raw-suffix-property a))
+            (datum->syntax
+             s
+             (list (car e)
+                   (syntax-raw-suffix-property a suffix))
+             s
+             s)
+            s)]
+       [else
+        (if (or suffix
+                (syntax-raw-tail-suffix-property (car e)))
+            (datum->syntax
+             s
+             (cons (syntax-raw-tail-suffix-property (car e) suffix)
+                   (cdr e))
+             s
+             s)
+            s)])]))
+
+(define (copy-raw-prefix to from)
+  (raw-prefix to (raw-prefix from)))
+
+(define (copy-raw-suffix to from)
+  (raw-suffix to (raw-suffix from)))
+
+(define (trim-raw l at-stx)
+  (cond
+    [(null? l) null]
+    [else
+     (let loop ([l (cons (raw-prefix (car l) #f)
+                         (cdr l))])
+       (cond
+         [(null? (cdr l))
+          (list (raw-suffix (car l) #f))]
+         [else (cons (car l) (loop (cdr l)))]))]))
+
+(define (reset-raw l at-stx)
+  (cond
+    [(null? l) null]
+    [else
+     (let loop ([l (cons (copy-raw-prefix (car l) at-stx)
+                         (cdr l))])
+       (cond
+         [(null? (cdr l))
+          (list (copy-raw-suffix (car l) at-stx))]
+         [else (cons (car l) (loop (cdr l)))]))]))

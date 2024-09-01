@@ -53,7 +53,8 @@
   #:no-constructor-static-info
   #:existing
   #:just-annot
-  #:fields ()
+  #:fields
+  ()
   #:namespace-fields
   (literal
    literal_group
@@ -62,7 +63,8 @@
    [make_group Syntax.make_group]
    [make_sequence Syntax.make_sequence]
    [make_id Syntax.make_id]
-   [make_temp_id Syntax.make_temp_id])
+   [make_temp_id Syntax.make_temp_id]
+   [relocate_split Syntax.relocate_split])
   #:properties
   ()
   #:methods
@@ -76,6 +78,7 @@
    strip_scopes
    replace_scopes
    relocate
+   relocate_group
    relocate_span
    property
    group_property
@@ -452,60 +455,38 @@
   (check-syntax who v)
   (replace-context (extract-ctx who ctx #:false-ok? #f) v))
 
-(define (check-valid-srcloc who ctx)
-  (unless (or (syntax? ctx) (srcloc? ctx) (not ctx))
-    (raise-argument-error* who rhombus-realm "Syntax || Srcloc || False" ctx)))
+(define (do-relocate who stx-in ctx-stx-in
+                     #:allow-srcloc? [allow-srcloc? #t]
+                     extract-ctx annot)
+  (extract-ctx
+   who stx-in
+   #:update (lambda (stx)
+              (define ctx-stx
+                (if (and allow-srcloc?
+                         (srcloc? ctx-stx-in))
+                    ctx-stx-in
+                    (extract-ctx
+                     who ctx-stx-in
+                     #:false-ok? #t
+                     #:annot annot)))
+              (cond
+                [(syntax? ctx-stx)
+                 (datum->syntax stx (syntax-e stx) ctx-stx ctx-stx)]
+                [(srcloc? ctx-stx)
+                 (datum->syntax stx (syntax-e stx) ctx-stx stx)]
+                [else
+                 (syntax-raw-property (datum->syntax stx (syntax-e stx)) null)]))))
 
 (define/method (Syntax.relocate stx ctx-stx)
   #:static-infos ((#%call-result #,(get-syntax-static-infos)))
-  (check-syntax who stx)
-  (check-valid-srcloc who ctx-stx)
-  (let ([ctx-stx (and (syntax? ctx-stx)
-                      (relevant-source-syntax ctx-stx))])
-    (at-relevant-dest-syntax
-     stx
-     (lambda (stx)
-       (if (syntax? ctx-stx)
-           (datum->syntax stx (syntax-e stx) ctx-stx ctx-stx)
-           (datum->syntax stx (syntax-e stx) ctx-stx stx)))
-     (lambda (stx inner-stx)
-       stx))))
+  (do-relocate who stx ctx-stx
+               extract-ctx "maybe(Term || Srcloc)"))
 
-(define (relevant-source-syntax ctx-stx-in)
-  (syntax-parse ctx-stx-in
-    #:datum-literals (group block alts parens brackets braces quotes multi op)
-    [((~and head (~or* group block alts parens brackets braces quotes)) . _) #'head]
-    [(multi (g t))
-     #:when (syntax-property #'g 'from-pack)
-     (relevant-source-syntax #'t)]
-    [(multi (g . _)) #'g]
-    [(op o) #'o]
-    [_ ctx-stx-in]))
-
-;; Extracts from a suitable syntax object inside the source (e.g., a
-;; `parens` tag or `group` tag) and similarly applies to a suitable
-;; syntax object in the target.
-(define (at-relevant-dest-syntax stx proc proc-outer)
-  (let loop ([stx stx])
-    (syntax-parse stx
-      #:datum-literals (group block alts parens brackets braces quotes multi op)
-      [((~and head (~or* group block alts parens brackets braces quotes)) . rest)
-       (define inner (proc #'head))
-       (proc-outer (datum->syntax #f (cons inner #'rest)) inner)]
-      [((~and m multi) (g t))
-       #:when (syntax-property #'g 'from-pack)
-       (loop #'t)]
-      [((~and m multi) (g . rest))
-       (define inner (proc #'g))
-       (proc-outer (datum->syntax #f (list #'m (cons inner #'rest))) inner)]
-      [((~and tag op) o)
-       (define inner (proc #'o))
-       (proc-outer (datum->syntax #f (list #'tag inner)) inner)]
-      [((~and tag parsed) space o)
-       (define inner (proc #'o))
-       (datum->syntax #f (list #'tag #'space inner) inner inner)]
-      [_
-       (proc stx)])))
+(define/method (Syntax.relocate_group stx ctx-stx)
+  #:static-infos ((#%call-result #,(get-syntax-static-infos)))
+  (do-relocate who stx ctx-stx
+               #:allow-srcloc? #f
+               extract-group-ctx "maybe(Group)"))
 
 (define (to-list-of-stx who v-in)
   (define stxs (to-list #f v-in))
@@ -521,20 +502,18 @@
   (define stx (unpack-term/maybe stx-in))
   (unless stx (raise-argument-error* who rhombus-realm "Term" stx-in))
   (define ctx-stxes (to-list-of-stx who ctx-stxes-in))
-
-  (at-relevant-dest-syntax
-   stx
+  (extract-ctx
+   who stx
+   #:update
    (lambda (stx)
      (if (null? ctx-stxes)
-         (let* ([stx (syntax-opaque-raw-property (syntax->datum stx (syntax-e stx) #f stx) '())]
-                [stx (if (syntax-raw-prefix-property stx)
-                         (syntax-raw-prefix-property stx '())
-                         stx)]
-                [stx (if (syntax-raw-suffix-property stx)
-                         (syntax-raw-suffix-property stx '())
-                         stx)])
+         (let* ([stx (syntax-opaque-raw-property (syntax->datum stx (syntax-e stx) #f stx) '()
+                                                 #t)]
+                [stx (syntax-raw-prefix-property stx #f)]
+                [stx (syntax-raw-suffix-property stx #f)])
            stx)
-         (relocate+reraw (datum->syntax #f ctx-stxes) stx)))
+         (relocate+reraw (datum->syntax #f ctx-stxes) stx #:keep? #t)))
+   #:update-outer
    (lambda (stx inner-stx)
      (let ([stx (syntax-opaque-raw-property (datum->syntax #f (syntax-e stx) inner-stx)
                                             (syntax-opaque-raw-property inner-stx))])
@@ -547,6 +526,68 @@
                          (syntax-raw-suffix-property stx sfx)
                          stx)])
            stx))))))
+
+(define (to-list-of-term-stx who v-in)
+  (define stxs (to-list #f v-in))
+  (for/list ([stx (in-list (if (pair? stxs)
+                               stxs
+                               '(oops)))])
+    (define term-stx (unpack-term/maybe stx))
+    (unless term-stx
+      (raise-argument-error* who rhombus-realm
+                             "Listable.to_list && NonemptyList.of(Term)"
+                             v-in))
+    term-stx))
+
+(define/arity (Syntax.relocate_split stxes-in ctx-stx)
+  #:static-infos ((#%call-result #,(get-treelist-of-syntax-static-infos)))
+  (define stxes (to-list-of-term-stx who stxes-in))
+  (unless (syntax? ctx-stx)
+    (raise-argument-error* who rhombus-realm "Syntax" ctx-stx))
+  (cond
+    [(null? (cdr stxes))
+     ;; copying from 1 to 1
+     (list (Syntax.relocate (car stxes) ctx-stx))]
+    [else
+     (define ctx (Syntax.relocate_span (quote-syntax #f) (list ctx-stx)))
+     (define loc (syntax-srcloc ctx))
+     (define zero-width-loc (struct-copy srcloc loc [span 0]))
+     (define (relocate-one stx
+                           loc
+                           #:prefix? [prefix? #f]
+                           #:suffix? [suffix? #f]
+                           raw)
+       (let* ([stx (datum->syntax stx
+                                  (syntax-e stx)
+                                  loc
+                                  stx)]
+              [stx (syntax-raw-prefix-property
+                    stx
+                    (and prefix? (syntax-raw-prefix-property ctx)))]
+              [stx (syntax-raw-suffix-property
+                    stx
+                    (and suffix? (syntax-raw-suffix-property ctx)))]
+              [stx (syntax-raw-property stx "")]
+              [stx (syntax-opaque-raw-property stx raw #t)])
+         stx))
+     (cons (relocate-one (car stxes)
+                         zero-width-loc
+                         #:prefix? #t
+                         "")
+           (let loop ([stxes (cdr stxes)])
+             (cond
+               [(null? (cdr stxes))
+                (list (relocate-one (car stxes)
+                                    loc
+                                    #:suffix? #t
+                                    (or (syntax-opaque-raw-property ctx)
+                                        (syntax-raw-property ctx))))]
+               [else
+                (cons (relocate (car stxes)
+                                zero-width-loc
+                                null
+                                "")
+                      (loop (cdr stxes)))])))]))
 
 (define/method (Syntax.to_source_string stx)
   #:static-infos ((#%call-result #,(get-string-static-infos)))

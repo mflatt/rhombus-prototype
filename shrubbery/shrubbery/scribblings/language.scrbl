@@ -176,7 +176,7 @@ preorder traversal of the tree.
  used for text (such as whitespace and comments) before a leading term in
  a group---although associated to the group, instead of the leading term.
  Similarly, text after the last term in a group will be associated using
- @racket['raw-prefix] on the group, instead of the last term in the
+ @racket['raw-suffix] on the group, instead of the last term in the
  group.
 
  For example, the input @litchar{ 1 +  2 // done} will be parsed into the
@@ -205,7 +205,10 @@ preorder traversal of the tree.
  text for the closer, which belongs after the last contained group in the
  @racket[parens] identifier's sequence. The @racket['raw-tail-suffix]
  property is analogous to @racket['raw-suffix], but goes after the closer
- that is recorded as @racket['raw-tail].
+ that is recorded as @racket['raw-tail]. If the identifier like @racket[parens]
+ has a @racket['raw-suffix] property, it corresponds to content after the opener,
+ but the preferred location for that raw text is a prefix on the first group within
+ the opener--closer pair (unless there are zero groups).
 
  For example, the input @litchar{(1 + 2) * 4 //done} will be parsed into
  the S-expression representation

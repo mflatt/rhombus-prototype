@@ -88,8 +88,8 @@
          insert-multi-front-group
          check-valid-group)
 
-(define multi-blank (syntax-property (syntax-raw-property (datum->syntax #f 'multi) "") 'from-pack #t #t))
-(define group-blank (syntax-property (syntax-raw-property (datum->syntax #f 'group) "") 'from-pack #t #t))
+(define multi-blank (syntax-raw-property (datum->syntax #f 'multi) ""))
+(define group-blank (syntax-raw-property (datum->syntax #f 'group) ""))
 
 (define (group-syntax? r)
   (and (syntax? r)
@@ -146,7 +146,7 @@
 ;; properties on the `group` tag. So, unpacking here is really about
 ;; coercing from different representations, as opposed to changing a
 ;; `group` representation. The result is always a syntax object.
-(define (unpack-group r who at-stx)
+(define (unpack-group/trim r who at-stx trim-term-raw?)
   (cond
     [(multi-syntax? r)
      (define l (syntax->list r))
@@ -161,8 +161,18 @@
                           (unpack-term e who at-stx)))
           (check-valid-group who elems '())
           (and elems
-               (datum->syntax #f (cons group-blank elems))))]
-    [else (datum->syntax #f (list group-blank (datum->syntax at-stx r)))]))
+               (datum->syntax #f (cons group-blank
+                                       (if trim-term-raw?
+                                           (trim-raw elems at-stx)
+                                           elems)))))]
+    [else
+     (define elems (list (datum->syntax at-stx r)))
+     (datum->syntax #f (cons group-blank (if trim-term-raw?
+                                             (trim-raw elems at-stx)
+                                             elems)))]))
+
+(define (unpack-group r who at-stx)
+  (unpack-group/trim r who at-stx #f))
 
 ;; "Unpacks" to a `group` form that might be empty
 (define (unpack-group-or-empty r who at-stx)
@@ -220,8 +230,9 @@
 ;; this function makes sure the list is valid as a group
 ;; (i.e., has no 'block or 'alts in non-tail position), although
 ;; that check may be redundant with an enclosing check when
-;; used in the missle of a template
-(define (unpack-term-list r who at-stx)
+;; used in the missle of a template; also strip away any raw prefix
+;; from the first term and any raw suffix from the last term
+(define (unpack-term-list/raw r who at-stx reset-raw)
   (cond
     [(syntax? r)
      (cond
@@ -229,28 +240,41 @@
         (define l (syntax->list r))
         (cond
           [(null? (cdr l)) null]
-          [(null? (cddr l)) (cdr (syntax->list (cadr l)))]
+          [(null? (cddr l)) (reset-raw (cdr (syntax->list (cadr l))) at-stx)]
           [else (raise-error who "multi-group syntax not allowed in group context" r)])]
-       [(group-syntax? r) (cdr (syntax->list r))]
-       [else (list r)])]
+       [(group-syntax? r) (reset-raw (cdr (syntax->list r)) at-stx)]
+       [else (reset-raw (list r) at-stx)])]
     [(or (and (treelist? r) (treelist->list r))
          (and (list? r) r))
      => (lambda (l)
           (define terms (for/list ([e (in-list l)])
                           (unpack-term e who at-stx)))
           (check-valid-group who terms '())
-          terms)]
-    [else (list (datum->syntax at-stx r))]))
+          (reset-raw terms at-stx))]
+    [else (reset-raw (list (datum->syntax at-stx r)) at-stx)]))
+
+(define (unpack-term-list r who at-stx)
+  (unpack-term-list/raw r who at-stx reset-raw))
+
+(define (unpack-term-list/keep-raw r who at-stx)
+  (unpack-term-list/raw r who at-stx (lambda (l at-stx) l)))
 
 ;; Unpacks a multi-group sequence into a list of groups,
 ;; but otherwise produces a list with one group. A list is
-;; treated as a list of elements instead of a list of groups
-(define (unpack-group-list r who at-stx)
+;; treated as a list of elements instead of a list of groups;
+;; also adjusts raw prefix and suffix
+(define (unpack-group-list/raw r who at-stx reset-raw)
   (cond
     [(and (syntax? r)
           (multi-syntax? r))
-     (cdr (syntax->list r))]
-    [else (list (unpack-group r who at-stx))]))
+     (reset-raw (cdr (syntax->list r)) at-stx)]
+    [else (reset-raw (list (unpack-group/trim r who at-stx #t)) at-stx)]))
+
+(define (unpack-group-list r who at-stx)
+  (unpack-group-list/raw r who at-stx reset-raw))
+
+(define (unpack-group-list/keep-raw r who at-stx)
+  (unpack-group-list/raw r who at-stx (lambda (l at-stx) l)))
 
 ;; `r` is a sequence of groups
 (define (pack-multi r)
@@ -265,7 +289,7 @@
 ;; single-group, or single-term), and the result is a list of group
 ;; syntax objects (symmetric to `pack-multi`); the result is always a
 ;; plain list of syntax objects
-(define (unpack-multi r who at-stx)
+(define (unpack-multi/trim r who at-stx trim-elem-raw?)
   (cond
     [(multi-syntax? r) (cdr (syntax->list r))]
     [(group-syntax? r) (list r)]
@@ -277,8 +301,19 @@
              ;; unpack assuming a list of elements instead of a list of groups;
              ;; this means that we don't really have a multi-group splicing form,
              ;; but that constraint avoids ambiguity
-             (list (unpack-group es who at-stx))]))]
-    [else (list (datum->syntax #f (list group-blank (datum->syntax at-stx r))))]))
+             (list (unpack-group/trim es who at-stx trim-elem-raw?))]))]
+    [else
+     (define elems (list (datum->syntax at-stx r)))
+     (list (datum->syntax #f (cons group-blank (if trim-elem-raw?
+                                                   (trim-raw elems at-stx)
+                                                   elems))))]))
+
+(define (unpack-multi r who at-stx)
+  (unpack-multi/trim r who at-stx #f))
+
+(define (unpack-multi/adjust r who at-stx)
+  (define l (unpack-multi/trim r who at-stx #t))
+  (reset-raw l at-stx))
 
 ;; assumes that `tail` is a syntax list of terms, and wraps it with `multi`;
 ;; an empty list turns into `multi` with no groups
@@ -368,9 +403,16 @@
                              (unpack-term form who at-stx)))))
 
 ;; responsible for checking group validity, although the
-;; check is redundant when used in a non-tail position
-(define (unpack-term-list* qs r depth)
-  (unpack* qs r depth unpack-term-list))
+;; check is redundant when used in a non-tail position;
+;; also adjusts raw prefix and suffix on edges
+(define (unpack-term-list* qs r depth trim-depth)
+  (cond
+    [(= trim-depth 0)
+     (unpack* qs r depth unpack-term-list)]
+    [else
+     (adjust-at-depth (unpack* qs r depth unpack-term-list/keep-raw)
+                      (- depth trim-depth)
+                      qs)]))
 
 ;; Packs to a `group` form
 (define (pack-group* stx depth)
@@ -393,8 +435,15 @@
                         (and form
                              (unpack-group form who at-stx)))))
 
-(define (unpack-group-list* qs r depth)
-  (unpack* qs r depth unpack-group-list))
+;; adjusts raw prefix and suffix
+(define (unpack-group-list* qs r depth trim-depth)
+  (cond
+    [(= trim-depth 0)
+     (unpack* qs r depth unpack-group-list)]
+    [else
+     (adjust-at-depth (unpack* qs r depth unpack-group-list/keep-raw)
+                      (- depth trim-depth)
+                      qs)]))
 
 ;; Packs to a `multi` form
 (define (pack-multi* stxes depth)
@@ -404,9 +453,15 @@
 (define (pack-tagged-multi* stxes depth)
   (pack* stxes depth pack-tagged-multi))
 
-;; Unpacks a multi to a list
-(define (unpack-multi* qs r depth)
-  (unpack* qs r depth unpack-multi))
+;; Unpacks a multi to a list; adjusts raw prefix and suffix
+(define (unpack-multi* qs r depth trim-depth)
+  (cond
+    [(= trim-depth 0)
+     (unpack* qs r depth unpack-multi/adjust)]
+    [else
+     (adjust-at-depth (unpack* qs r depth unpack-multi)
+                      (- depth trim-depth)
+                      qs)]))
 
 ;; Unpacks a multi to a `multi` form, instead of a list
 (define (unpack-multi-as-term* qs r depth)
@@ -476,7 +531,7 @@
 ;; also responsible for checking validity of the result
 (define (unpack-list-tail* qs r depth)
   (unpack* qs r depth (lambda (r name qs)
-                        (define terms (apply append (unpack-term-list* qs r 1)))
+                        (define terms (apply append (unpack-term-list* qs r 1 1)))
                         (check-valid-group (syntax-e qs) terms '())
                         terms)))
 
@@ -511,6 +566,41 @@
                                  (insert-multi-front-group term (stx-car r))
                                  (error "unexpected multi-group sequence for macro match"))))]
     [else (list term r)]))
+
+(define (adjust-at-depth l depth at-stx)
+  (cond
+    [(= depth 0)
+     ;; Identify leftmost and rightmost in nested lists as the
+     ;; ones at position 0 and n-1
+     (define n (let loop ([l l])
+                 (cond
+                   [(null? l) 0]
+                   [(pair? l) (+ (loop (car l)) (loop (cdr l)))]
+                   [else 1])))
+     (cond
+       [(= n 0) l]
+       [else
+        (define-values (new-l new-i)
+          (let loop ([l l] [i 0])
+            (cond
+              [(null? l) (values l i)]
+              [(pair? l)
+               (define-values (new-a new-i) (loop (car l) i))
+               (define-values (new-d newer-i) (loop (cdr l) new-i))
+               (values (cons new-a new-d) newer-i)]
+              [else
+               (define new-e (if (= i 0)
+                                 (copy-raw-prefix l at-stx)
+                                 l))
+               (define new-i (add1 i))
+               (values (if (= new-i n)
+                           (copy-raw-suffix new-e at-stx)
+                           new-e)
+                       new-i)])))
+        new-l])]
+    [else
+     (for/list ([e (in-list l)])
+       (adjust-at-depth e (sub1 depth) at-stx))]))
 
 (define (->name v)
   (cond
