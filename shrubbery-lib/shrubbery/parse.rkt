@@ -1689,6 +1689,127 @@
    src
    props))
 
+;; raw-prefix and raw-suffix information to move it to an
+;; enclosing group and to prefer suffix associations over
+;; prefix associations
+(define (normalize-group-raw s)
+  (define (at-property elem update)
+    (define e (syntax-e elem))
+    (cond
+      [(not (pair? e)) (if update
+                           (update elem #f)
+                           (values elem #f))]
+      [else
+       (case (syntax-e (car e))
+         [(group parens brackets braces quotes block alts)
+          (if update
+              (datum->syntax #f (cons (update (car e) #t)
+                                      (cdr e)))
+              (values (car e) #t))]
+         [(op)
+          (if update
+              (datum->syntax #f (list (car e)
+                                      (update (cadr e) #f)))
+              (values(cadr e) #f))]
+         [else
+          (if update
+              (update elem #f)
+              (values elem #f))])]))
+  (define elem-raw-suffix
+    (case-lambda
+      [(elem)
+       (define-values (s openclose?) (at-property elem #f))
+       (if openclose?
+           (syntax-raw-tail-suffix-property s)
+           (syntax-raw-suffix-property s))]
+      [(elem v)
+       (at-property elem
+                    (lambda (s openclose?)
+                      (if openclose?
+                          (syntax-raw-tail-suffix-property s v)
+                          (syntax-raw-suffix-property s v))))]))
+  (define elem-raw-prefix
+    (case-lambda
+      [(elem)
+       (define-values (s openclose?) (at-property elem #f))
+       (syntax-raw-prefix-property s)]
+      [(elem v)
+       (at-property elem
+                    (lambda (s openclose?)
+                      (syntax-raw-prefix-property s v)))]))
+  (define (shift-prefix-to-suffix elems-in #:extract-suffix? [extract-suffix? #f])
+    ;; move element prefixes to preceding element suffixes,
+    ;; and extract trailing suffix
+    (define elems (for/list ([elem (in-list elems-in)])
+                    (normalize-group-raw elem)))
+    (cond
+      [(null? elems) (values null #f)]
+      [else
+       (let loop ([elems elems])
+         (define elem (car elems))
+         (cond
+           [(null? (cdr elems))
+            (cond
+              [(not extract-suffix?)
+               (values elems #f)]
+              [(elem-raw-suffix elem)
+               => (lambda (suffix)
+                    (values (list (elem-raw-suffix elem #f))
+                            suffix))]
+              [else (values elems #f)])]
+           [(elem-raw-prefix (cadr elems))
+            => (lambda (prefix)
+                 (let ([elem (elem-raw-suffix elem
+                                              (raw-cons
+                                               (or (elem-raw-suffix elem) null)
+                                               prefix))])
+                   (define-values (new-elems suffix)
+                     (loop (cons (elem-raw-prefix (cadr elems) #f)
+                                 (cddr elems))))
+                   (values (cons elem new-elems)
+                           suffix)))]
+           [else
+            (define-values (new-elems suffix) (loop (cdr elems)))
+            (values (cons elem new-elems)
+                    suffix)]))]))
+  (cond
+    [(not (pair? (syntax-e s))) s]
+    [else
+     (define head (car (syntax-e s)))
+     (case (syntax-e head)
+       [(top)
+        (define-values (gs no-suffix) (shift-prefix-to-suffix (cdr (syntax->list s))))
+        (datum->syntax #f (cons head gs))]
+       [(group)
+        (define-values (elems suffix) (shift-prefix-to-suffix (cdr (syntax->list s))
+                                                              #:extract-suffix? #t))
+        (let* ([head (if suffix
+                         (syntax-raw-tail-suffix-property head
+                                                          (raw-cons
+                                                           suffix
+                                                           (or (syntax-raw-tail-suffix-property head) null)))
+                         head)]
+               ;; move initial element prefix to group prefix
+               [pre (and (pair? elems) (elem-raw-prefix (car elems)))]
+               [head (if pre
+                         (syntax-raw-prefix-property head
+                                                     (raw-cons
+                                                      (or (syntax-raw-prefix-property head) null)
+                                                      pre))
+                         head)]
+               [elems (if pre
+                          (cons (elem-raw-prefix (car elems) #f)
+                                (cdr elems))
+                          elems)])
+          (datum->syntax #f (cons head elems)))]
+       [(parens brackets braces quotes block alts)
+        ;; normalize inside, but cannot move leading prefix or trailing suffix
+        ;; to overall prefix or (tail) suffix --- except in the case of `block` or `alts`,
+        ;; but we choose to leave the suffix inside in those cases, too
+        (define-values (gs no-suffix) (shift-prefix-to-suffix (cdr (syntax->list s))))
+        (datum->syntax #f (cons head gs))]
+       [else s])]))
+
 ;; ----------------------------------------
 
 (define (parse-all in
@@ -1703,7 +1824,9 @@
   (define v (if (eq? mode 'text)
                 (parse-text-sequence l 0 zero-delta (lambda (c l line delta) (datum->syntax #f c)))
                 (parse-top-groups l #:interactive? (memq mode '(interactive line)))))
-  v)
+  (if (syntax? v)
+      (normalize-group-raw v)
+      v))
 
 (module+ main
   (require racket/cmdline
@@ -1739,7 +1862,10 @@
        (show-properties (cdr s))
        (define tail (syntax-raw-tail-property a))
        (when tail
-         (printf " ~s... ~s\n" a tail))]
+         (printf " ~s... ~s\n" (syntax->datum a) tail))
+       (define tail-suffix (syntax-raw-tail-suffix-property a))
+       (when tail-suffix
+         (printf " ~s.... ~s\n" (syntax->datum a) tail-suffix))]
       [(null? s) (void)]
       [else
        (define prefix (syntax-raw-prefix-property s))

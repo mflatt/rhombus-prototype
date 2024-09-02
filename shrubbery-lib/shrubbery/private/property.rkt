@@ -5,7 +5,8 @@
          syntax-raw-suffix-property
          syntax-raw-tail-property
          syntax-raw-tail-suffix-property
-         syntax-opaque-raw-property)
+         syntax-opaque-raw-property
+         syntax-raw-opaque-content-property)
 
 (define syntax-raw-property
   (case-lambda
@@ -37,8 +38,16 @@
     [(stx val) (syntax-property stx 'raw-tail-suffix val #t)]))
 
 ;; Hides any nested syntax and ignores an immediate 'raw property when
-;; present and not #f
+;; present and not #f; this is an emphemeral property and is attached
+;; to the "parentheses" of a group or compound term
 (define syntax-opaque-raw-property
   (case-lambda
     [(stx) (syntax-property stx 'opaque-raw)]
     [(stx val) (syntax-property stx 'opaque-raw val)]))
+
+;; Similar to `syntax-opaque-raw-property`, but attached to the
+;; head element of a compound value, and is not ephemeral
+(define syntax-raw-opaque-content-property
+  (case-lambda
+    [(stx) (syntax-property stx 'raw-opaque-content)]
+    [(stx val) (syntax-property stx 'raw-opaque-content val #t)]))

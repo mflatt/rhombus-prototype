@@ -17,7 +17,7 @@
                                   #:render-stx-hook [render-stx-hook (lambda (stx output) #f)])
   (cond
     [(or use-raw?
-         (and (syntax? s) (all-raw-available? s)))
+         (and (syntax? s) (all-raw-available? s #t)))
      (define o (open-output-string))
      (port-count-lines! o)
      (syntax-to-raw s
@@ -86,10 +86,18 @@
        (define post-suffix (and (syntax? a-stx)
                                 keep-suffix?
                                 (syntax-raw-tail-suffix-property a-stx)))
-       (define a (loop a-stx null use-prefix? (or keep-suffix?
-                                                  (not (null? tail))
-                                                  (not (null? (cdr g))))))
-       (define d (loop (cdr g)
+       (define opaque-content
+         (syntax-raw-opaque-content-property a-stx))
+       (define a (raw-cons
+                  (loop a-stx null use-prefix? (or keep-suffix?
+                                                   (not (null? tail))
+                                                   (not (null? (cdr g)))))
+                  opaque-content))
+       (when (and output opaque-content)
+         (to-output opaque-content output max-length))
+       (define d (loop (if opaque-content
+                           null
+                           (cdr g))
                        (raw-cons tail (raw-cons post post-suffix))
                        #t
                        keep-suffix?))
@@ -152,7 +160,10 @@
      (or (syntax-raw-property s)
          (syntax-opaque-raw-property s)
          (let ([e (syntax-e s)])
-           (or (and (pair? e)
+           (or (and head?
+                    (pair? e)
+                    (syntax-raw-opaque-content-property (car e)))
+               (and (pair? e)
                     (all-raw-available? e))
                (null? e)
                (and head?

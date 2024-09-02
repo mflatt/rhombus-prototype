@@ -111,22 +111,35 @@
                        (or (syntax-raw-property head)
                            (symbol->immutable-string (syntax-e head)))))
 
-(define (reraw src-stx stx)
+(define (reraw src-stx stx #:keep-mode [keep-mode #f])
   (define-values (pfx raw sfx) (extract-raw src-stx))
-  (let* ([stx (syntax-opaque-raw-property stx raw)]
+  (let* ([stx (case keep-mode
+                [(term) (syntax-raw-property stx raw)]
+                [(content) (syntax-raw-opaque-content-property
+                            (syntax-raw-property
+                             (syntax-raw-tail-property
+                              (syntax-raw-suffix-property stx #f)
+                              #f)
+                             "")
+                            raw)]
+                [else (syntax-opaque-raw-property stx raw)])]
          [stx (if (null? pfx)
-                  stx
+                  (syntax-raw-prefix-property stx #f)
                   (syntax-raw-prefix-property stx pfx))]
          [stx (if (null? sfx)
-                  stx
-                  (syntax-raw-suffix-property stx sfx))])
+                  (case keep-mode
+                    [(content) (syntax-raw-tail-suffix-property stx #f)]
+                    [else (syntax-raw-suffix-property stx #f)])
+                  (case keep-mode
+                    [(content) (syntax-raw-tail-suffix-property stx sfx)]
+                    [else (syntax-raw-suffix-property stx sfx)]))])
     stx))
 
 ;; `stx` should be a Racket expression, while `src-stx` can be a srcloc
 ;; or a shrubbery form
-(define (relocate+reraw src-stx stx)
+(define (relocate+reraw src-stx stx #:keep-mode [keep-mode #f])
   (cond
-    [(syntax? src-stx) (reraw src-stx (relocate (maybe-respan src-stx) stx))]
+    [(syntax? src-stx) (reraw src-stx (relocate (maybe-respan src-stx) stx) #:keep-mode keep-mode)]
     [else (relocate src-stx stx)]))
 
 (define (extract-raw stx)
@@ -149,25 +162,28 @@
                 (syntax-raw-property stx)
                 (or (syntax-raw-suffix-property stx) null))])]
     [(and (pair? stx) (list? stx))
+     (define content (syntax-raw-opaque-content-property (car stx)))
      (define tail (syntax-raw-tail-property (car stx)))
      (define tail-sfx (syntax-raw-tail-suffix-property (car stx)))
      (let loop ([stx stx] [accum null] [pre? #t] [sfx null])
        (cond
          [(null? stx)
-          (if (null? (cons-raw tail '()))
-              (values null accum (cons-raw sfx tail-sfx))
-              (values null (cons-raw accum (cons-raw sfx tail)) tail-sfx))]
+          (let ([accum (if content (cons accum content) accum)])
+            (if (null? (cons-raw tail '()))
+                (values null accum (cons-raw sfx tail-sfx))
+                (values null (cons-raw accum (cons-raw sfx tail)) tail-sfx)))]
          [else
           (define-values (pfx raw new-sfx) (extract-raw (car stx)))
+          (define next (if content null (cdr stx)))
           (cond
             [pre?
-             (define-values (no-pfx all-raw sfx) (loop (cdr stx)
+             (define-values (no-pfx all-raw sfx) (loop next
                                                        (cons-raw accum raw)
                                                        #f
                                                        new-sfx))
              (values pfx all-raw sfx)]
             [else
-             (loop (cdr stx)
+             (loop next
                    (cons-raw (cons-raw accum sfx)
                              (cons-raw pfx raw))
                    #f
