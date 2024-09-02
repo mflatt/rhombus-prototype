@@ -4,7 +4,6 @@
          syntax-raw-prefix-property
          syntax-raw-suffix-property
          syntax-raw-tail-property
-         syntax-raw-tail-suffix-property
          syntax-opaque-raw-property
          syntax-raw-opaque-content-property
          syntax-raw-srcloc-property)
@@ -19,6 +18,8 @@
     [(stx) (syntax-property stx 'raw-prefix)]
     [(stx val) (syntax-property stx 'raw-prefix val #t)]))
 
+;; When attached to the head of a container encodings, applies
+;; after the "tail"
 (define syntax-raw-suffix-property
   (case-lambda
     [(stx) (syntax-property stx 'raw-suffix)]
@@ -31,12 +32,6 @@
   (case-lambda
     [(stx) (syntax-property stx 'raw-tail)]
     [(stx val) (syntax-property stx 'raw-tail val #t)]))
-
-;; like tail, but for a further suffix that is outside the list
-(define syntax-raw-tail-suffix-property
-  (case-lambda
-    [(stx) (syntax-property stx 'raw-tail-suffix)]
-    [(stx val) (syntax-property stx 'raw-tail-suffix val #t)]))
 
 ;; Hides any nested syntax and ignores an immediate 'raw property when
 ;; present and not #f; this is an emphemeral property and is attached

@@ -3,6 +3,7 @@
                      syntax/parse/pre)
          racket/interaction-info
          shrubbery/print
+         shrubbery/property
          racket/lazy-require
          (prefix-in rhombus: (submod "print.rkt" for-runtime))
          (submod "print.rkt" redirect)
@@ -129,7 +130,24 @@
   ;; for expand-time configure or syntax errors in the REPL
   (error-syntax->string-handler
    (lambda (s len)
-     (define str (shrubbery-syntax->string s #:max-length len))
+     (define s/guessed
+       ;; An error might involve a syntax object that is not a
+       ;; shrubbery encoding, so try to detect that and make something
+       ;; useful print
+       (cond
+         [(syntax-opaque-raw-property s) s]
+         [(null? (syntax-e s)) #`(group)]
+         [(not (pair? (syntax-e s))) s]
+         [else
+          (case (syntax-e (car (syntax-e s)))
+            [(top multi group
+                  parens braces brackets quotes
+                  block alts
+                  op
+                  parsed)
+             s]
+            [else #`(group . #,s)])]))
+     (define str (shrubbery-syntax->string s/guessed #:max-length len))
      (if (equal? str "")
          "[end of group]"
          str)))

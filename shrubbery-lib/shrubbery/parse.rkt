@@ -455,7 +455,7 @@
                                                      [tail-commenting block-tail-commenting]
                                                      [raw (if commenting
                                                               (append block-tail-raw
-                                                                      (cons (syntax-to-raw (datum->syntax #f g))
+                                                                      (cons (syntax-to-raw (datum->syntax #f #`(group . #,g)))
                                                                             pre-raw))
                                                               block-tail-raw)])))
                  (values (if commenting
@@ -512,7 +512,7 @@
                                                   [tail-commenting group-tail-commenting]
                                                   [raw (if commenting
                                                            (append group-tail-raw
-                                                                   (cons (syntax-to-raw (datum->syntax #f g))
+                                                                   (cons (syntax-to-raw (datum->syntax #f #`(group . #,g)))
                                                                          pre-raw))
                                                            group-tail-raw)]
                                                   [sequence-mode (if (and (not commenting)
@@ -1041,7 +1041,7 @@
     (cond
       [(not (at-mode-initial? am))
        (cons (move-pre-raw rator
-                           (add-raw-to-prefix #f (syntax-to-raw rator) parens))
+                           (add-raw-to-prefix #f (list (syntax-to-raw rator)) parens))
              g)]
       [(pair? (at-mode-rev-prefix am))
        (append (reverse (cons rator (at-mode-rev-prefix am))) (cons parens g))]
@@ -1071,7 +1071,7 @@
                            (cddr g))]
                  ;; can these other cases happen?
                  [(not (at-mode-initial? am))
-                  (add-raw-to-prefix* #f (syntax-to-raw (car g))
+                  (add-raw-to-prefix* #f (list (syntax-to-raw (car g)))
                                       (cdr g))]
                  [(pair? (at-mode-rev-prefix am))
                   (append (at-mode-rev-prefix am) g)]
@@ -1114,7 +1114,7 @@
                                                         (cdr args)))))
                                               (cdr g)))
                           (move-pre-raw bracket
-                                        (add-raw-to-prefix* #f (syntax-to-raw bracket)
+                                        (add-raw-to-prefix* #f (list (syntax-to-raw bracket))
                                                             new-g))]))
                      (keep-stop-mode am)
                      (if (null? l) null (cdr l)) line delta)]))))]
@@ -1208,7 +1208,7 @@
         [else (loop (cdr gs))])))
   (values
    (move-pre-raw* at
-                  (add-raw-to-prefix* #f (syntax-to-raw at)
+                  (add-raw-to-prefix* #f (list (syntax-to-raw at))
                                       (append (cdadr gs)
                                               (if (null? rest)
                                                   rest
@@ -1589,7 +1589,7 @@
   (if (null? raw)
       top
       (datum->syntax* top
-                      (cons (syntax-raw-tail-property (car (syntax-e top)) (raw-tokens->raw raw))
+                      (cons (syntax-raw-suffix-property (car (syntax-e top)) (raw-tokens->raw raw))
                             (cdr (syntax-e top)))
                       top
                       top)))
@@ -1619,7 +1619,7 @@
 (define (move-post-raw-to-prefix from-stx to)
   (define post-raw (and (syntax? from-stx)
                         (raw-cons (or (syntax-raw-tail-property from-stx) null)
-                                  (or (syntax-raw-tail-suffix-property from-stx) null))))
+                                  (or (syntax-raw-suffix-property from-stx) null))))
   (cond
     [(and post-raw (not (null? post-raw)))
      (define a (datum->syntax* #f (car to)))
@@ -1642,7 +1642,7 @@
                         stx)]
                [stx (if (null? tail-suffix-raw)
                         stx
-                        (syntax-raw-tail-suffix-property stx (raw-tokens->raw tail-suffix-raw)))])
+                        (syntax-raw-suffix-property stx (raw-tokens->raw tail-suffix-raw)))])
           stx)
         (cdr l)))
 
@@ -1719,15 +1719,11 @@
     (case-lambda
       [(elem)
        (define-values (s openclose?) (at-property elem #f))
-       (if openclose?
-           (syntax-raw-tail-suffix-property s)
-           (syntax-raw-suffix-property s))]
+       (syntax-raw-suffix-property s)]
       [(elem v)
        (at-property elem
                     (lambda (s openclose?)
-                      (if openclose?
-                          (syntax-raw-tail-suffix-property s v)
-                          (syntax-raw-suffix-property s v))))]))
+                      (syntax-raw-suffix-property s v)))]))
   (define elem-raw-prefix
     (case-lambda
       [(elem)
@@ -1737,13 +1733,15 @@
        (at-property elem
                     (lambda (s openclose?)
                       (syntax-raw-prefix-property s v)))]))
-  (define (shift-prefix-to-suffix elems-in #:extract-suffix? [extract-suffix? #f])
+  (define (shift-prefix-to-suffix elems-in
+                                  #:extract-suffix? [extract-suffix? #f]
+                                  #:add-suffix [add-suffix #f])
     ;; move element prefixes to preceding element suffixes,
     ;; and extract trailing suffix
     (define elems (for/list ([elem (in-list elems-in)])
                     (normalize-group-raw elem)))
     (cond
-      [(null? elems) (values null #f)]
+      [(null? elems) (values null add-suffix)]
       [else
        (let loop ([elems elems])
          (define elem (car elems))
@@ -1751,7 +1749,12 @@
            [(null? (cdr elems))
             (cond
               [(not extract-suffix?)
-               (values elems #f)]
+               (values (if add-suffix
+                           (list (elem-raw-suffix elem (raw-cons
+                                                        (elem-raw-suffix elem)
+                                                        add-suffix)))
+                           elems)
+                       #f)]
               [(elem-raw-suffix elem)
                => (lambda (suffix)
                     (values (list (elem-raw-suffix elem #f))
@@ -1778,16 +1781,18 @@
      (define head (car (syntax-e s)))
      (case (syntax-e head)
        [(top)
-        (define-values (gs no-suffix) (shift-prefix-to-suffix (cdr (syntax->list s))))
-        (datum->syntax #f (cons head gs))]
+        (define-values (gs suffix) (shift-prefix-to-suffix (cdr (syntax->list s))
+                                                           #:add-suffix (syntax-raw-suffix-property head)))
+        (datum->syntax #f (cons (syntax-raw-suffix-property head suffix)
+                                gs))]
        [(group)
         (define-values (elems suffix) (shift-prefix-to-suffix (cdr (syntax->list s))
                                                               #:extract-suffix? #t))
         (let* ([head (if suffix
-                         (syntax-raw-tail-suffix-property head
-                                                          (raw-cons
-                                                           suffix
-                                                           (or (syntax-raw-tail-suffix-property head) null)))
+                         (syntax-raw-suffix-property head
+                                                     (raw-cons
+                                                      suffix
+                                                      (or (syntax-raw-suffix-property head) null)))
                          head)]
                ;; move initial element prefix to group prefix
                [pre (and (pair? elems) (elem-raw-prefix (car elems)))]
@@ -1824,7 +1829,7 @@
   (define v (if (eq? mode 'text)
                 (parse-text-sequence l 0 zero-delta (lambda (c l line delta) (datum->syntax #f c)))
                 (parse-top-groups l #:interactive? (memq mode '(interactive line)))))
-  (if (syntax? v)
+  (if #f ; (syntax? v)
       (normalize-group-raw v)
       v))
 
@@ -1863,7 +1868,7 @@
        (define tail (syntax-raw-tail-property a))
        (when tail
          (printf " ~s... ~s\n" (syntax->datum a) tail))
-       (define tail-suffix (syntax-raw-tail-suffix-property a))
+       (define tail-suffix (syntax-raw-suffix-property a))
        (when tail-suffix
          (printf " ~s.... ~s\n" (syntax->datum a) tail-suffix))]
       [(null? s) (void)]

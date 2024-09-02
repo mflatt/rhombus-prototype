@@ -26,7 +26,7 @@
       (out "expected" expected pretty-write)
       (out "parsed" parsed pretty-write)
       (error "parse failed"))
-    (define printed (shrubbery-syntax->string parsed-stx))
+    (define printed (shrubbery-syntax->string parsed-stx #:keep-prefix? #t #:keep-suffix? #t))
     (when check-print?
       (unless (equal? input printed)
         (out "expected" input display)

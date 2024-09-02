@@ -549,7 +549,7 @@
        (syntax-raw-prefix-property ctx)
        (or (syntax-raw-opaque-content-property ctx)
            (syntax-raw-property ctx))
-       (syntax-raw-tail-suffix-property ctx))
+       (syntax-raw-suffix-property ctx))
       (values
        (syntax-raw-prefix-property ctx)
        (syntax-raw-property ctx)
@@ -560,14 +560,13 @@
    'get-source-metadata stx
    #:update
    (lambda (stx container?)
-     (let ([stx (syntax-raw-prefix-property stx prefix)])
+     (let* ([stx (syntax-raw-prefix-property stx prefix)]
+            [stx (syntax-raw-suffix-property stx suffix)])
        (if container?
            (let* ([stx (syntax-raw-opaque-content-property stx (or raw '()))]
-                  [stx (syntax-raw-property stx #f)]
-                  [stx (syntax-raw-tail-property stx #f)])
-             (syntax-raw-tail-suffix-property stx suffix))
-           (let ([stx (syntax-raw-property stx (or raw '()))])
-             (syntax-raw-suffix-property stx suffix)))))))
+                  [stx (syntax-raw-property stx '())])
+             (syntax-raw-tail-property stx #f))
+           (syntax-raw-property stx (or raw '())))))))
   
 ;; also reraws, but in a mode that attaches raw test as permanent text,
 ;; instead of just ephmeral on the wrapper syntax object
@@ -593,13 +592,11 @@
          ;; empty sequence: set everything to blank
          (let* ([stx (syntax->datum stx (syntax-e stx) #f stx)]
                 [stx (syntax-raw-property stx '())]
-                [stx (syntax-raw-prefix-property stx #f)])
+                [stx (syntax-raw-prefix-property stx #f)]
+                [stx (syntax-raw-suffix-property stx #f)])
            (if container?
-               (let* ([stx (syntax-raw-opaque-content-property stx '())]
-                      [stx (syntax-raw-tail-suffix-property stx #f)])
-                 stx)
-               (let* ([stx (syntax-raw-suffix-property stx #f)])
-                 stx)))
+               (syntax-raw-opaque-content-property stx '())
+               stx))
          (relocate+reraw (datum->syntax #f ctx-stxes) stx
                          #:keep-mode (if container? 'content 'term))))))
 
@@ -653,9 +650,8 @@
                             (if suffix?
                                 (syntax-raw-property ctx)
                                 ""))]
-                      [stx (syntax-raw-suffix-property stx #f)]
                       [stx (syntax-raw-tail-property stx #f)]
-                      [stx (syntax-raw-tail-suffix-property
+                      [stx (syntax-raw-suffix-property
                             stx
                             (and suffix?
                                  (syntax-raw-suffix-property ctx)))])

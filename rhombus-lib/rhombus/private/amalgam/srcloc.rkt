@@ -127,12 +127,8 @@
                   (syntax-raw-prefix-property stx #f)
                   (syntax-raw-prefix-property stx pfx))]
          [stx (if (null? sfx)
-                  (case keep-mode
-                    [(content) (syntax-raw-tail-suffix-property stx #f)]
-                    [else (syntax-raw-suffix-property stx #f)])
-                  (case keep-mode
-                    [(content) (syntax-raw-tail-suffix-property stx sfx)]
-                    [else (syntax-raw-suffix-property stx sfx)]))])
+                  (syntax-raw-suffix-property stx #f)
+                  (syntax-raw-suffix-property stx sfx))])
     stx))
 
 ;; `stx` should be a Racket expression, while `src-stx` can be a srcloc
@@ -142,7 +138,7 @@
     [(syntax? src-stx) (reraw src-stx (relocate (maybe-respan src-stx) stx) #:keep-mode keep-mode)]
     [else (relocate src-stx stx)]))
 
-(define (extract-raw stx)
+(define (extract-raw stx [skip-immediate-suffix? #f])
   (define (cons-raw a b)
     (cond
       [(or (not a) (null? a) (equal? a "")) (or b null)]
@@ -154,17 +150,21 @@
        [(syntax-opaque-raw-property stx)
         (values (or (syntax-raw-prefix-property stx) null)
                 (syntax-opaque-raw-property stx)
-                (or (syntax-raw-suffix-property stx) null))]
+                (or (and (not skip-immediate-suffix?)
+                         (syntax-raw-suffix-property stx))
+                    null))]
        [(syntax->list stx)
         => (lambda (l) (extract-raw l))]
        [else
         (values (or (syntax-raw-prefix-property stx) null)
                 (syntax-raw-property stx)
-                (or (syntax-raw-suffix-property stx) null))])]
+                (or (and (not skip-immediate-suffix?)
+                         (syntax-raw-suffix-property stx))
+                    null))])]
     [(and (pair? stx) (list? stx))
      (define content (syntax-raw-opaque-content-property (car stx)))
      (define tail (syntax-raw-tail-property (car stx)))
-     (define tail-sfx (syntax-raw-tail-suffix-property (car stx)))
+     (define tail-sfx (syntax-raw-suffix-property (car stx)))
      (let loop ([stx stx] [head? #t] [accum null] [pre? #t] [sfx null])
        (cond
          [(null? stx)
@@ -173,7 +173,7 @@
                 (values null accum (cons-raw sfx tail-sfx))
                 (values null (cons-raw accum (cons-raw sfx tail)) tail-sfx)))]
          [else
-          (define-values (pfx raw new-sfx) (extract-raw (car stx)))
+          (define-values (pfx raw new-sfx) (extract-raw (car stx) head?))
           (define next (if content null (cdr stx)))
           (cond
             [pre?
