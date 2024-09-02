@@ -10,24 +10,26 @@ block:
     x_c.to_source_string(~keep_suffix: #true) ~is "x /* x */ "
     plus_c.to_source_string(~keep_prefix: #true) ~is "+"
     plus_c.to_source_string(~keep_suffix: #true) ~is "+ /* op */ "
-  fun check_reloc_term(t :: Term):
+  fun check_reloc_term(t :: Term, ~is_container = #false):
     // assumes `t` is not compound with content
     check:
       t.relocate(x).srcloc() ~is x.srcloc()
       t.relocate(x).to_source_string() ~is "x"
       t.relocate(x).source_metadata() ~is values(#false, "x", #false)
-      t.relocate(x_c).to_source_string() ~is "x"
+      t.relocate(x_c).to_source_string() ~is if is_container | "x /* x */ " | "x"
       t.relocate(x_c).to_source_string(~keep_suffix: #true) ~is "x /* x */ "
       t.relocate(plus).srcloc() ~is plus.srcloc()
       t.relocate(plus).to_source_string() ~is "+"
       t.relocate(plus).source_metadata() ~is values(#false, "+", #false)
-      t.relocate(plus_c).to_source_string() ~is "+"
+      t.relocate(plus_c).to_source_string() ~is if is_container | "+ /* op */ " | "+"
       t.relocate(plus_c).to_source_string(~keep_suffix: #true) ~is "+ /* op */ "
       t.relocate(plus_c).source_metadata() ~is values(#false,
                                                       "+",
-                                                      // shape of this value is not really specified,
-                                                      // but the concatenation should stay the same
-                                                      PairList[" ", "/* op */", " "])
+                                                      if is_container
+                                                      | #false
+                                                      | // shape of this value is not really specified,
+                                                        // but the concatenation should stay the same
+                                                        PairList[" ", "/* op */", " "])
       t.source_metadata("!", "Z", "?").to_source_string() ~is "Z"
       t.source_metadata("!", "Z", "?").to_source_string(~keep_prefix: #true) ~is "!Z"
       t.source_metadata("!", "Z", "?").to_source_string(~keep_suffix: #true) ~is "Z?"
@@ -36,8 +38,8 @@ block:
       x.relocate(#false).to_source_string() ~is ""
   check_reloc_term('z')
   check_reloc_term('+')
-  check_reloc_term('()')
-  check_reloc_term('{}')
+  check_reloc_term('()', ~is_container: #true)
+  check_reloc_term('{}', ~is_container: #true)
 
   check '(1, 2, 3)'.relocate('{}').to_source_string() ~is "{1, 2, 3}"
   check '(1, 2, 3)'.relocate('{5, 6}').to_source_string() ~is "{1, 2, 3}"

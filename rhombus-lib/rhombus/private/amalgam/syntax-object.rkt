@@ -464,37 +464,18 @@
   (extract-ctx
    who stx-in
    #:update (lambda (stx container?)
-              (define-values (ctx-stx from-container?)
-                (cond
-                  [(srcloc? ctx-stx-in)
-                   (values ctx-stx-in #f)]
-                  [(not ctx-stx-in) (values #f #f)]
-                  [else
-                   (extract-ctx
-                    who ctx-stx-in
-                    #:report-container? #t
-                    #:false-ok? #t
-                    #:annot annot)]))
+              (define ctx-stx (cond
+                                [(srcloc? ctx-stx-in)
+                                 ctx-stx-in]
+                                [(not ctx-stx-in) #f]
+                                [else
+                                 (extract-ctx
+                                  who ctx-stx-in
+                                  #:false-ok? #t
+                                  #:annot annot)]))
               (cond
                 [(syntax? ctx-stx)
-                 (let ([stx (datum->syntax stx (syntax-e stx) ctx-stx ctx-stx)])
-                   (cond
-                     [(and container? (not from-container?) (syntax-raw-suffix-property stx))
-                      => (lambda (suffix)
-                           ;; move suffix
-                           (let* ([stx (syntax-raw-tail-suffix-property stx suffix)])
-                             (syntax-raw-suffix-property stx #f)))]
-                     [(and (not container?) from-container? (or (syntax-raw-tail-property stx)
-                                                                (syntax-raw-tail-suffix-property stx)))
-                      ;; move tail and suffix
-                      (let* ([suffix (syntax-raw-tail-suffix-property stx)]
-                             [tail (syntax-raw-tail-property stx)]
-                             [suffix (if tail (if suffix (cons tail suffix) tail) suffix)]
-                             [inner-suffix (syntax-raw-suffix-property stx)]
-                             [suffix (if inner-suffix (cons inner-suffix suffix) suffix)]
-                             [stx (syntax-raw-suffix-property stx suffix)])
-                        (syntax-raw-tail-suffix-property stx #f))]
-                     [else stx]))]
+                 (datum->syntax stx (syntax-e stx) ctx-stx ctx-stx)]
                 [(srcloc? ctx-stx)
                  (if container?
                      (syntax-raw-srcloc-property stx ctx-stx)

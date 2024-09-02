@@ -106,6 +106,7 @@
                        (raw-cons tail (raw-cons post post-suffix))
                        (or use-prefix?
                            (not (and head?
+                                     (syntax? a-stx)
                                      (memq (syntax-e a-stx) '(op multi)))))
                        keep-suffix?))
        (if (null? a) d (cons a d))]
