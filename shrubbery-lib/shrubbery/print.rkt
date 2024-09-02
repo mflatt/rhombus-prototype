@@ -11,6 +11,7 @@
 (define (shrubbery-syntax->string s
                                   #:use-raw? [use-raw? #f]
                                   #:max-length [max-length #f]
+                                  #:keep-prefix? [keep-prefix? #f]
                                   #:keep-suffix? [keep-suffix? #f]
                                   #:infer-starting-indentation? [infer-starting-indentation? #t]
                                   #:register-stx-range [register-stx-range void]
@@ -23,6 +24,7 @@
      (syntax-to-raw s
                     #:output o
                     #:max-length max-length
+                    #:keep-prefix? keep-prefix?
                     #:keep-suffix? keep-suffix?
                     #:register-stx-range register-stx-range
                     #:render-stx-hook render-stx-hook)
@@ -65,6 +67,7 @@
 (define (syntax-to-raw g
                        #:output [output #f]
                        #:max-length [max-length #f]
+                       #:keep-prefix? [keep-prefix? #f]
                        #:keep-suffix? [keep-suffix? #t]
                        #:register-stx-range [register-stx-range void]
                        #:render-stx-hook [render-stx-hook (lambda (stx output) #f)])
@@ -73,7 +76,7 @@
                                  (cons a b)
                                  a)
                              (or b null)))
-  (let loop ([g g] [tail null] [use-prefix? #f] [keep-suffix? keep-suffix?])
+  (let loop ([g g] [head? #t] [tail null] [use-prefix? keep-prefix?] [keep-suffix? keep-suffix?])
     (cond
       [(null? g)
        (if output
@@ -87,19 +90,23 @@
                                 keep-suffix?
                                 (syntax-raw-tail-suffix-property a-stx)))
        (define opaque-content
-         (syntax-raw-opaque-content-property a-stx))
+         (and (syntax? a-stx)
+              (syntax-raw-opaque-content-property a-stx)))
        (define a (raw-cons
-                  (loop a-stx null use-prefix? (or keep-suffix?
-                                                   (not (null? tail))
-                                                   (not (null? (cdr g)))))
+                  (loop a-stx #t null use-prefix? (or keep-suffix?
+                                                      (not (null? tail))
+                                                      (not (null? (cdr g)))))
                   opaque-content))
        (when (and output opaque-content)
          (to-output opaque-content output max-length))
        (define d (loop (if opaque-content
                            null
                            (cdr g))
+                       #f
                        (raw-cons tail (raw-cons post post-suffix))
-                       #t
+                       (or use-prefix?
+                           (not (and head?
+                                     (memq (syntax-e a-stx) '(op multi)))))
                        keep-suffix?))
        (if (null? a) d (cons a d))]
       [(syntax? g)
@@ -144,7 +151,7 @@
                  (cons raw suffix))))
        (define d (if opaque-r
                      '()
-                     (loop (syntax-e g) tail use-prefix? keep-suffix?)))
+                     (loop (syntax-e g) head? tail use-prefix? keep-suffix?)))
        (cond
          [output (void)]
          [else

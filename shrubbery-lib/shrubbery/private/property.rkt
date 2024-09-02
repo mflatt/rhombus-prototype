@@ -6,7 +6,8 @@
          syntax-raw-tail-property
          syntax-raw-tail-suffix-property
          syntax-opaque-raw-property
-         syntax-raw-opaque-content-property)
+         syntax-raw-opaque-content-property
+         syntax-raw-srcloc-property)
 
 (define syntax-raw-property
   (case-lambda
@@ -51,3 +52,10 @@
   (case-lambda
     [(stx) (syntax-property stx 'raw-opaque-content)]
     [(stx val) (syntax-property stx 'raw-opaque-content val #t)]))
+
+;; For associating a srcloc to a compount tag like `group`, which
+;; otherwise gets a derived srcloc based on its content
+(define syntax-raw-srcloc-property
+  (case-lambda
+    [(stx) (syntax-property stx 'raw-srcloc)]
+    [(stx val) (syntax-property stx 'raw-srcloc val #t)]))

@@ -18,8 +18,11 @@ block:
     Syntax.is_original(stx) ~method
     Syntax.strip_scopes(stx) ~method
     Syntax.replace_scopes(stx, like_stx) ~method
+    // relocate and related are tested in "relocate.rhm"
     Syntax.relocate(stx, to) ~method
+    Syntax.relocate_group(stx, to) ~method
     Syntax.relocate_span(stx, like_stxes) ~method
+    Syntax.relocate_group_span(stx, like_stxes) ~method
     Syntax.property(stx, key, [val], [is_preserved]) ~method
     Syntax.group_property(stx, key, [val], [is_preserved]) ~method
     Syntax.to_source_string(stx) ~method

@@ -21,10 +21,10 @@
 ;; objects:
 ;;
 ;;  * `group` and `multi` aren't expected to have source locations;
-;;    ideally, they have 'raw as "", but it's best not to rely on that;
-;;    the S-expression parentheses around `group` from the Shrubbery
+;;    ideally, they have 'raw as "", but don't rely on that; the
+;;    S-expression parentheses around `group` from the Shrubbery
 ;;    reader will have a spanning srcloc, but not from a Rhombus-level
-;;    template construction
+;;    template construction, so don't rely on that, either
 ;;
 ;;  * `parens` and similar (including `block`) are expected to have a
 ;;    source location that spans the content; they have 'raw,
@@ -165,7 +165,7 @@
      (define content (syntax-raw-opaque-content-property (car stx)))
      (define tail (syntax-raw-tail-property (car stx)))
      (define tail-sfx (syntax-raw-tail-suffix-property (car stx)))
-     (let loop ([stx stx] [accum null] [pre? #t] [sfx null])
+     (let loop ([stx stx] [head? #t] [accum null] [pre? #t] [sfx null])
        (cond
          [(null? stx)
           (let ([accum (if content (cons accum content) accum)])
@@ -177,13 +177,16 @@
           (define next (if content null (cdr stx)))
           (cond
             [pre?
-             (define-values (no-pfx all-raw sfx) (loop next
-                                                       (cons-raw accum raw)
-                                                       #f
-                                                       new-sfx))
-             (values pfx all-raw sfx)]
+             (define-values (more-pfx all-raw sfx) (loop next
+                                                         #f
+                                                         (cons-raw accum raw)
+                                                         (and head?
+                                                              (eq? (syntax-e (car stx)) 'multi))
+                                                         new-sfx))
+             (values (cons-raw more-pfx pfx) all-raw sfx)]
             [else
              (loop next
+                   #f
                    (cons-raw (cons-raw accum sfx)
                              (cons-raw pfx raw))
                    #f
@@ -228,10 +231,15 @@
   (define (not-identifier-term? head)
     (define r (syntax-raw-property head))
     (not (and r (not (null? r)) (not (equal? r "")))))
+  (define (grouping-head? head)
+    (define r (syntax-raw-property head))
+    (not (and r (equal? r (symbol->immutable-string (syntax-e head))))))
   (define (block-tag? a)
     (and (eq? (syntax-e a) 'block)
          (or (equal? (syntax-raw-property a) ":")
              (equal? (syntax-raw-property a) "|"))))
+  (define (srcloc-via-head head)
+    (syntax-raw-srcloc-property head))
   ;; look inside `stx` for `op` or group-sequence tag
   (define (term->stx stx)
     (define r (syntax-e stx))
@@ -252,7 +260,8 @@
                          (eq? (syntax-e a) 'group))
                      (not-identifier-term? a))
                 (maybe-respan stx))
-           (and (memq (syntax-e a) '(parens brackets braces quotes))
+           (and (and (memq (syntax-e a) '(parens brackets braces quotes))
+                     (grouping-head? a))
                 (maybe-respan stx))
            (and (block-tag? a)
                 (maybe-respan stx))
@@ -300,29 +309,35 @@
              (not-identifier-term? head)
              (syntax->list stx))
         => (lambda (l)
-             (from-list stx (cdr l) term->stx))]
+             (or (srcloc-via-head head)
+                 (from-list stx (cdr l) term->stx)))]
        [(and (or (eq? v 'multi)
                  (eq? v 'alts))
              (not-identifier-term? head)
              (syntax->list stx))
         => (lambda (l)
-             (if (null? (cdr l))
-                 stx  ;; only happens with 'multi
-                 (from-list stx (cdr l) (lambda (g)
-                                          ;; we expect `g` to be a group or block
-                                          (maybe-respan g)))))]
+             (or (srcloc-via-head head)
+                 (if (null? (cdr l))
+                     stx  ;; only happens with 'multi
+                     (from-list stx (cdr l) (lambda (g)
+                                              ;; we expect `g` to be a group or block
+                                              (maybe-respan g))))))]
        [(and (block-tag? head)
              (syntax->list stx))
         => (lambda (l)
-             (from-list stx l (lambda (g)
-                                ;; we expect `g` to be a group, usually,
-                                ;; but it will be an identifier for the
-                                ;; head of `l`
-                                (maybe-respan g))))]
+             (or (srcloc-via-head head)
+                 (from-list stx l (lambda (g)
+                                    ;; we expect `g` to be a group, usually,
+                                    ;; but it will be an identifier for the
+                                    ;; head of `l`
+                                    (maybe-respan g)))))]
        [(syntax->list stx)
         => (lambda (l)
-             ;; assume a list of terms
-             (from-list stx l term->stx))]
+             (or (and (memq v '(parens brackets braces quotes))
+                      (grouping-head? head)
+                      (srcloc-via-head head))
+                 ;; assume a list of terms
+                 (from-list stx l term->stx)))]
        [else stx])]
     [else stx]))
 
