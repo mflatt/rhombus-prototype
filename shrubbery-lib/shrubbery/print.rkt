@@ -93,7 +93,8 @@
         (cond
           [(null? l) tail]
           [(null? (cdr l))
-           (loop (car l) tail use-prefix? keep-suffix?)]
+           (cons pre
+                 (loop (car l) tail use-prefix? keep-suffix?))]
           [else
            (e-loop (raw-cons pre
                              (loop (car l) tail use-prefix? #t))
@@ -114,7 +115,7 @@
            => (lambda (raw)
                 (finish raw (raw-cons tail suffix)))]
           [else
-           (sequence l (raw-cons tail suffix) bracketed? (or bracketed? keep-suffix?))]))
+           (sequence l (raw-cons tail suffix) (or bracketed? keep-prefix?) (or bracketed? keep-suffix?))]))
       (if output
           (finish suffix #f)
           (raw-cons prefix mid)))
@@ -138,8 +139,10 @@
            [else
             (define a (car l))
             (case (syntax-e a)
-              [(top multi group)
+              [(top multi)
                (container a (cdr l) tail #t use-prefix? keep-suffix?)]
+              [(group)
+               (container a (cdr l) tail #f use-prefix? keep-suffix?)]
               [(op)
                (if (and (pair? (cdr l)) (null? (cddr l)))
                    (loop (cadr l) tail use-prefix? keep-suffix?)
