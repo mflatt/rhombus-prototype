@@ -318,7 +318,7 @@
     (raise-syntax-error #f
                         "final class cannot have abstract methods"
                         stxes
-                        abstract-name
+                        (datum->syntax #f abstract-name)
                         (list name))))
 
 (define (check-field-defaults stxes super-has-defaults? constructor-fields defaults keywords)

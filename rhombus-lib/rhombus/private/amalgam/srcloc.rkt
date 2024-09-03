@@ -1,7 +1,8 @@
 #lang racket/base
 (require racket/symbol
          shrubbery/srcloc
-         shrubbery/property)
+         shrubbery/property
+         (submod shrubbery/print for-parse))
 
 (provide syntax-srcloc
          no-srcloc
@@ -138,60 +139,28 @@
     [(syntax? src-stx) (reraw src-stx (relocate (maybe-respan src-stx) stx) #:keep-mode keep-mode)]
     [else (relocate src-stx stx)]))
 
-(define (extract-raw stx [skip-immediate-suffix? #f])
-  (define (cons-raw a b)
-    (cond
-      [(or (not a) (null? a) (equal? a "")) (or b null)]
-      [(or (not b) (null? b) (equal? b "")) a]
-      [else (cons a b)]))
+(define (extract-raw stx)
+  (define l (find-shrubberies stx))
   (cond
-    [(syntax? stx)
-     (cond
-       [(syntax-opaque-raw-property stx)
-        (values (or (syntax-raw-prefix-property stx) null)
-                (syntax-opaque-raw-property stx)
-                (or (and (not skip-immediate-suffix?)
-                         (syntax-raw-suffix-property stx))
-                    null))]
-       [(syntax->list stx)
-        => (lambda (l) (extract-raw l))]
-       [else
-        (values (or (syntax-raw-prefix-property stx) null)
-                (syntax-raw-property stx)
-                (or (and (not skip-immediate-suffix?)
-                         (syntax-raw-suffix-property stx))
-                    null))])]
-    [(and (pair? stx) (list? stx))
-     (define content (syntax-raw-opaque-content-property (car stx)))
-     (define tail (syntax-raw-tail-property (car stx)))
-     (define tail-sfx (syntax-raw-suffix-property (car stx)))
-     (let loop ([stx stx] [head? #t] [accum null] [pre? #t] [sfx null])
+    [(null? l)
+     (values #f '() #f)]
+    [(null? (cdr l))
+     (define s (car l))
+     (values (syntax-to-raw s #:keep-prefix? #t #:keep-content? #f #:keep-suffix? #f)
+             (syntax-to-raw s #:keep-prefix? #f #:keep-content? #t #:keep-suffix? #f)
+             (syntax-to-raw s #:keep-prefix? #f #:keep-content? #f #:keep-suffix? #t))]
+    [else
+     (define prefix (syntax-to-raw (car l) #:keep-prefix? #t #:keep-content? #f #:keep-suffix? #f))
+     (let loop ([l (cdr l)] [accum (syntax-to-raw (car l) #:keep-prefix? #f #:keep-content? #t #:keep-suffix? #t)])
        (cond
-         [(null? stx)
-          (let ([accum (if content (cons accum content) accum)])
-            (if (null? (cons-raw tail '()))
-                (values null accum (cons-raw sfx tail-sfx))
-                (values null (cons-raw accum (cons-raw sfx tail)) tail-sfx)))]
+         [(null? (cdr l))
+          (define s (car l))
+          (values prefix
+                  (cons accum
+                        (syntax-to-raw s #:keep-prefix? #t #:keep-content? #t #:keep-suffix? #f))
+                  (syntax-to-raw s #:keep-prefix? #f #:keep-content? #f #:keep-suffix? #t))]
          [else
-          (define-values (pfx raw new-sfx) (extract-raw (car stx) head?))
-          (define next (if content null (cdr stx)))
-          (cond
-            [pre?
-             (define-values (more-pfx all-raw sfx) (loop next
-                                                         #f
-                                                         (cons-raw accum raw)
-                                                         (and head?
-                                                              (eq? (syntax-e (car stx)) 'multi))
-                                                         new-sfx))
-             (values (cons-raw more-pfx pfx) all-raw sfx)]
-            [else
-             (loop next
-                   #f
-                   (cons-raw (cons-raw accum sfx)
-                             (cons-raw pfx raw))
-                   #f
-                   new-sfx)])]))]
-    [else (values null null null)]))
+          (loop (cdr l) (cons accum (syntax-to-raw (car l) #:keep-prefix? #t #:keep-content? #t #:keep-suffix? #t)))]))]))
 
 ;; If the tail is empty, give it a source location
 ;; that matches the end of `op-stx`
@@ -220,6 +189,32 @@
     [(syntax-srcloc stx) stx]
     [else (respan stx)]))
 
+(define (find-shrubberies stx)
+  (define (filter-shrubberies l)
+    (apply append (map find-shrubberies l)))
+  (cond
+    [(list? stx) (filter-shrubberies stx)]
+    [(not (syntax? stx)) null]
+    [(syntax-opaque-raw-property stx)
+     (list stx)]
+    [(null? (syntax-e stx)) null]
+    [(not (pair? (syntax-e stx)))
+     (cond
+       [(syntax-raw-property stx) (list stx)]
+       [else null])]
+    [(syntax->list stx)
+     => (lambda (l)
+          (define head (car l))
+          (case (syntax-e head)
+            [(parens brackets braces quotes block alts op group multi top)
+             (define r (syntax-raw-property head))
+             (if (not (and r (equal? r (symbol->immutable-string (syntax-e head)))))
+                 (list stx)
+                 (filter-shrubberies l))]
+            [else
+             (filter-shrubberies l)]))]
+    [else null]))
+
 ;; This function should work reliably when `stx` is a shrubbery
 ;; representation. It should also handle a syntax object that is
 ;; list of terms; there's a danger of misinterpreting a `group`
@@ -227,48 +222,10 @@
 ;; so we against that by treating an identifier with a non-empty 'raw
 ;; property as not constructing a group or multi-group sequence.
 (define (respan stx)
-  (define e (syntax-e stx))
-  (define (not-identifier-term? head)
-    (define r (syntax-raw-property head))
-    (not (and r (not (null? r)) (not (equal? r "")))))
-  (define (grouping-head? head)
-    (define r (syntax-raw-property head))
-    (not (and r (equal? r (symbol->immutable-string (syntax-e head))))))
-  (define (block-tag? a)
-    (and (eq? (syntax-e a) 'block)
-         (or (equal? (syntax-raw-property a) ":")
-             (equal? (syntax-raw-property a) "|"))))
-  (define (srcloc-via-head head)
-    (syntax-raw-srcloc-property head))
-  ;; look inside `stx` for `op` or group-sequence tag
-  (define (term->stx stx)
-    (define r (syntax-e stx))
-    (cond
-      [(pair? r)
-       (define a (car r))
-       (or (and (eq? (syntax-e a) 'op)
-                (not-identifier-term? a)
-                (let* ([d (cdr r)]
-                       [d (if (syntax? d) (syntax-e d) d)])
-                  (or (and (pair? d) (car d))
-                      a)))
-           (and (and (eq? (syntax-e a) 'alts)
-                     (not-identifier-term? a))
-                (maybe-respan stx))
-           ;; concession to using `datum->syntax` in `Syntax.relocate_span`
-           (and (and (or (eq? (syntax-e a) 'multi)
-                         (eq? (syntax-e a) 'group))
-                     (not-identifier-term? a))
-                (maybe-respan stx))
-           (and (and (memq (syntax-e a) '(parens brackets braces quotes))
-                     (grouping-head? a))
-                (maybe-respan stx))
-           (and (block-tag? a)
-                (maybe-respan stx))
-           stx)]
-      [else stx]))
-  ;; compute span from a list of terms
-  (define (from-list wrap-stx stxes element->stx)
+  (define stxes (find-shrubberies stx))
+
+  ;; compute span from a nonempty list of shrubberies
+  (define (from-list wrap-stx stxes)
     (define head (element->stx (car stxes)))
     (define pos (and head (syntax-position head)))
     (cond
@@ -300,46 +257,36 @@
                               (max 0 (- end-pos pos)))
                       wrap-stx)]
       [else wrap-stx]))
-  (cond
-    [(pair? e)
-     (define head (car e))
-     (define v (syntax-e head))
-     (cond
-       [(and (eq? v 'group)
-             (not-identifier-term? head)
-             (syntax->list stx))
-        => (lambda (l)
-             (or (srcloc-via-head head)
-                 (from-list stx (cdr l) term->stx)))]
-       [(and (or (eq? v 'multi)
-                 (eq? v 'alts))
-             (not-identifier-term? head)
-             (syntax->list stx))
-        => (lambda (l)
-             (or (srcloc-via-head head)
-                 (if (null? (cdr l))
-                     stx  ;; only happens with 'multi
-                     (from-list stx (cdr l) (lambda (g)
-                                              ;; we expect `g` to be a group or block
-                                              (maybe-respan g))))))]
-       [(and (block-tag? head)
-             (syntax->list stx))
-        => (lambda (l)
-             (or (srcloc-via-head head)
-                 (from-list stx l (lambda (g)
-                                    ;; we expect `g` to be a group, usually,
-                                    ;; but it will be an identifier for the
-                                    ;; head of `l`
-                                    (maybe-respan g)))))]
-       [(syntax->list stx)
-        => (lambda (l)
-             (or (and (memq v '(parens brackets braces quotes))
-                      (grouping-head? head)
-                      (srcloc-via-head head))
-                 ;; assume a list of terms
-                 (from-list stx l term->stx)))]
-       [else stx])]
-    [else stx]))
+
+  ;; extract from `op` and/or respan compound forms
+  ;; that do not have a srclon on the wrapper
+  (define (element->stx stx)
+    (cond
+      [(syntax-srcloc stx) stx]
+      [else
+       (define r (syntax-e stx))
+       (cond
+         [(and (pair? r)
+               (syntax->list stx))
+          => (lambda (l)
+               (define a (car l))
+               (case (syntax-e a)
+                 [(op)
+                  (if (and (pair? (cdr l))
+                           (null? (cddr l)))
+                      (cadr l)
+                      a)]
+                 [(group multi top)
+                  (if (null? (cdr l))
+                      stx
+                      (from-list stx (cdr l)))]
+                 [else
+                  (from-list stx l)]))]
+         [else stx])]))
+
+  (if (null? stxes)
+      stx
+      (from-list stx stxes)))
 
 (define-syntax-rule (with-syntax-error-respan body ...)
   (call-with-syntax-error-respan

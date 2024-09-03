@@ -12,6 +12,7 @@
 (define (shrubbery-syntax->string s
                                   #:use-raw? [use-raw? #f]
                                   #:max-length [max-length #f]
+                                  #:keep-content? [keep-content? #t]
                                   #:keep-prefix? [keep-prefix? #f]
                                   #:keep-suffix? [keep-suffix? #f]
                                   #:infer-starting-indentation? [infer-starting-indentation? #t]
@@ -25,6 +26,7 @@
      (syntax-to-raw (datum->syntax #f s)
                     #:output o
                     #:max-length max-length
+                    #:keep-content? keep-content?
                     #:keep-prefix? keep-prefix?
                     #:keep-suffix? keep-suffix?
                     #:register-stx-range register-stx-range
@@ -68,6 +70,7 @@
 (define (syntax-to-raw g
                        #:output [output #f]
                        #:max-length [max-length #f]
+                       #:keep-content? [keep-content? #t]
                        #:keep-prefix? [keep-prefix? #f]
                        #:keep-suffix? [keep-suffix? #t]
                        #:register-stx-range [register-stx-range void]
@@ -78,88 +81,128 @@
                                  a)
                              (or b null)))
   (let loop ([g g] [tail null] [use-prefix? keep-prefix?] [keep-suffix? keep-suffix?])
-    (define (finish raw tail)
+    (define (get-start keep-content?)
+      (cond
+        [(and keep-content?
+              register-stx-range
+              output)
+         (define start (file-location-position output))
+         (values start
+                 (render-stx-hook g output))]
+        [else (values #f #f)]))
+    (define (register start-pos)
+      (when start-pos
+        (register-stx-range g start-pos (file-location-position output))))
+
+    (define (out/cons raw tail)
       (cond
         [output
          (to-output raw output max-length)
          #f]
         [else
          (raw-cons raw tail)]))
+
+    (define (out/cons-register keep-content? raw tail)
+      (cond
+        [register-stx-range
+         (define-values (start-pos replaced?) (get-start keep-content?))
+         (begin0
+           (out/cons (and (not replaced?) keep-content? raw) tail)
+           (register start-pos))]
+        [else (out/cons (and keep-content? raw) tail)]))
+
     (define (other g tail)
-      (define raw (list "#{" (format "~s" (syntax->datum g)) "}"))
-      (finish raw tail))
+      (define raw (and keep-content?
+                       (list "#{" (format "~s" (syntax->datum g)) "}")))
+      (out/cons-register keep-content? raw tail))
+
     (define (sequence l tail use-prefix? keep-suffix?)
-      (let e-loop ([pre null] [l l] [use-prefix? use-prefix?] [keep-suffix? keep-suffix?])
+      (let e-loop ([l l] [tail tail] [use-prefix? use-prefix?] [keep-suffix? keep-suffix?])
         (cond
           [(null? l) tail]
+          [(not (or use-prefix? keep-content? keep-suffix?)) tail]
           [(null? (cdr l))
-           (cons pre
-                 (loop (car l) tail use-prefix? keep-suffix?))]
+           (loop (car l) tail use-prefix? keep-suffix?)]
           [else
-           (e-loop (raw-cons pre
-                             (loop (car l) tail use-prefix? #t))
-                   (cdr l)
-                   #t
-                   keep-suffix?)])))
+           (raw-cons
+            (loop (car l) null use-prefix? keep-content?)
+            (e-loop (cdr l)
+                    tail
+                    keep-content?
+                    keep-suffix?))])))
+
     (define (container a l tail bracketed? use-prefix? keep-suffix?)
-      (define prefix (finish (raw-cons
-                              (and use-prefix? (syntax-raw-prefix-property a))
-                              (syntax-raw-property a))
-                             #f))
-      (define suffix (raw-cons (syntax-raw-tail-property a)
+      (define prefix (out/cons (and use-prefix? (syntax-raw-prefix-property a))
+                               #f))
+      (define-values (start-pos replaced?) (get-start keep-content?))
+      (define init-mid (out/cons (and keep-content?
+                                      (not replaced?)
+                                      (syntax-raw-property a))
+                                 #f))
+      (define suffix (raw-cons (and keep-content?
+                                    (syntax-raw-tail-property a))
                                (and keep-suffix?
                                     (syntax-raw-suffix-property a))))
       (define mid
         (cond
+          [replaced? tail]
           [(syntax-raw-opaque-content-property a)
            => (lambda (raw)
-                (finish raw (raw-cons tail suffix)))]
+                (out/cons (and keep-content? raw) (raw-cons suffix tail)))]
           [else
-           (sequence l (raw-cons tail suffix) (or bracketed? keep-prefix?) (or bracketed? keep-suffix?))]))
+           (sequence l (raw-cons suffix tail)
+                     (if bracketed? keep-content? keep-prefix?)
+                     (if bracketed? keep-content? keep-suffix?))]))
+
+      (register start-pos)
+
       (if output
-          (finish suffix #f)
-          (raw-cons prefix mid)))
+          (out/cons suffix #f)
+          (raw-cons prefix (raw-cons init-mid mid))))
 
-    (define (file-location-position p)
-      (define-values (line col pos) (port-next-location p))
-      (- pos 1))
-    (define start-pos (and register-stx-range
-                           output
-                           (file-location-position output)))
-
-    (begin0
-      (cond
-        [(syntax-opaque-raw-property g)
-         => (lambda (raw)
-              (finish raw tail))]
-        [(pair? (syntax-e g))
-         (define l (syntax->list g))
-         (cond
-           [(not l) (other g tail)]
-           [else
-            (define a (car l))
-            (case (syntax-e a)
-              [(top multi)
-               (container a (cdr l) tail #t use-prefix? keep-suffix?)]
-              [(group)
-               (container a (cdr l) tail #f use-prefix? keep-suffix?)]
-              [(op)
-               (if (and (pair? (cdr l)) (null? (cddr l)))
-                   (loop (cadr l) tail use-prefix? keep-suffix?)
-                   (other g tail))]
-              [(parens brackets braces quotes block alts)
-               (container a (cdr l) tail #t use-prefix? keep-suffix?)]
-              [(parsed)
-               (other g tail)]
-              [else #f])])]
-        [(syntax-raw-property g)
-         => (lambda (raw)
-              (container g null tail #f use-prefix? keep-suffix?))]
-        [else
-         (other g tail)])
-
-      (when start-pos
-        (register-stx-range g start-pos (file-location-position output))))))
+    (cond
+      [(syntax-opaque-raw-property g)
+       => (lambda (raw)
+            (define prefix
+              (out/cons (and keep-prefix?
+                             (syntax-raw-prefix-property g))
+                        #f))
+            (define mid
+              (out/cons-register keep-content? raw #f))
+            (define suffix
+              (out/cons (and keep-suffix?
+                             (syntax-raw-suffix-property g))
+                        tail))
+            (raw-cons (raw-cons prefix mid)
+                      suffix))]
+      [(pair? (syntax-e g))
+       (define l (syntax->list g))
+       (cond
+         [(not l) (other g tail)]
+         [else
+          (define a (car l))
+          (case (syntax-e a)
+            [(top group multi)
+             (container a (cdr l) tail #f use-prefix? keep-suffix?)]
+            [(op)
+             (if (and (pair? (cdr l)) (null? (cddr l)))
+                 (loop (cadr l) tail use-prefix? keep-suffix?)
+                 (other g tail))]
+            [(parens brackets braces quotes block alts)
+             (container a (cdr l) tail #t use-prefix? keep-suffix?)]
+            [(parsed)
+             (cond
+               [(and (= 3 (length l))
+                     (syntax-opaque-raw-property (caddr l)))
+                (loop (caddr l) tail use-prefix? keep-suffix?)]
+               [else
+                (other g tail)])]
+            [else #f])])]
+      [(syntax-raw-property g)
+       => (lambda (raw)
+            (container g null tail #f use-prefix? keep-suffix?))]
+      [else
+       (other g tail)])))
 
 (define (all-raw-available? s)
   (let loop ([s s])
@@ -208,3 +251,7 @@
                 (extract-starting-column (car e))))
          0)]
     [else 0]))
+
+(define (file-location-position p)
+  (define-values (line col pos) (port-next-location p))
+  (- pos 1))
