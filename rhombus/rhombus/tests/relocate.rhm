@@ -15,24 +15,24 @@ block:
     check:
       t.relocate(x).srcloc() ~is x.srcloc()
       t.relocate(x).to_source_string() ~is "x"
-      t.relocate(x).source_metadata() ~is values(#false, "x", #false)
+      t.relocate(x).source_properties() ~is values(#false, "x", #false)
       t.relocate(x_c).to_source_string() ~is "x"
       t.relocate(x_c).to_source_string(~keep_suffix: #true) ~is "x /* x */ "
       t.relocate(plus).srcloc() ~is plus.srcloc()
       t.relocate(plus).to_source_string() ~is "+"
-      t.relocate(plus).source_metadata() ~is values(#false, "+", #false)
+      t.relocate(plus).source_properties() ~is values(#false, "+", #false)
       t.relocate(plus_c).to_source_string() ~is "+"
       t.relocate(plus_c).to_source_string(~keep_suffix: #true) ~is "+ /* op */ "
-      t.relocate(plus_c).source_metadata() ~is values(#false,
-                                                      "+",
-                                                      // shape of this value is not really specified,
-                                                      // but the concatenation should stay the same
-                                                      PairList[" ", "/* op */", " "])
-      t.source_metadata("!", "Z", "?").to_source_string() ~is "Z"
-      t.source_metadata("!", "Z", "?").to_source_string(~keep_prefix: #true) ~is "!Z"
-      t.source_metadata("!", "Z", "?").to_source_string(~keep_suffix: #true) ~is "Z?"
-      t.source_metadata("!", "Z", "?").to_source_string(~keep_prefix: #true,
-                                                        ~keep_suffix: #true) ~is "!Z?"
+      t.relocate(plus_c).source_properties() ~is values(#false,
+                                                        "+",
+                                                        // shape of this value is not really specified,
+                                                        // but the concatenation should stay the same
+                                                        PairList[" ", "/* op */", " "])
+      t.source_properties("!", "Z", "?").to_source_string() ~is "Z"
+      t.source_properties("!", "Z", "?").to_source_string(~keep_prefix: #true) ~is "!Z"
+      t.source_properties("!", "Z", "?").to_source_string(~keep_suffix: #true) ~is "Z?"
+      t.source_properties("!", "Z", "?").to_source_string(~keep_prefix: #true,
+                                                          ~keep_suffix: #true) ~is "!Z?"
       x.relocate(#false).to_source_string() ~is ""
   check_reloc_term('z')
   check_reloc_term('+')
@@ -67,15 +67,15 @@ block:
     x.relocate_group(stars).to_source_string() ~is "x y z"
     x.relocate_group(stars).to_source_string(~keep_prefix: #true,
                                              ~keep_suffix: #true) ~is " /* */ x y z /**/, "
-    x.source_metadata() ~throws "Term"
-    x.source_group_metadata() ~is values(#false, PairList[], #false)
-    stars.source_group_metadata() ~is values(PairList[" ", "/* */", " "], // shape not really specified
-                                             PairList[],
-                                             PairList[PairList[" ", "/**/"], ",", " "])
-    x.relocate_group(stars).source_group_metadata() ~is stars.source_group_metadata()
-    x.source_group_metadata("<<", "G", ">>").to_source_string() ~is "G"
-    x.source_group_metadata("<<", "G", ">>").to_source_string(~keep_prefix: #true) ~is "<<G"
-    x.source_group_metadata("<<", "G", ">>").to_source_string(~keep_suffix: #true) ~is "G>>"
+    x.source_properties() ~throws "Term"
+    x.group_source_properties() ~is values(#false, PairList[], #false)
+    stars.group_source_properties() ~is values(PairList[" ", "/* */", " "], // shape not really specified
+                                               PairList[],
+                                               PairList[PairList[" ", "/**/"], ",", " "])
+    x.relocate_group(stars).group_source_properties() ~is stars.group_source_properties()
+    x.group_source_properties("<<", "G", ">>").to_source_string() ~is "G"
+    x.group_source_properties("<<", "G", ">>").to_source_string(~keep_prefix: #true) ~is "<<G"
+    x.group_source_properties("<<", "G", ">>").to_source_string(~keep_suffix: #true) ~is "G>>"
 
 block:
   let one = '1'
@@ -104,9 +104,9 @@ block:
 
 block:
   let '($g)' = '( /* pre */ hel lo /* post */)'
-  check g.source_group_metadata() ~is values(PairList[" ", "/* pre */", " "],
-                                             PairList[],
-                                             PairList[" ", "/* post */"])
+  check g.group_source_properties() ~is values(PairList[" ", "/* pre */", " "],
+                                               PairList[],
+                                               PairList[" ", "/* post */"])
   check 'x'.relocate_span([g]).to_source_string() ~is "hel lo"
   check g.to_source_string() ~is "hel lo"
   check g.to_source_string(~keep_prefix: #true, ~keep_suffix: #true) ~is " /* pre */ hel lo /* post */"

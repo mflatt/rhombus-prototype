@@ -82,10 +82,10 @@
    relocate_group
    relocate_span
    relocate_group_span
-   source_metadata
-   source_group_metadata
    property
    group_property
+   source_properties
+   group_source_properties
    to_source_string))
 
 (define-static-info-getter get-treelist-of-syntax-static-infos
@@ -504,15 +504,48 @@
   (do-relocate who stx ctx-stx
                extract-group-ctx "maybe(Group || Srcloc)"))
 
-(define (to-list-of-stx who v-in)
-  (define stxs (to-list #f v-in))
-  (unless (and stxs (andmap syntax? stxs))
-    (raise-argument-error* who rhombus-realm
-                           "Listable.to_list && List.of(Syntax)"
-                           v-in))
-  stxs)
+(define (make-do-syntax-property who extract-ctx)
+  (case-lambda
+    [(stx prop)
+     (syntax-property (extract-ctx who stx #:false-ok? #f) prop)]
+    [(stx prop val)
+     (extract-ctx who stx
+                  #:false-ok? #f
+                  #:update (lambda (t container?)
+                             (syntax-property t prop val)))]
+    [(stx prop val preserved?)
+     (extract-ctx who stx
+                  #:false-ok? #f
+                  #:update (lambda (t container?)
+                             (syntax-property t prop val preserved?)))]))
 
-(define/method Syntax.source_metadata
+(define/method Syntax.property
+  #:static-infos ((#%call-result
+                   (#:at_arities
+                    ((4 ())
+                     (24 #,(get-syntax-static-infos))))))
+  (case-lambda
+    [(stx prop)
+     ((make-do-syntax-property who extract-ctx) stx prop)]
+    [(stx prop val)
+     ((make-do-syntax-property who extract-ctx) stx prop val)]
+    [(stx prop val preserved?)
+     ((make-do-syntax-property who extract-ctx) stx prop val (and preserved? #t))]))
+
+(define/method Syntax.group_property
+  #:static-infos ((#%call-result
+                   (#:at_arities
+                    ((4 ())
+                     (24 #,(get-syntax-static-infos))))))
+  (case-lambda
+    [(stx prop)
+     ((make-do-syntax-property who extract-group-ctx) stx prop)]
+    [(stx prop val)
+     ((make-do-syntax-property who extract-group-ctx) stx prop val)]
+    [(stx prop val preserved?)
+     ((make-do-syntax-property who extract-group-ctx) stx prop val (and preserved? #t))]))
+
+(define/method Syntax.source_properties
   #:static-infos ((#%call-result
                    (#:at_arities
                     ((2 ())
@@ -521,13 +554,13 @@
     [(stx-in)
      (define stx (unpack-term/maybe stx-in))
      (unless stx (raise-argument-error* who rhombus-realm "Term" stx-in))
-     (get-source-metadata stx extract-ctx)]
+     (get-source-properties stx extract-ctx)]
     [(stx-in prefix raw suffix)
      (define stx (unpack-term/maybe stx-in))
      (unless stx (raise-argument-error* who rhombus-realm "Term" stx-in))
-     (set-source-metadata stx extract-ctx prefix raw suffix)]))
+     (set-source-properties stx extract-ctx prefix raw suffix)]))
 
-(define/method Syntax.source_group_metadata
+(define/method Syntax.group_source_properties
   #:static-infos ((#%call-result
                    (#:at_arities
                     ((2 ())
@@ -536,14 +569,14 @@
     [(stx-in)
      (define stx (unpack-group stx-in #f #f))
      (unless stx (raise-argument-error* who rhombus-realm "Group" stx-in))
-     (get-source-metadata stx extract-group-ctx)]
+     (get-source-properties stx extract-group-ctx)]
     [(stx-in prefix raw suffix)
      (define stx (unpack-group stx-in #f #f))
      (unless stx (raise-argument-error* who rhombus-realm "Group" stx-in))
-     (set-source-metadata stx extract-group-ctx prefix raw suffix)]))
+     (set-source-properties stx extract-group-ctx prefix raw suffix)]))
 
-(define (get-source-metadata stx extract-ctx)
-  (define-values (ctx container?) (extract-ctx 'get-source-metadata stx #:report-container? #t))
+(define (get-source-properties stx extract-ctx)
+  (define-values (ctx container?) (extract-ctx 'get-source-properties stx #:report-container? #t))
   (if container?
       (values
        (syntax-raw-prefix-property ctx)
@@ -555,9 +588,9 @@
        (syntax-raw-property ctx)
        (syntax-raw-suffix-property ctx))))
 
-(define (set-source-metadata stx extract-ctx prefix raw suffix)
+(define (set-source-properties stx extract-ctx prefix raw suffix)
   (extract-ctx
-   'get-source-metadata stx
+   'get-source-properties stx
    #:update
    (lambda (stx container?)
      (let* ([stx (syntax-raw-prefix-property stx prefix)]
@@ -581,6 +614,14 @@
   (define stx (unpack-group stx-in #f #f))
   (unless stx (raise-argument-error* who rhombus-realm "Group" stx-in))
   (relocate-span who stx ctx-stxes-in))
+
+(define (to-list-of-stx who v-in)
+  (define stxs (to-list #f v-in))
+  (unless (and stxs (andmap syntax? stxs))
+    (raise-argument-error* who rhombus-realm
+                           "Listable.to_list && List.of(Syntax)"
+                           v-in))
+  stxs)
 
 (define (relocate-span who stx ctx-stxes-in)
   (define ctx-stxes (to-list-of-stx who ctx-stxes-in))
@@ -705,47 +746,6 @@
 (define/method (Syntax.maybe_srcloc stx)
   (check-syntax who stx)
   (syntax-srcloc (maybe-respan stx)))
-
-(define (make-do-syntax-property who extract-ctx)
-  (case-lambda
-    [(stx prop)
-     (syntax-property (extract-ctx who stx #:false-ok? #f) prop)]
-    [(stx prop val)
-     (extract-ctx who stx
-                  #:false-ok? #f
-                  #:update (lambda (t container?)
-                             (syntax-property t prop val)))]
-    [(stx prop val preserved?)
-     (extract-ctx who stx
-                  #:false-ok? #f
-                  #:update (lambda (t container?)
-                             (syntax-property t prop val preserved?)))]))
-
-(define/method Syntax.property
-  #:static-infos ((#%call-result
-                   (#:at_arities
-                    ((4 ())
-                     (24 #,(get-syntax-static-infos))))))
-  (case-lambda
-    [(stx prop)
-     ((make-do-syntax-property who extract-ctx) stx prop)]
-    [(stx prop val)
-     ((make-do-syntax-property who extract-ctx) stx prop val)]
-    [(stx prop val preserved?)
-     ((make-do-syntax-property who extract-ctx) stx prop val (and preserved? #t))]))
-
-(define/method Syntax.group_property
-  #:static-infos ((#%call-result
-                   (#:at_arities
-                    ((4 ())
-                     (24 #,(get-syntax-static-infos))))))
-  (case-lambda
-    [(stx prop)
-     ((make-do-syntax-property who extract-group-ctx) stx prop)]
-    [(stx prop val)
-     ((make-do-syntax-property who extract-group-ctx) stx prop val)]
-    [(stx prop val preserved?)
-     ((make-do-syntax-property who extract-group-ctx) stx prop val (and preserved? #t))]))
 
 (define/method (Syntax.is_original v)
   (syntax-original? (extract-ctx who v #:false-ok? #f)))

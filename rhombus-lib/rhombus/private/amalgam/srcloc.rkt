@@ -33,21 +33,32 @@
 ;;    surrounding parentheses, but a Rhombus template construction
 ;;    doesn't
 ;;
-;;  * `op` normally has the same source location as its symbol, but
-;;    it's best not to rely on that
+;;  * `op` from the reader has the same source location as its symbol,
+;;    but don't rely on that; as usual, the reader also copies to the
+;;    surroudning paranetheses, but don't rely on that
 ;;
 ;;  * `alts` is like `group`: it isn't expected to have a source
 ;;    location, although the shrubbery reader will associate a
-;;    spanning source location to surrounding parentheses.
+;;    spanning source location to surrounding parentheses
 ;;
-;; "Respan" means to give a syntax object (i.e., the immediate wrapper)
-;; a source location that corresponds to the content. That may involve
-;; moving out a `parens`, etc., tag or walking through a `group` content
-;; to create a source location that spans all the content, for example.
-;; A "respan" operation can make sense for a group or unwrapped term
-;; sequence, since the span can be reconstructed if the immediate wrapper
-;; is lost; attaching information to the wrapper can act as a kind of
-;; cache.
+;; "Respan" on a shrubbery reprsentation means to give a syntax object
+;; (i.e., the immediate wrapper) a source location that corresponds to
+;; the content. That may involve moving out a `parens`, etc., tag or
+;; walking through a `group` content to create a source location that
+;; spans all the content, for example. A "respan" operation makes
+;; sense for a group or unwrapped term sequence, since the span can be
+;; reconstructed if the immediate wrapper is lost; attaching
+;; information to the wrapper can act as a kind of cache. A computed
+;; respan also can be attached permanently to a group or term, in which
+;; case it's attached to the `group` identier, etc., instead of the
+;; wrapping parentheses.
+;;
+;; "Respan" is also used on S-expressions that are not shrubbery
+;; reprsentations, because we don't always know what kind of
+;; S-expression we have when an syntax error is being formatted. In
+;; that case, shrubbery forms are extracted based on good guesses
+;; about which things are shrubbery forms, and then respan is applied
+;; to the sequence.
 ;;
 ;; For most calls to `raise-syntax-error`, `respan` is applied
 ;; automatically to the arguments. When `raise-syntax-error` is called
@@ -124,12 +135,8 @@
                              "")
                             raw)]
                 [else (syntax-opaque-raw-property stx raw)])]
-         [stx (if (null? pfx)
-                  (syntax-raw-prefix-property stx #f)
-                  (syntax-raw-prefix-property stx pfx))]
-         [stx (if (null? sfx)
-                  (syntax-raw-suffix-property stx #f)
-                  (syntax-raw-suffix-property stx sfx))])
+         [stx (syntax-raw-prefix-property stx (if (null? pfx) #f pfx))]
+         [stx (syntax-raw-suffix-property stx (if (null? sfx) #f sfx))])
     stx))
 
 ;; `stx` should be a Racket expression, while `src-stx` can be a srcloc
@@ -188,32 +195,6 @@
   (cond
     [(syntax-srcloc stx) stx]
     [else (respan stx)]))
-
-(define (find-shrubberies stx)
-  (define (filter-shrubberies l)
-    (apply append (map find-shrubberies l)))
-  (cond
-    [(list? stx) (filter-shrubberies stx)]
-    [(not (syntax? stx)) null]
-    [(syntax-opaque-raw-property stx)
-     (list stx)]
-    [(null? (syntax-e stx)) null]
-    [(not (pair? (syntax-e stx)))
-     (cond
-       [(syntax-raw-property stx) (list stx)]
-       [else null])]
-    [(syntax->list stx)
-     => (lambda (l)
-          (define head (car l))
-          (case (syntax-e head)
-            [(parens brackets braces quotes block alts op group multi top)
-             (define r (syntax-raw-property head))
-             (if (not (and r (equal? r (symbol->immutable-string (syntax-e head)))))
-                 (list stx)
-                 (filter-shrubberies l))]
-            [else
-             (filter-shrubberies l)]))]
-    [else null]))
 
 ;; This function should work reliably when `stx` is a shrubbery
 ;; representation. It should also handle a syntax object that is
@@ -287,6 +268,39 @@
   (if (null? stxes)
       stx
       (from-list stx stxes)))
+
+;; Extract a list of shrubberies from `stx`, even recurring into
+;; subexpressions as needed. Rerawed non-shrubbery terms are treated
+;; as shrubbery terms, since the intent is to pick up the recorded raw
+;; text. To avoid confusing a `group` shrubbery container and a `group`
+;; shrubbery identifer, we check `syntax-raw-property`; this is not
+;; perfect, but it should only misinterpret an identifier in a term
+;; sequence, and not go wrong with intact shrubbery forms.
+(define (find-shrubberies stx)
+  (define (filter-shrubberies l)
+    (apply append (map find-shrubberies l)))
+  (cond
+    [(list? stx) (filter-shrubberies stx)]
+    [(not (syntax? stx)) null]
+    [(syntax-opaque-raw-property stx)
+     (list stx)]
+    [(null? (syntax-e stx)) null]
+    [(not (pair? (syntax-e stx)))
+     (cond
+       [(syntax-raw-property stx) (list stx)]
+       [else null])]
+    [(syntax->list stx)
+     => (lambda (l)
+          (define head (car l))
+          (case (syntax-e head)
+            [(parens brackets braces quotes block alts op group multi top)
+             (define r (syntax-raw-property head))
+             (if (not (and r (equal? r (symbol->immutable-string (syntax-e head)))))
+                 (list stx)
+                 (filter-shrubberies l))]
+            [else
+             (filter-shrubberies l)]))]
+    [else null]))
 
 (define-syntax-rule (with-syntax-error-respan body ...)
   (call-with-syntax-error-respan
