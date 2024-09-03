@@ -2,7 +2,7 @@
 (require racket/symbol
          shrubbery/srcloc
          shrubbery/property
-         (submod shrubbery/print for-parse))
+         shrubbery/print)
 
 (provide syntax-srcloc
          no-srcloc
@@ -146,21 +146,21 @@
      (values #f '() #f)]
     [(null? (cdr l))
      (define s (car l))
-     (values (syntax-to-raw s #:keep-prefix? #t #:keep-content? #f #:keep-suffix? #f)
-             (syntax-to-raw s #:keep-prefix? #f #:keep-content? #t #:keep-suffix? #f)
-             (syntax-to-raw s #:keep-prefix? #f #:keep-content? #f #:keep-suffix? #t))]
+     (shrubbery-syntax->raw s #:keep-prefix? #t #:keep-suffix? #t)]
     [else
-     (define prefix (syntax-to-raw (car l) #:keep-prefix? #t #:keep-content? #f #:keep-suffix? #f))
-     (let loop ([l (cdr l)] [accum (syntax-to-raw (car l) #:keep-prefix? #f #:keep-content? #t #:keep-suffix? #t)])
+     (define (raw-cons a b) (combine-shrubbery-raw a b))
+     (define-values (prefix raw suffix) (shrubbery-syntax->raw (car l) #:keep-prefix? #t #:keep-suffix? #t))
+     (let loop ([l (cdr l)] [accum (raw-cons raw suffix)])
        (cond
          [(null? (cdr l))
           (define s (car l))
+          (define-values (pfx raw sfx) (shrubbery-syntax->raw s #:keep-prefix? #t #:keep-suffix? #t))
           (values prefix
-                  (cons accum
-                        (syntax-to-raw s #:keep-prefix? #t #:keep-content? #t #:keep-suffix? #f))
-                  (syntax-to-raw s #:keep-prefix? #f #:keep-content? #f #:keep-suffix? #t))]
+                  (raw-cons accum (raw-cons pfx raw))
+                  sfx)]
          [else
-          (loop (cdr l) (cons accum (syntax-to-raw (car l) #:keep-prefix? #t #:keep-content? #t #:keep-suffix? #t)))]))]))
+          (define-values (pfx raw sfx) (shrubbery-syntax->raw (car l) #:keep-prefix? #t #:keep-suffix? #t))
+          (loop (cdr l) (raw-cons accum (raw-cons (raw-cons pfx raw) sfx)))]))]))
 
 ;; If the tail is empty, give it a source location
 ;; that matches the end of `op-stx`

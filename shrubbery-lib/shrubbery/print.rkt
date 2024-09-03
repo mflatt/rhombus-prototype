@@ -3,16 +3,15 @@
 
 ;; Printing syntax object using raw-text properties
 
-(provide shrubbery-syntax->string)
+(provide shrubbery-syntax->string
+         shrubbery-syntax->raw
+         combine-shrubbery-raw)
 
-(module+ for-parse
-  (provide syntax-to-raw))
-
-;; Expects `s` to be a shrubbery, but accomodates other shapes
+;; Expects `s` to be a shrubbery syntax object, but accomodates any value
+;; by falling back to S-expression printing
 (define (shrubbery-syntax->string s
                                   #:use-raw? [use-raw? #f]
                                   #:max-length [max-length #f]
-                                  #:keep-content? [keep-content? #t]
                                   #:keep-prefix? [keep-prefix? #f]
                                   #:keep-suffix? [keep-suffix? #f]
                                   #:infer-starting-indentation? [infer-starting-indentation? #t]
@@ -23,14 +22,13 @@
          (and (syntax? s) (all-raw-available? s)))
      (define o (open-output-string))
      (port-count-lines! o)
-     (syntax-to-raw (datum->syntax #f s)
-                    #:output o
-                    #:max-length max-length
-                    #:keep-content? keep-content?
-                    #:keep-prefix? keep-prefix?
-                    #:keep-suffix? keep-suffix?
-                    #:register-stx-range register-stx-range
-                    #:render-stx-hook render-stx-hook)
+     (extract/print-raw (datum->syntax #f s)
+                        #:output o
+                        #:max-length max-length
+                        #:keep-prefix? keep-prefix?
+                        #:keep-suffix? keep-suffix?
+                        #:register-stx-range register-stx-range
+                        #:render-stx-hook render-stx-hook)
      (define orig-str (get-output-string o))
      (define starting-col (and infer-starting-indentation?
                                (extract-starting-column s)))
@@ -52,6 +50,21 @@
            (format "~.s" v))
          (format "~s" v))]))
 
+(define (shrubbery-syntax->raw s
+                               #:use-raw? [use-raw? #f]
+                               #:keep-prefix? [keep-prefix? #f]
+                               #:keep-suffix? [keep-suffix? #f])
+  (cond
+    [(or use-raw?
+         (and (syntax? s) (all-raw-available? s)))
+     (extract/print-raw s
+                        #:keep-prefix? keep-prefix?
+                        #:keep-suffix? keep-suffix?)]
+    [else
+     (values #f
+             (shrubbery-syntax->string s)
+             #f)]))
+
 (define (to-output raw output max-length)
   (define (full?)
     (and max-length
@@ -67,24 +80,27 @@
       [(string? l) (display l output)]
       [else (void)])))
 
-(define (syntax-to-raw g
-                       #:output [output #f]
-                       #:max-length [max-length #f]
-                       #:keep-content? [keep-content? #t]
-                       #:keep-prefix? [keep-prefix? #f]
-                       #:keep-suffix? [keep-suffix? #t]
-                       #:register-stx-range [register-stx-range void]
-                       #:render-stx-hook [render-stx-hook (lambda (stx output) #f)])
-  (define (raw-cons a b) (if (and a (not (null? a)))
-                             (if (and b (not (null? b)))
-                                 (cons a b)
-                                 a)
-                             (or b null)))
-  (let loop ([g g] [tail null] [use-prefix? keep-prefix?] [keep-suffix? keep-suffix?])
-    (define (get-start keep-content?)
+(define (combine-shrubbery-raw a b)
+  (or (if (and a (not (null? a)))
+          (if (and b (not (null? b)))
+              (cons a b)
+              a)
+          b)
+      null))
+
+;; returns (values prefix content suffix)
+(define (extract/print-raw g
+                           #:output [output #f]
+                           #:max-length [max-length #f]
+                           #:keep-prefix? keep-prefix?
+                           #:keep-suffix? keep-suffix?
+                           #:register-stx-range [register-stx-range #f]
+                           #:render-stx-hook [render-stx-hook (lambda (stx output) #f)])
+  (define (raw-cons a b) (combine-shrubbery-raw a b))
+  (let loop ([g g] [use-prefix? keep-prefix?] [keep-suffix? keep-suffix?])
+    (define (get-start)
       (cond
-        [(and keep-content?
-              register-stx-range
+        [(and register-stx-range
               output)
          (define start (file-location-position output))
          (values start
@@ -94,115 +110,119 @@
       (when start-pos
         (register-stx-range g start-pos (file-location-position output))))
 
-    (define (out/cons raw tail)
+    (define (out raw)
       (cond
         [output
          (to-output raw output max-length)
          #f]
         [else
-         (raw-cons raw tail)]))
+         raw]))
 
-    (define (out/cons-register keep-content? raw tail)
+    (define (out/register raw)
       (cond
         [register-stx-range
-         (define-values (start-pos replaced?) (get-start keep-content?))
+         (define-values (start-pos replaced?) (get-start))
          (begin0
-           (out/cons (and (not replaced?) keep-content? raw) tail)
+           (out (and (not replaced?) raw))
            (register start-pos))]
-        [else (out/cons (and keep-content? raw) tail)]))
+        [else (out raw)]))
 
-    (define (other g tail)
-      (define raw (and keep-content?
-                       (list "#{" (format "~s" (syntax->datum g)) "}")))
-      (out/cons-register keep-content? raw tail))
+    (define (other g)
+      (define raw (out/register
+                   (list "#{" (format "~s" (syntax->datum g)) "}")))
+      (values #f raw #f))
 
-    (define (sequence l tail use-prefix? keep-suffix?)
-      (let e-loop ([l l] [tail tail] [use-prefix? use-prefix?] [keep-suffix? keep-suffix?])
+    (define (sequence l use-prefix? keep-suffix?)
+      (let e-loop ([l l] [use-prefix? use-prefix?] [keep-suffix? keep-suffix?])
         (cond
-          [(null? l) tail]
-          [(not (or use-prefix? keep-content? keep-suffix?)) tail]
+          [(null? l) (values #f #f #f)]
           [(null? (cdr l))
-           (loop (car l) tail use-prefix? keep-suffix?)]
+           (loop (car l) use-prefix? keep-suffix?)]
           [else
-           (raw-cons
-            (loop (car l) null use-prefix? keep-content?)
-            (e-loop (cdr l)
-                    tail
-                    keep-content?
-                    keep-suffix?))])))
+           (define-values (pfx raw sfx) (loop (car l) use-prefix? #t))
+           (define-values (rest-pfx res-raw rest-sfx) (e-loop (cdr l) #t keep-suffix?))
+           (values pfx
+                   (raw-cons (raw-cons raw sfx)
+                             (raw-cons rest-pfx res-raw))
+                   rest-sfx)])))
 
-    (define (container a l tail bracketed? use-prefix? keep-suffix?)
-      (define prefix (out/cons (and use-prefix? (syntax-raw-prefix-property a))
-                               #f))
-      (define-values (start-pos replaced?) (get-start keep-content?))
-      (define init-mid (out/cons (and keep-content?
-                                      (not replaced?)
-                                      (syntax-raw-property a))
-                                 #f))
-      (define suffix (raw-cons (and keep-content?
-                                    (syntax-raw-tail-property a))
-                               (and keep-suffix?
-                                    (syntax-raw-suffix-property a))))
-      (define mid
+    (define (container a l bracketed? use-prefix? keep-suffix?)
+      (define init-prefix (out (and use-prefix? (syntax-raw-prefix-property a))))
+
+      (define-values (start-pos replaced?) (get-start))
+      (define init-raw (out (and (not replaced?)
+                                 (syntax-raw-property a))))
+      (define end-raw (syntax-raw-tail-property a))
+
+      (define end-suffix (and keep-suffix?
+                              (syntax-raw-suffix-property a)))
+
+      (define-values (prefix raw suffix)
         (cond
-          [replaced? tail]
+          [replaced? (values init-prefix #f end-suffix)]
           [(syntax-raw-opaque-content-property a)
-           => (lambda (raw)
-                (out/cons (and keep-content? raw) (raw-cons suffix tail)))]
+           => (lambda (raw) (values init-prefix
+                                    (raw-cons (raw-cons init-raw (out raw))
+                                              (out end-raw))
+                                    end-suffix))]
           [else
-           (sequence l (raw-cons suffix tail)
-                     (if bracketed? keep-content? keep-prefix?)
-                     (if bracketed? keep-content? keep-suffix?))]))
+           (define-values (pfx raw sfx) (sequence l
+                                                  (or bracketed? keep-prefix?)
+                                                  (or bracketed? keep-suffix?)))
+           (if bracketed?
+               (values init-prefix
+                       (raw-cons init-raw (raw-cons (raw-cons pfx raw)
+                                                    (raw-cons sfx (out end-raw))))
+                       end-suffix)
+               (values (raw-cons init-prefix pfx)
+                       (raw-cons init-raw (raw-cons raw (out end-raw)))
+                       (raw-cons sfx end-suffix)))]))
 
       (register start-pos)
 
-      (if output
-          (out/cons suffix #f)
-          (raw-cons prefix (raw-cons init-mid mid))))
+      (when output
+        ;; needs to be after `register`
+        (out end-suffix))
+
+      (values prefix raw suffix))
 
     (cond
       [(syntax-opaque-raw-property g)
-       => (lambda (raw)
-            (define prefix
-              (out/cons (and keep-prefix?
-                             (syntax-raw-prefix-property g))
-                        #f))
-            (define mid
-              (out/cons-register keep-content? raw #f))
-            (define suffix
-              (out/cons (and keep-suffix?
-                             (syntax-raw-suffix-property g))
-                        tail))
-            (raw-cons (raw-cons prefix mid)
-                      suffix))]
+       => (lambda (raw-in)
+            (define prefix (out (and keep-prefix?
+                                     (syntax-raw-prefix-property g))))
+            (define raw (out/register raw-in))
+            (define suffix (out (and keep-suffix?
+                                     (syntax-raw-suffix-property g))))
+            (values prefix raw suffix))]
       [(pair? (syntax-e g))
        (define l (syntax->list g))
        (cond
-         [(not l) (other g tail)]
+         [(not l) (other g)]
          [else
           (define a (car l))
           (case (syntax-e a)
             [(top group multi)
-             (container a (cdr l) tail #f use-prefix? keep-suffix?)]
+             (container a (cdr l) #f use-prefix? keep-suffix?)]
             [(op)
              (if (and (pair? (cdr l)) (null? (cddr l)))
-                 (loop (cadr l) tail use-prefix? keep-suffix?)
-                 (other g tail))]
+                 (loop (cadr l) use-prefix? keep-suffix?)
+                 (other g))]
             [(parens brackets braces quotes block alts)
-             (container a (cdr l) tail #t use-prefix? keep-suffix?)]
+             (container a (cdr l) #t use-prefix? keep-suffix?)]
             [(parsed)
              (cond
                [(and (= 3 (length l))
                      (syntax-opaque-raw-property (caddr l)))
-                (loop (caddr l) tail use-prefix? keep-suffix?)]
+                (loop (caddr l) use-prefix? keep-suffix?)]
                [else
-                (other g tail)])]
+                (other g)])]
             [else #f])])]
       [(syntax-raw-property g)
        => (lambda (raw)
-            (container g null tail #f use-prefix? keep-suffix?))]
+            (container g null #f use-prefix? keep-suffix?))]
       [else
-       (other g tail)])))
+       (other g)])))
 
 (define (all-raw-available? s)
   (let loop ([s s])

@@ -4,7 +4,7 @@
          (rename-in "private/column.rkt"
                     [column+ lex:column+])
          "srcloc.rkt"
-         (submod "print.rkt" for-parse)
+         "print.rkt"
          "private/property.rkt"
          "private/at-space.rkt")
 
@@ -1820,6 +1820,11 @@
         (define-values (gs no-suffix) (shift-prefix-to-suffix (cdr (syntax->list s))))
         (datum->syntax #f (cons head gs))]
        [else s])]))
+
+(define (syntax-to-raw s)
+  (define-values (pfx raw sfx)
+    (shrubbery-syntax->raw s #:keep-suffix? #t))
+  (raw-cons raw sfx))
 
 ;; ----------------------------------------
 
