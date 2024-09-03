@@ -151,20 +151,20 @@
      (values #f '() #f)]
     [(null? (cdr l))
      (define s (car l))
-     (shrubbery-syntax->raw s #:keep-prefix? #t #:keep-suffix? #t)]
+     (shrubbery-syntax->raw s #:use-raw? #t #:keep-prefix? #t #:keep-suffix? #t)]
     [else
      (define (raw-cons a b) (combine-shrubbery-raw a b))
-     (define-values (prefix raw suffix) (shrubbery-syntax->raw (car l) #:keep-prefix? #t #:keep-suffix? #t))
+     (define-values (prefix raw suffix) (shrubbery-syntax->raw (car l) #:use-raw? #t #:keep-prefix? #t #:keep-suffix? #t))
      (let loop ([l (cdr l)] [accum (raw-cons raw suffix)])
        (cond
          [(null? (cdr l))
           (define s (car l))
-          (define-values (pfx raw sfx) (shrubbery-syntax->raw s #:keep-prefix? #t #:keep-suffix? #t))
+          (define-values (pfx raw sfx) (shrubbery-syntax->raw s #:use-raw? #t #:keep-prefix? #t #:keep-suffix? #t))
           (values prefix
                   (raw-cons accum (raw-cons pfx raw))
                   sfx)]
          [else
-          (define-values (pfx raw sfx) (shrubbery-syntax->raw (car l) #:keep-prefix? #t #:keep-suffix? #t))
+          (define-values (pfx raw sfx) (shrubbery-syntax->raw (car l) #:use-raw? #t #:keep-prefix? #t #:keep-suffix? #t))
           (loop (cdr l) (raw-cons accum (raw-cons (raw-cons pfx raw) sfx)))]))]))
 
 ;; If the tail is empty, give it a source location
@@ -274,6 +274,7 @@
 ;; shrubbery identifer, we check `syntax-raw-property`; this is not
 ;; perfect, but it should only misinterpret an identifier in a term
 ;; sequence, and not go wrong with intact shrubbery forms.
+(provide find-shrubberies)
 (define (find-shrubberies stx)
   (define (filter-shrubberies l)
     (apply append (map find-shrubberies l)))

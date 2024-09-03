@@ -161,10 +161,11 @@
         (cond
           [replaced? (values init-prefix #f end-suffix)]
           [(syntax-raw-opaque-content-property a)
-           => (lambda (raw) (values init-prefix
-                                    (raw-cons (raw-cons init-raw (out raw))
-                                              (out end-raw))
-                                    end-suffix))]
+           => (lambda (raw)
+                (values init-prefix
+                        (raw-cons (raw-cons init-raw (out raw))
+                                  (out end-raw))
+                        end-suffix))]
           [else
            (define-values (pfx raw sfx) (sequence l
                                                   (or bracketed? keep-prefix?)
@@ -217,7 +218,7 @@
                 (loop (caddr l) use-prefix? keep-suffix?)]
                [else
                 (other g)])]
-            [else #f])])]
+            [else (other g)])])]
       [(syntax-raw-property g)
        => (lambda (raw)
             (container g null #f use-prefix? keep-suffix?))]
