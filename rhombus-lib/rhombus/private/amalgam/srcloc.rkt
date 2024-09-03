@@ -129,10 +129,8 @@
                 [(term) (syntax-raw-property stx raw)]
                 [(content) (syntax-raw-opaque-content-property
                             (syntax-raw-property
-                             (syntax-raw-tail-property
-                              (syntax-raw-suffix-property stx #f)
-                              #f)
-                             "")
+                             (syntax-raw-tail-property stx #f)
+                             null)
                             raw)]
                 [else (syntax-opaque-raw-property stx raw)])]
          [stx (syntax-raw-prefix-property stx (if (null? pfx) #f pfx))]
@@ -257,7 +255,7 @@
                            (null? (cddr l)))
                       (cadr l)
                       a)]
-                 [(group multi top)
+                 [(group multi)
                   (if (null? (cdr l))
                       stx
                       (from-list stx (cdr l)))]
@@ -293,7 +291,7 @@
      => (lambda (l)
           (define head (car l))
           (case (syntax-e head)
-            [(parens brackets braces quotes block alts op group multi top)
+            [(parens brackets braces quotes block alts op group multi)
              (define r (syntax-raw-property head))
              (if (not (and r (equal? r (symbol->immutable-string (syntax-e head)))))
                  (list stx)

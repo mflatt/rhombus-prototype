@@ -93,8 +93,7 @@ block:
 block:
   import:
     lib("shrubbery/parse.rkt")
-    lib("racket/base.rkt")
-  def orig_x = Syntax.unwrap(parse.#{parse-all}(base.#{open-input-string}("x")))[1]
+  def orig_x = parse.#{parse-all}(Port.Input.open_string("x"))
   check:
     Syntax.is_original(orig_x) ~is #true
     orig_x.is_original() ~is #true

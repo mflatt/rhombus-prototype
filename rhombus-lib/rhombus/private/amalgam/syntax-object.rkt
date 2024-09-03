@@ -549,57 +549,61 @@
   #:static-infos ((#%call-result
                    (#:at_arities
                     ((2 ())
-                     (16 #,(get-syntax-static-infos))))))
+                     (32 #,(get-syntax-static-infos))))))
   (case-lambda
     [(stx-in)
      (define stx (unpack-term/maybe stx-in))
      (unless stx (raise-argument-error* who rhombus-realm "Term" stx-in))
      (get-source-properties stx extract-ctx)]
-    [(stx-in prefix raw suffix)
+    [(stx-in prefix raw tail suffix)
      (define stx (unpack-term/maybe stx-in))
      (unless stx (raise-argument-error* who rhombus-realm "Term" stx-in))
-     (set-source-properties stx extract-ctx prefix raw suffix)]))
+     (set-source-properties stx extract-ctx prefix raw tail suffix)]))
 
 (define/method Syntax.group_source_properties
   #:static-infos ((#%call-result
                    (#:at_arities
                     ((2 ())
-                     (16 #,(get-syntax-static-infos))))))
+                     (32 #,(get-syntax-static-infos))))))
   (case-lambda
     [(stx-in)
      (define stx (unpack-group stx-in #f #f))
      (unless stx (raise-argument-error* who rhombus-realm "Group" stx-in))
      (get-source-properties stx extract-group-ctx)]
-    [(stx-in prefix raw suffix)
+    [(stx-in prefix raw tail suffix)
      (define stx (unpack-group stx-in #f #f))
      (unless stx (raise-argument-error* who rhombus-realm "Group" stx-in))
-     (set-source-properties stx extract-group-ctx prefix raw suffix)]))
+     (set-source-properties stx extract-group-ctx prefix raw tail suffix)]))
 
 (define (get-source-properties stx extract-ctx)
   (define-values (ctx container?) (extract-ctx 'get-source-properties stx #:report-container? #t))
   (if container?
       (values
-       (syntax-raw-prefix-property ctx)
-       (or (syntax-raw-opaque-content-property ctx)
-           (syntax-raw-property ctx))
-       (syntax-raw-suffix-property ctx))
+       (or (syntax-raw-prefix-property ctx) null)
+       (or (combine-shrubbery-raw
+            (syntax-raw-property ctx)
+            (syntax-raw-opaque-content-property ctx))
+           null)
+       (or (syntax-raw-tail-property ctx) null)
+       (or (syntax-raw-suffix-property ctx) null))
       (values
-       (syntax-raw-prefix-property ctx)
-       (syntax-raw-property ctx)
-       (syntax-raw-suffix-property ctx))))
+       (or (syntax-raw-prefix-property ctx) null)
+       (or (syntax-raw-property ctx) null)
+       null
+       (or (syntax-raw-suffix-property ctx) null))))
 
-(define (set-source-properties stx extract-ctx prefix raw suffix)
+(define (set-source-properties stx extract-ctx prefix raw tail suffix)
   (extract-ctx
    'get-source-properties stx
    #:update
    (lambda (stx container?)
-     (let* ([stx (syntax-raw-prefix-property stx prefix)]
-            [stx (syntax-raw-suffix-property stx suffix)])
+     (let* ([stx (syntax-raw-prefix-property stx (if (null? prefix) #f prefix))]
+            [stx (syntax-raw-suffix-property stx (if (null? suffix) #f suffix))]
+            [stx (syntax-raw-tail-property stx (if (null? tail) #f tail))])
        (if container?
-           (let* ([stx (syntax-raw-opaque-content-property stx (or raw '()))]
-                  [stx (syntax-raw-property stx '())])
-             (syntax-raw-tail-property stx #f))
-           (syntax-raw-property stx (or raw '())))))))
+           (let* ([stx (syntax-raw-property stx '())])
+             (syntax-raw-opaque-content-property stx (or raw null)))
+           (syntax-raw-property stx (or raw null)))))))
   
 ;; also reraws, but in a mode that attaches raw test as permanent text,
 ;; instead of just ephmeral on the wrapper syntax object

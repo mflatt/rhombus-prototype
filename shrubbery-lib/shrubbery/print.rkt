@@ -202,7 +202,7 @@
          [else
           (define a (car l))
           (case (syntax-e a)
-            [(top group multi)
+            [(group multi)
              (container a (cdr l) #f use-prefix? keep-suffix?)]
             [(op)
              (if (and (pair? (cdr l)) (null? (cddr l)))
@@ -241,7 +241,7 @@
           [(not l) #f]
           [else
            (case (syntax-e (car l))
-             [(top multi)
+             [(multi)
               (rest-available? (cdr l))]
              [(group)
               (or (syntax-opaque-raw-property (car l))

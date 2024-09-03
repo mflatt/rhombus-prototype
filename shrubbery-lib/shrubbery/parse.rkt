@@ -138,7 +138,7 @@
   (syntax-property (syntax-raw-property stx '()) 'identifier-as-keyword #t))
 
 (define group-tag (syntax-raw-identifier-property (datum->syntax #f 'group)))
-(define top-tag (syntax-raw-identifier-property (datum->syntax #f 'top)))
+(define top-tag (syntax-raw-identifier-property (datum->syntax #f 'multi)))
 (define parens-tag (syntax-raw-identifier-property (datum->syntax #f 'parens)))
 (define brackets-tag (syntax-raw-identifier-property (datum->syntax #f 'brackets)))
 (define alts-tag (syntax-raw-identifier-property (datum->syntax #f 'alts)))
@@ -1665,10 +1665,7 @@
         (cdr l)))
 
 (define (raw-cons a b)
-  (cond
-    [(null? a) b]
-    [(null? b) a]
-    [else (cons a b)]))
+  (combine-shrubbery-raw a b))
 
 (define (syntax-property-copy dest src prop)
   (define v (prop src))
@@ -1786,7 +1783,7 @@
     [else
      (define head (car (syntax-e s)))
      (case (syntax-e head)
-       [(top)
+       [(multi)
         (define-values (gs suffix) (shift-prefix-to-suffix (cdr (syntax->list s))
                                                            #:add-suffix (syntax-raw-suffix-property head)))
         (datum->syntax #f (cons (syntax-raw-suffix-property head suffix)
