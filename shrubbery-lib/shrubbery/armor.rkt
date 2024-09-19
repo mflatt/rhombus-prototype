@@ -147,7 +147,7 @@
                   (loop e e #f state #f inserts)])]
               [else
                (define line (line-start t s))
-               (define col (+ (- s line) (line-delta t line)))
+               (define col (- s line))
                (define g (and (pair? (parse-state-gs state))
                               (car (parse-state-gs state))))
                (define g-col (and (not (parse-state-skip? state))
@@ -183,7 +183,7 @@
                             [else
                              (define (start-group)
                                (define line (line-start t init-pos))
-                               (define init-col (+ (- init-pos line) (line-delta t line)))
+                               (define init-col (- init-pos line))
                                (cond
                                  [(and (pair? (parse-state-gs state))
                                        (init-col . <= . g-col))
@@ -216,8 +216,7 @@
                     (define next-pos (skip-whitespace2 t e end))
                     (define line (line-start t next-pos))
                     (loop next-pos e #t
-                          (make-parse-state (list (make-group (+ (- next-pos line)
-                                                                 (line-delta t line))
+                          (make-parse-state (list (make-group (- next-pos line)
                                                               #:add-semi? (equal? (send t get-text s (add1 s)) "'")
                                                               #:add-comma? (equal? (send t get-text s (add1 s)) "(")
                                                               #:close? #f
@@ -283,7 +282,7 @@
                       [(comma) "/*,*/,"] ;; `/*,*/` marks a comma that should be removed by unarmor
                       [else "??"]))
         (define line (line-start t pos))
-        (define col (+ (- pos line) (line-delta t line)))
+        (define col (- pos line))
         (send t insert str pos)
         ;; For each later line, potentially add indentation
         ;; FIXME: this is easy, but slow
@@ -467,10 +466,6 @@
     [else
      (define category (classify-position t pos))
      (case category
-       #;
-       [(continue-operator)
-        (define-values (s e) (send t get-token-range pos))
-        (skip-whitespace2 t e end #:same-line? same-line? #:and-own-line-group-comment and-own-line-group-comment)]
        [(whitespace comment continue-operator)
         (define-values (s e) (send t get-token-range pos))
         (cond
