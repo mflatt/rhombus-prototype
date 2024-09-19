@@ -66,22 +66,9 @@ they can be freely added without intefering with grouping. The
 @litchar{\} continuation operator is somewhat unusual in that it skips
 blank and comment lines to continue, as opposed to requiring @litchar{\}
 on every continuing line; that, too, allows extra blank and comment
-lines to be added, even amid continuing lines.
-
-The interaction of indentation and @litchar{\} differs from Python,
-which always counts indentation from the start of the original
-continued line. Part of the difference is that Python forms that use
-indentation are not nested as expressions in the same that that
-shrubbery notation is meant to support. An earlier design for
-shrubbery notation did not reset indentation after @litchar{\}, and it
-kept all leading whitespace on a continuing line, which had the
-advantage that it can reach an arbitrary amount of indentation within
-a constrained textual width; that potential advantage found no
-particular use, however, and it was especially difficult to track
-visually. The whitespace role of @litchar{\} (when it is not followed
-by a new line) also is meant to allow spaces to be turned into
-@litchar{\} to ``harden'' code for transfer via media (such as email)
-that might mangle consecutive spaces.
+lines to be added, even amid continuing lines, although at the risk that a
+@litchar{\}'s reach will extend further than intended past blank
+lines.
 
 Using @litchar{~} for keywords has a precedent in OCaml. Reserving
 @litchar{~} for keywords exclusively would use up a character that
