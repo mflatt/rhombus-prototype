@@ -14,6 +14,7 @@
 (struct state (count?          ; parsed based on lines and columns?
                line            ; current group's line and last consumed token's line
                column          ; group's column; below ends group, above starts indented
+               nesting-column  ; like `column`, but can be different due to a continuing `\`
                bar-column      ; not #f => use instead of `column` for `|` start
                operator-column ; column for operator that continues group on a new line
                paren-immed     ; immediately in `()` or `[]`: #f, 'normal, or 'at
@@ -41,6 +42,7 @@
   (state count?
          line
          column
+         column ; nesting-column
          bar-column
          operator-column
          paren-immed
@@ -625,7 +627,7 @@
              (get-own-line-group-comment t l (state-line s) (state-delta s) (state-raw s) (state-count? s)))
            (define column (token-column use-t))
            (cond
-             [(column . column>? . (state-column s)
+             [(column . column>? . (state-nesting-column s)
                       #:incomparable (make-incomparable use-t))
               ;; More indented forms a nested block when there's
               ;; a preceding `:` (doesn't get here) or starting with `|`;
@@ -634,7 +636,7 @@
               (cond
                 [(eq? 'bar-operator (token-name use-t))
                  (unless (column=? column (column-half-next (or (state-bar-column s)
-                                                                (state-column s)))
+                                                                (state-nesting-column s)))
                                    #:incomparable (make-incomparable use-t))
                    (fail use-t "wrong indentation"))
                  (parse-block #f use-l
@@ -680,7 +682,7 @@
                         #:count? (state-count? s)
                         #:line line
                         #:closer (or (and (state-count? s)
-                                          (column-half-next (state-column s)))
+                                          (column-half-next (state-nesting-column s)))
                                      'any)
                         #:delta (state-delta s)
                         #:raw (state-raw s)
@@ -689,7 +691,7 @@
                         #:bar-closes-line (state-bar-closes-line s)
                         #:can-empty? (state-can-empty? s)
                         #:could-empty-if-start? #t
-                        #:parent-column (state-column s))]
+                        #:parent-column (state-nesting-column s))]
           [(bar-operator)
            (parse-alts-block t l)]
           [(opener)
@@ -787,11 +789,12 @@
                    tail-commenting
                    result-tail-raw)]
           [(whitespace comment continue-operator)
-           (define-values (next-l line delta raw)
-             (next-of l (state-line s) (state-delta s) (state-raw s) (state-count? s)))
+           (define-values (next-l line delta nesting-column raw)
+             (next-of/column l (state-line s) (state-delta s) (state-nesting-column s) (state-raw s) (state-count? s)))
            (parse-group next-l (struct-copy state s
                                             [line line]
                                             [delta delta]
+                                            [nesting-column nesting-column]
                                             [raw raw]))]
           [(group-comment)
            ;; misplaced, unless it's commenting out a `|` on the same line
@@ -1259,15 +1262,17 @@
 ;;     next is on same line); on input; the line can be #f, which means
 ;;     "treat as same line"; the result is never #f
 ;;   current line delta (created by continues)
+;;   current group column, maybe adjusted by token after continue;
+;;     result is never 0
 ;;   accumulated reversed raw whitespace
-(define (next-of l last-line delta raw count?)
+(define (next-of/column l last-line delta column raw count?)
   (cond
-    [(null? l) (values null (or last-line 0) delta raw)]
+    [(null? l) (values null (or last-line 0) (or delta 0) column raw)]
     [else
      (define t (car l))
      (case (token-name t)
        [(whitespace comment)
-        (next-of (cdr l) last-line delta (cons (car l) raw) count?)]
+        (next-of/column (cdr l) last-line delta column (cons (car l) raw) count?)]
        [(continue-operator)
         (define line (token-line t))
         ;; a continue operator not followed only by whitespace and
@@ -1284,21 +1289,24 @@
                 (or (not count?)
                     (eqv? line (token-line (car next-l)))))
            ;; like whitespace:
-           (next-of next-l last-line delta next-raw count?)]
+           (next-of/column next-l last-line delta column next-raw count?)]
           [else
            (define accum-delta? (or (not count?) (not last-line) (eqv? line last-line)))
-           (next-of next-l
-                    ;; whitespace-only lines don't count, so next continues
-                    ;; on the same line by definition:
-                    #f
-                    (cont-delta (column+ (column+ 1
-                                                  (token-column t))
-                                         (if accum-delta?
-                                             (cont-delta-column delta)
-                                             0))
-                                (add1 (cont-delta-line-span delta)))
-                    next-raw
-                    count?)])]
+           (next-of/column next-l
+                           ;; whitespace-only lines don't count, so next continues
+                           ;; on the same line by definition:
+                           #f
+                           (cont-delta 0
+                                       #;
+                                       (column+ (column+ 1
+                                                         (token-column t))
+                                                (if accum-delta?
+                                                    (cont-delta-column delta)
+                                                    0))
+                                       (add1 (cont-delta-line-span delta)))
+                           #f
+                           next-raw
+                           count?)])]
        [else
         (define line (token-line t))
         (values l
@@ -1306,7 +1314,13 @@
                 (if (or (not count?) (not last-line) (eqv? line last-line))
                     delta
                     zero-delta)
+                (or column (token-column t))
                 raw)])]))
+
+(define (next-of l last-line delta raw count?)
+  (define-values (next-l new-line new-delta new-column new-raw)
+    (next-of/column l last-line delta 0 raw count?))
+  (values next-l new-line new-delta new-raw))
 
 (define (next-of/commenting l last-line delta raw count?)
   (define-values (rest-l rest-last-line rest-delta rest-raw)

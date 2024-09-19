@@ -1517,8 +1517,8 @@ this is a group \  with (a,
 
 this is a group \
   with (a,
-                         nested,
-                         list)
+        nested,
+        list)
 
 this is a group \
  with (a,
@@ -1541,12 +1541,24 @@ hello | a | c\
 
 this: \
       is more
-             foo
+      foo
 
 foo
 | more \
 | again:
-             sub
+   sub
+
+hello:
+  one two \
+  three:
+    more
+  four
+
+hello:
+  one two \
+three:
+  more
+four
 
 a
 |
@@ -1673,6 +1685,9 @@ INPUT
     (group
      foo
      (alts (block (group more)) (block (group again (block (group sub))))))
+    (group hello (block (group one two three (block (group more))) (group four)))
+    (group hello (block (group one two three (block (group more)))))
+    (group four)
     (group a (alts (block (group b (alts (block (group x)))) (group d))))
     (group something (op +))
     (group more stuff)

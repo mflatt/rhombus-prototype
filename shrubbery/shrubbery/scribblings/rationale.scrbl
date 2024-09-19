@@ -68,17 +68,20 @@ blank and comment lines to continue, as opposed to requiring @litchar{\}
 on every continuing line; that, too, allows extra blank and comment
 lines to be added, even amid continuing lines.
 
-The interaction of indentation and @litchar{\} differs slightly from
-Python, which does not count the space for @litchar{\} itself or any
-leading whitespace on a continuing line toward indentation. Counting the
-leading whitespace on a continuing line has the advantage that it can
-reach an arbitrary amount of identation within a constrained textual
-width. Counting the @litchar{\} itself is consistent with ignoring
-@litchar{\} when it appears within a line, so grouping stays the same
-whether there's a newline or the continue line immediately after
-@litchar{\}. The whitespace role of @litchar{\} also means that spaces
-can be turned into @litchar{\} to ``harden'' code for transfer via media
-(such as email) that might mangle consecutive spaces.
+The interaction of indentation and @litchar{\} differs from Python,
+which always counts indentation from the start of the original
+continued line. Part of the difference is that Python forms that use
+indentation are not nested as expressions in the same that that
+shrubbery notation is meant to support. An earlier design for
+shrubbery notation did not reset indentation after @litchar{\}, and it
+kept all leading whitespace on a continuing line, which had the
+advantage that it can reach an arbitrary amount of indentation within
+a constrained textual width; that potential advantage found no
+particular use, however, and it was especially difficult to track
+visually. The whitespace role of @litchar{\} (when it is not followed
+by a new line) also is meant to allow spaces to be turned into
+@litchar{\} to ``harden'' code for transfer via media (such as email)
+that might mangle consecutive spaces.
 
 Using @litchar{~} for keywords has a precedent in OCaml. Reserving
 @litchar{~} for keywords exclusively would use up a character that

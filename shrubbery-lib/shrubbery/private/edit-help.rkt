@@ -74,6 +74,8 @@
          [else start])])))
 
 (define (line-delta t start #:unless-empty? [unless-empty? #f])
+  0
+  #;
   (let loop ([pos start])
     (cond
       [(eqv? pos 0) 0]

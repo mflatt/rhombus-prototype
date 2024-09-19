@@ -595,8 +595,13 @@ As a last resort, @litchar{\} can be used at the end of a line (optionally
 followed by whitespace and coments on the line) to continue the next
 line as it if were one line continuing with the next line. The itself
 @litchar{\} does not appear in the parsed form. A @litchar{\} that is not at the end of a
-line (followed by whitespace and coments) is treated the same as
+line (followed only by whitespace and comments) is treated the same as
 whitespace.
+
+For the purposes of detecting nesting by indentation after a
+continuing @litchar{\}, the indentation of any token before the
+@litchar{\} on the continued line is ignored. That is, nesting is
+relative to terms after the @litchar{\}, not terms before.
 
 Lines containing only whitespace and (non-term) comments do not count
 as ``the next line'' even for @litchar{\} continuations, so any number of
@@ -605,28 +610,28 @@ it continues.
 
 @rhombusblock(
   this is \
-    the first group
+  the first group
   this \ is \ the \ second \ group
 
   this is a group \
-    with (a,
-                             nested,
-                             list)
+  with:
+    a
+    nested
+    block
+
+  this is a group:
+    this is a nested group \
+  with:
+    a more deeply nested block
 
   this is a group \
-   with (a,
-                  \
-         nested,
-                  \
-         list)
+  with (a,
+        nested,
+        list)
 
-  this is a group \
-   with (a,
-                  \
-         /* this a comment on `nested`: */
-         nested,
-                  \
-         list)
+  this is \
+  /* comment */
+  the last group
 )
 
 @section(~tag: "group-comment"){Group Comments with @litchar{#//}}
