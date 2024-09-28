@@ -7,7 +7,13 @@
          (prefix-in doc: scribble/doclang2)
          scribble/private/manual-defaults
          rhombus/private/bounce
-         "scribble/private/util.rhm")
+         "scribble/private/util.rhm"
+         rhombus/private/version-case)
+
+(meta-if-version-at-least
+ "8.14.0.5" ; assuming implies "scribble-lib" version 1.54
+ (require (only-in scribble/decode decode-current-language-family))
+ (define decode-current-language-family (make-parameter #f)))
 
 (provide (rename-out [module-begin #%module-begin]))
 
@@ -74,10 +80,17 @@
      #`(doc:#%module-begin
         #:id doc
         #:begin [(module configure-runtime racket/base (require rhombus/runtime-config))]
-        #:post-process post-process
+        #:post-process post-process-rhombus
         (rhombus-module-forwarding-sequence
          #:wrap-non-string convert-pre-part
          (scribble-rhombus-top g-unwrapped ...)))]))
+
+(define-syntax (post-process-rhombus stx)
+  (syntax-parse stx
+    [(_ e) #'(parameterize ([decode-current-language-family (or (decode-current-language-family)
+                                                                '("Rhombus"))])
+               ;; chain to `post-process` from `scribble/private/manual-defaults`
+               (post-process e))]))
 
 (define (convert-pre-part v)
   (or (convert_pre_part v)
