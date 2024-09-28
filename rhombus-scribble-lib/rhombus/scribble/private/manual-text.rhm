@@ -3,6 +3,7 @@
 import:
   "util.rhm" open
   lib("scribble/manual.rkt")
+  "index.rhm"!for_extras open
 
 export:
   litchar
@@ -24,13 +25,15 @@ fun litchar :~ Element:
 fun deftech(pre_content :: PreContent,
             ~key: key :: maybe(String) = #false,
             ~normalize: normalize = #true,
-            ~use_style: use_style = #true)
+            ~use_style: use_style = #true,
+            ~index_extras: index_extras :: ExtrasMap = {})
   :~ Element:
     ~doc
     manual.deftech(pre_content,
                    ~key: key,
                    #{#:normalize?}: normalize,
-                   #{#:style?}: use_style)
+                   #{#:style?}: use_style,
+                   #{#:index-extras}: convert_extras(index_extras))
 
 fun tech(pre_content :: PreContent,
          ~key: key :: maybe(String) = #false,

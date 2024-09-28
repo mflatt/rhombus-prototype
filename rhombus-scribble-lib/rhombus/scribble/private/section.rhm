@@ -3,6 +3,7 @@
 import:
   "util.rhm" open
   lib("scribble/base.rkt")
+  "index.rhm"!for_extras open
 
 export:
   title
@@ -16,6 +17,7 @@ fun title(~tag: tag :: maybe(TagSuffix) = #false,
           ~style: style :: maybe(StyleLike) = #false,
           ~version: vers :: maybe(String) = #false,
           ~date: date :: maybe(String) = #false,
+          ~index_extras: index_extras :: ExtrasMap = {},
           pre_content :: PreContent):
   ~doc
   base.title(~tag: convert_list(tag),
@@ -26,6 +28,7 @@ fun title(~tag: tag :: maybe(TagSuffix) = #false,
              ~style: convert_list(style),
              ~version: vers,
              ~date: date,
+             #{#:index-extras}: convert_extras(index_extras),
              pre_content)
 
 meta:
@@ -66,6 +69,7 @@ defn.macro 'def_section $section: $rkt_section':
     'fun $section(~tag: tag :: maybe(TagSuffix) = #false,
                   ~tag_prefix: tag_prefix :: maybe(TagPrefix) = #false,
                   ~style: style :: maybe(StyleLike) = #false,
+                  ~index_extras: index_extras :: ExtrasMap = {},
                   pre_content :: PreContent)
        :~ PartDecl:
          ~doc
@@ -75,6 +79,7 @@ defn.macro 'def_section $section: $rkt_section':
                                | mp :: ModulePath: mp.s_exp()
                                | ~else: tag_prefix,
                              ~style: convert_list(style),
+                             #{#:index-extras}: convert_extras(index_extras),
                              pre_content)'
   )
 

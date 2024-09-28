@@ -59,9 +59,10 @@
                   id-to-target-maker
                   with-exporting-libraries)
          (only-in scribble/manual-struct
-                  thing-index-desc)
+                  exported-index-desc*)
          (only-in scribble/private/manual-vars
-                  add-background-label))
+                  add-background-label)
+         "mod-path.rkt")
 
 (provide typeset-doc
          define-nonterminal
@@ -169,6 +170,11 @@
                                    [(not (list? names/s)) (list (list names/s))]
                                    [(not (list? (car names/s))) (list names/s)]
                                    [else names/s])))
+     (define sort-orderss (for/list ([form (in-list forms)]
+                                     [t (in-list transformers)]
+                                     [space-namess (in-list all-space-namesss)])
+                            (define index/s ((doc-transformer-extract-sort-order t) form space-namess))
+                            index/s))
      (define space-namess (for/list ([all-namess (in-list all-space-namesss)])
                             (for/list ([all-names (in-list all-namess)])
                               (car all-names))))
@@ -237,6 +243,7 @@
                                                                 [key-rev-strs (in-list key-rev-strss)])
                                                        (mk-as-def key-rev-strs)))))
                  ([def-hts (in-list def-htss)]
+                  [sort-orders (in-list sort-orderss)]
                   [introducers (in-list introducerss)]
                   [space-names (in-list space-namess)]
                   [extra-space-namess (in-list extra-space-namesss)]
@@ -249,7 +256,8 @@
                     [immed-introducer (in-list introducers)]
                     [immed-space-name (in-list space-names)]
                     [extra-space-names (in-list extra-space-namess)]
-                    [kind-str (in-list kind-strs)])
+                    [kind-str (in-list kind-strs)]
+                    [sort-order (in-list sort-orders)])
            (cond
              [(not immed-def-ht)
               (values (cons (lambda (l) #f) rev-mk-as-defs)
@@ -310,7 +318,8 @@
                      (quote #,extra-space-names)
                      (quote #,(and (eq? immed-space-name 'grammar)
                                    (hash-ref immed-def-ht 'target)))
-                     (quote #,immed-space-name))))
+                     (quote #,immed-space-name)
+                     (quote #,sort-order))))
               (values
                (cons (if (eq? immed-space-name 'grammar)
                          make-typeset-id
@@ -448,7 +457,8 @@
    (lambda (use-stx)
      #`(parsed #:rhombus/expr (tt "...")))))
 
-(define (make-def-id redef? meta? id extra-ids prefix-str str-id index-str-in kind-str space extra-spaces nonterm-sym immed-space)
+(define (make-def-id redef? meta? id extra-ids prefix-str str-id index-str-in kind-str space extra-spaces
+                     nonterm-sym immed-space sort-order)
   (define str-id-e (syntax-e str-id))
   (cond
     [redef?
@@ -527,7 +537,13 @@
                                 (list (datum-intern-literal index-str))
                                 (list (list ref-content " " kind-str))
                                 (with-exporting-libraries
-                                  (lambda (libs) (thing-index-desc name libs))))
+                                  (lambda (libs)
+                                    (exported-index-desc*
+                                     name libs
+                                     (hash 'language-family '("Rhombus")
+                                           'kind kind-str
+                                           'sort-order sort-order
+                                           'display-from-libs (map module-path->rhombus-module-path libs))))))
                                tag
                                ref-content/no-prefix))))]
          [else content]))]))

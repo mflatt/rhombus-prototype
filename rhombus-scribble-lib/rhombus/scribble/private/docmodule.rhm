@@ -58,6 +58,7 @@ decl.macro 'docmodule ($(option :: Option), ..., $mod ...)':
        '#{#:require-form}', expr_meta.pack_expr('fun (name): @rhombus(import: #,(name))'),
        expr_meta.pack_expr('@rhombusmodname($mod ...)'),
        '#{#:module-paths}', pack_tree([ModulePath('$mod ...').s_exp()]),
+       '#{#:language-family}', pack_tree(["Rhombus"]),
        option.form, ..., ...])
 
 expr.macro 'rhombusmodname ($mod ...)':
