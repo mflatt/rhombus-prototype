@@ -197,11 +197,18 @@ interface DC:
       let Array(old_a, x, y, sx, sy, rot) =  rkt.send handle.#{get-transformation}()
       rkt.send handle.#{set-transformation}(Array(a, x, y, sx, sy, rot))
 
+  property
+  | layered_transformation :: LayeredTransformation:
+      rkt.send handle.#{get-transformation}()
+  | layered_transformation := a :: LayeredTransformation:
+      rkt.send handle.#{set-transformation}(a)
+
   export:
     BitmapOverlay
     TextCombine
     Fill
     Transformation
+    LayeredTransformation
 
   symbol_set_annot BitmapOverlay:
     { solid, opaque, xor }
@@ -218,6 +225,12 @@ interface DC:
                     _ :: Real, _ :: Real,
                     _ :: Real, _ :: Real))'
 
+  annot.macro 'LayeredTransformation':
+    'matching(Array(_ :: Transformation,
+                    _ :: Real, _ :: Real,
+                    _ :: Real, _ :: Real,
+                    _ :: Real))'
+
 fun from_handle(handle) :: DC:
   unless handle rkt.is_a rkt.#{dc<%>}
   | error(~who: "DC.from_handle",
@@ -226,7 +239,7 @@ fun from_handle(handle) :: DC:
           error.val(handle))
   SomeDC(handle)
 
-class DCDump(pen, brush, font, clipping_region, transformation, dump)
+class DCDump(pen, brush, font, clipping_region, layered_transformation, dump)
 
 class SomeDC(private _handle):
   nonfinal
@@ -239,7 +252,7 @@ class SomeDC(private _handle):
   private field dump = #false
 
   override method save():
-    dump := DCDump(pen, brush, font, clipping_region, transformation, dump)
+    dump := DCDump(pen, brush, font, clipping_region, layered_transformation, dump)
 
   override method restore():
     unless dump
@@ -254,7 +267,7 @@ class SomeDC(private _handle):
       .brush
       .font
       .clipping_region
-      .transformation
+      .layered_transformation
       .dump
 
   private implements Printable

@@ -10,6 +10,7 @@ import:
   "draw/private/region.rhm"
   "draw/private/path.rhm"
   "draw/private/dc.rhm"
+  "draw/private/svgdc.rhm"
   "draw/private/bitmap.rhm"
 
 export:
@@ -23,4 +24,5 @@ export:
   all_from(.region)
   all_from(.path)
   all_from(.dc)
+  all_from(.svgdc)
   bitmap.Bitmap

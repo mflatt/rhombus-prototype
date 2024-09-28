@@ -1,0 +1,35 @@
+#lang rhombus/static/and_meta
+import:
+  "rkt.rhm"
+  "type.rhm".Size
+  "dc.rhm".DC
+  "dc.rhm"!internal.SomeDC
+
+export:
+  SVGDC
+
+class SVGDC():
+  extends SomeDC
+
+  constructor (width :: PosInt,
+               height :: PosInt,
+               ~output: output :: Path || Port.Output):
+    def hand = rkt.make_object(rkt.#{svg-dc%},
+                               width,
+                               height,
+                               output)
+    super(hand)()
+
+  private implements Printable
+  private override describe(mode, recur):
+    PrintDesc.list("SVGDC(", [], ")")
+
+  method start_doc():
+    rkt.send handle.#{start-doc}("")
+  method end_doc():
+    rkt.send handle.#{end-doc}()
+
+  method start_page():
+    rkt.send handle.#{start-page}()
+  method end_page():
+    rkt.send handle.#{end-page}()
