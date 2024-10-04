@@ -902,19 +902,21 @@
    'macro
    (lambda (stx)
      (syntax-parse stx
-       [(_ (_::parens arg::binding) . tail)
+       [(form-id (~and args (_::parens arg::binding)) . tail)
         #:with arg-parsed::binding-form #'arg.parsed
         #:with arg-impl::binding-impl #'(arg-parsed.infoer-id () arg-parsed.data)
         #:with arg-info::binding-info #'arg-impl.info
         (values
-         (annotation-predicate-form
-          #`(lambda (val-in)
-              (arg-info.matcher-id val-in
-                                   arg-info.data
-                                   if/blocked
-                                   #t
-                                   #f))
-          #'arg-info.static-infos)
+         (relocate+reraw
+          (datum->syntax #f (list #'form-id #'args))
+          (annotation-predicate-form
+           #`(lambda (val-in)
+               (arg-info.matcher-id val-in
+                                    arg-info.data
+                                    if/blocked
+                                    #t
+                                    #f))
+           #'arg-info.static-infos))
          #'tail)]))))
 
 (define-annotation-syntax satisfying
@@ -923,18 +925,20 @@
    'macro
    (lambda (stx)
      (syntax-parse stx
-       [(_ (_::parens pred-g) . tail)
+       [(form-id (~and args (_::parens pred-g)) . tail)
         (values
-         (annotation-predicate-form
-          ;; use `((lambda ....) ....)` to avoid inferred name
-          #'((lambda (pred)
-               (unless (and (procedure? pred)
-                            (procedure-arity-includes? pred 1))
-                 (raise-predicate-error 'satisfying pred))
-               (lambda (v)
-                 (and (pred v) #t)))
-             (rhombus-expression pred-g))
-          #'())
+         (relocate+reraw
+          (datum->syntax #f (list #'form-id #'args))
+          (annotation-predicate-form
+           ;; use `((lambda ....) ....)` to avoid inferred name
+           #'((lambda (pred)
+                (unless (and (procedure? pred)
+                             (procedure-arity-includes? pred 1))
+                  (raise-predicate-error 'satisfying pred))
+                (lambda (v)
+                  (and (pred v) #t)))
+              (rhombus-expression pred-g))
+           #'()))
          #'tail)]))))
 
 (define (raise-predicate-error who val)

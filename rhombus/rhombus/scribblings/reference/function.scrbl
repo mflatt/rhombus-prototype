@@ -514,22 +514,34 @@ Only one @rhombus(~& map_bind) can appear in a @rhombus(rest) sequence.
     annot: ::
     list_annot: :: annot
     map_annot: :: annot
-  ~literal: = _
+  ~literal: = _ ::
   annot.macro '$args -> $results'
   grammar args:
     $annot
-    ($arg, ...)
+    ($arg, ..., $rest_arg, ...)
   grammar results:
     $annot
     ($annot, ...)
   grammar arg:
+    plain_arg
+    named_arg
+    rest_arg
+  grammar plain_arg:
     $annot
     $annot = _
     $keyword: $annot
     $keyword: $annot = _
+  grammar named_arg:
+    $identifier :: $annot
+    $identifier :: $annot = _
+    $keyword: $identifier :: $annot
+    $keyword: $identifier :: $annot = _
+  grammar rest_arg:
     $annot #,(@litchar{,}) $ellipsis
     & $list_annot
     ~& $map_annot
+    & $identifier :: $list_annot
+    ~& $identifier :: $map_annot
   grammar ellipsis:
     #,(dots_expr)
 ){
@@ -542,42 +554,76 @@ Only one @rhombus(~& map_bind) can appear in a @rhombus(rest) sequence.
  number of actual results does not match the number of result
  annotations.
 
+@examples(
+  ~repl:
+    def f :: Real -> Int = (fun (x): x)
+    f(1)
+    ~error:
+      f("hello")
+    ~error:
+      f(1.5)
+  ~repl:
+    ~error:
+      def f2 :: (Int, Int) -> Int = (fun (x): x)
+)
+
  An @rhombus(arg) that starts with a @rhombus(keyword) represents a
  keyword argument. An @rhombus(arg) that ends @rhombus(= _) is an
  optional argument; the default value is not specified, and it is left up
  to the called function; along the same lines, the @rhombus(annot) before
  @rhombus(= _) is not applied to the argument default.
 
+@examples(
+  ~repl:
+    def g :: (Int, Int, ~mode: Symbol) -> Int:
+      fun (x, y, ~mode: mode):
+        (x + y) * (if mode == #'minus | -1 | 1)
+    g(1, 2, ~mode: #'minus)
+    ~error:
+      g(1, 2, ~mode: 3)
+  ~repl:
+    def g2 :: (Int, Int, ~mode: Symbol = _) -> Int:
+      fun (x, y, ~mode: mode = "plus"):
+        (x + y) * (if mode == #'minus | -1 | 1)
+    g2(1, 2)
+)
+
+ When an @rhombus(arg) has an @rhombus(identifier) and @rhombus(::), the
+ argument is named for use in later argument annotations, including
+ result annotations. As in @rhombus(fun), each name refers to the
+ argument after any conversion implied by its annotation.
+
+@examples(
+  def both :: (x :: String, satisfying(fun (y): x < y)) -> List:
+    fun (x, y): [x, y]
+  both("apple", "banana")
+  ~error:
+    both("apple", "aadvark")  
+)
+
  An @rhombus(arg) written with @rhombus(&) or @rhombus(~&) stands for
  any number of by-position and by-keyword arguments, respectively.
  By-position arguments for @rhombus(&) are gathered into a list, and
  by-keyword arguments for @rhombus(~&) are gathered into a map whose keys
  are keywords. Alternatively, extra by-position arguments can be covered
- by an @rhombus(annot) followed by @dots_expr.
-
- To recognize multiple arguments in parentheses, @rhombus(->, ~annot)
- relies on help from @rhombus(#%parens, ~annot).
+ by an @rhombus(annot) followed by @dots_expr. Arguments gathers with
+ @rhombus(&) or @rhombus(~&) can be named for later reference.
 
 @examples(
-  def f :: Int -> Int = (fun (x): x)
-  f(1)
-  def g :: (Int, Int, ~mode: Symbol) -> Int:
-    fun (x, y, ~mode: mode):
-      (x + y) * (if mode == #'minus | -1 | 1)
-  g(1, 2, ~mode: #'minus)
-  ~error:
-    g(1, 2, ~mode: 3)
-  def f :: String -> Int = (fun (x): x)
-  ~error:
-    f(1)
-  ~error:
-    f("hello")
-  ~error:
-    (fun (x): x) :: (Int, Int) -> Int
-  (fun (x, y, z, ...): 0) :: (Int, Int) -> Int
-  ~error:
-    (fun (x, y, z, ...): 0) :: (Int, Int, ...) -> Int
+  ~repl:
+    (fun (x, y, z, ...): 0) :: (Int, Int) -> Int
+    ~error:
+      (fun (x, y, z, ...): 0) :: (Int, Int, ...) -> Int
+  ~repl:
+    def k :: (~& kws :: Map) -> satisfying(fun (r):
+                                             r.length() == kws.length()):
+      fun (~& kws):
+        kws.keys()
+    k(~a: 1, ~b: 2, ~c: 3)
 )
+
+ To recognize multiple argument annotations in parentheses,
+ @rhombus(->, ~annot) relies on help from @rhombus(#%parens, ~annot).
 
 }
 

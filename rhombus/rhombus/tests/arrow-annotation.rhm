@@ -170,6 +170,31 @@ check:
   ~throws values("wrong number of arguments",
                  "(based on static information)")
 
+check:
+  ~eval
+  1 :: (Int, ..., Int) -> Int
+  ~throws "non-rest argument not allowed after rest argument"
+
+check:
+  ~eval
+  1 :: (& List, Int) -> Int
+  ~throws "non-rest argument not allowed after rest argument"
+
+check:
+  ~eval
+  1 :: (Int, ..., Int, ...) -> Int
+  ~throws "second rest argument not allowed"
+
+check:
+  ~eval
+  1 :: (Int, ..., & List) -> Int
+  ~throws "second rest argument not allowed"
+
+check:
+  ~eval
+  1 :: (& List, Int, ...) -> Int
+  ~throws "second rest argument not allowed"
+
 // Keyword arguments
 
 check: (fun (x, ~y: y): #false) :: (Int, ~y: Int) -> Int
@@ -293,5 +318,80 @@ check:
   f(1, ~y: 2, ~z: fun (x): x)[#'~z]("no")
   ~throws error.annot_msg("argument")
 
+check:
+  ~eval
+  1 :: (~& Map, ~& Map) -> Int
+  ~throws "second keyword-rest argument not allowed"
 
+check:
+  ~eval
+  1 :: (~& Map, Int) -> Int
+  ~throws "non-rest argument not allowed after rest argument"
 
+// Dependent annotations
+
+block:
+  let f :: (x :: Any, satisfying(fun (y): y == x)) -> List:
+    fun (x, y): [x, y]
+  check f(1, 1) ~is [1, 1]
+  check f("a", "a") ~is ["a", "a"]
+  check f(1, "a") ~throws error.annot_msg("argument")
+
+block:
+  let f :: (arg :: Any) -> satisfying(if arg is_a String
+                                      | fun (x): x is_a Int
+                                      | fun (x): x is_a String):
+    fun (x):
+      cond
+      | x == 0: #'symbol
+      | x == "": #'empty
+      | x is_a Int:
+          "int"
+      | ~else:
+          100
+  check f("x") ~is 100
+  check f(1) ~is "int"
+  check f(0) ~throws error.annot_msg("result")
+  check f("") ~throws error.annot_msg("result")
+
+block:
+  let f :: (x :: Any, ~y: satisfying(fun (y): y == x)) -> List:
+    fun (x, ~y: y): [x, y]
+  check f(1, ~y: 1) ~is [1, 1]
+  check f("a", ~y: "a") ~is ["a", "a"]
+  check f(1, ~y: "a") ~throws error.annot_msg("argument")
+
+block:
+  let f :: (~x: x :: Any, satisfying(fun (y): y == x)) -> List:
+    fun (~x: x, y): [x, y]
+  check f(~x: 1, 1) ~is [1, 1]
+  check f(~x: "a", "a") ~is ["a", "a"]
+  check f(~x: 1, "a") ~throws error.annot_msg("argument")
+
+block:
+  use_static
+  let f :: (x :: List, ~y: satisfying(fun (y): y == x.length())) -> List:
+    fun (x, ~y: y): [x, y]
+  check f(["a"], ~y: 1) ~is [["a"], 1]
+  check f([], ~y: 1) ~throws error.annot_msg("argument")
+
+block:
+  use_static
+  let f :: (~x: x :: List, satisfying(fun (y): y == x.length())) -> List:
+    fun (~x: x, y): [x, y]
+  check f(~x: ["a"], 1) ~is [["a"], 1]
+  check f(~x: [], 1) ~throws error.annot_msg("argument")
+
+block:
+  use_static
+  let f :: (& tail :: List, ~& satisfying(fun (m :: Map): m[#'~count] == tail.length())) -> Any:
+    fun (x, ..., ~& kws): "ok"
+  check f(1, 2, 3, ~count: 3) ~is "ok"
+  check f(1, 2, ~count: 3) ~throws error.annot_msg("keyword rest-argument map")
+
+block:
+  use_static
+  let f :: (~& m :: Map, & satisfying(fun (tail :: List): m[#'~count] == tail.length())) -> Any:
+    fun (x, ..., ~& kws): "ok"
+  check f(1, 2, 3, ~count: 3) ~is "ok"
+  check f(1, 2, ~count: 3) ~throws error.annot_msg("rest-argument list")
