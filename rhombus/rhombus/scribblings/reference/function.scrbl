@@ -38,6 +38,8 @@ normally bound to implement function calls.
  @rhombus(keyword)s that are listed. Each @rhombus(keyword) must be
  distinct.
 
+ See also @rhombus(->, ~annot).
+
 @margin_note_block{Due to the current limitation in the function arity
  protocol, a function must require an exact set of keywords across all
  arities, even though Rhombus multi-case @rhombus(fun)s allow
@@ -56,7 +58,6 @@ normally bound to implement function calls.
 )
 
 }
-
 
 @doc(
   ~nonterminal:
@@ -507,6 +508,78 @@ Only one @rhombus(~& map_bind) can appear in a @rhombus(rest) sequence.
 
 }
 
+
+@doc(
+  ~nonterminal:
+    annot: ::
+    list_annot: :: annot
+    map_annot: :: annot
+  ~literal: = _
+  annot.macro '$args -> $results'
+  grammar args:
+    $annot
+    ($arg, ...)
+  grammar results:
+    $annot
+    ($annot, ...)
+  grammar arg:
+    $annot
+    $annot = _
+    $keyword: $annot
+    $keyword: $annot = _
+    $annot #,(@litchar{,}) $ellipsis
+    & $list_annot
+    ~& $map_annot
+  grammar ellipsis:
+    #,(dots_expr)
+){
+
+ A @tech(~doc: guide_doc){converter annotation} that is immediately satisfied by a
+ function that has a compatible argument count and keyword arguments.
+ When a function converted by the annotation is called, then the argument
+ annotations are applied to the actual arguments, and the result
+ annotations are applied to the results. An error is reported if the
+ number of actual results does not match the number of result
+ annotations.
+
+ An @rhombus(arg) that starts with a @rhombus(keyword) represents a
+ keyword argument. An @rhombus(arg) that ends @rhombus(= _) is an
+ optional argument; the default value is not specified, and it is left up
+ to the called function; along the same lines, the @rhombus(annot) before
+ @rhombus(= _) is not applied to the argument default.
+
+ An @rhombus(arg) written with @rhombus(&) or @rhombus(~&) stands for
+ any number of by-position and by-keyword arguments, respectively.
+ By-position arguments for @rhombus(&) are gathered into a list, and
+ by-keyword arguments for @rhombus(~&) are gathered into a map whose keys
+ are keywords. Alternatively, extra by-position arguments can be covered
+ by an @rhombus(annot) followed by @dots_expr.
+
+ To recognize multiple arguments in parentheses, @rhombus(->, ~annot)
+ relies on help from @rhombus(#%parens, ~annot).
+
+@examples(
+  def f :: Int -> Int = (fun (x): x)
+  f(1)
+  def g :: (Int, Int, ~mode: Symbol) -> Int:
+    fun (x, y, ~mode: mode):
+      (x + y) * (if mode == #'minus | -1 | 1)
+  g(1, 2, ~mode: #'minus)
+  ~error:
+    g(1, 2, ~mode: 3)
+  def f :: String -> Int = (fun (x): x)
+  ~error:
+    f(1)
+  ~error:
+    f("hello")
+  ~error:
+    (fun (x): x) :: (Int, Int) -> Int
+  (fun (x, y, z, ...): 0) :: (Int, Int) -> Int
+  ~error:
+    (fun (x, y, z, ...): 0) :: (Int, Int, ...) -> Int
+)
+
+}
 
 @doc(
   fun Function.map(f :: Function,

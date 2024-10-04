@@ -1,0 +1,297 @@
+#lang rhombus
+
+// Basic `->` annotations
+
+check: (fun (x): #false) :: Int -> Int
+       ~completes
+
+check: (fun (x): #false) :: (Int) -> Int
+       ~completes
+
+check: (fun (x): x) :: (Int, Int) -> Int
+       ~throws error.annot_msg()
+
+check: ((fun (x): #false) :: Int -> Int)(10)
+       ~throws error.annot_msg("result")
+
+check: ((fun (x): #false) :: Int -> Int)("no")
+       ~throws error.annot_msg("argument")
+
+check: (fun (x, y, ...): x) :: Int -> Int
+       ~completes
+
+check: ((fun (x, y, ...): x) :: Int -> Int)(1, 2)
+       ~throws "arity mismatch"
+
+check: (fun (x): #false) :: Int -> Int -> Int
+       ~completes
+
+check: ((fun (x): #false) :: Int -> Int -> Int)(0)
+       ~throws values(error.annot_msg("result"),
+                      "Int -> Int")
+
+check: ((fun (x): fun (y): #false) :: Int -> Int -> Int)(0)
+       ~completes
+
+check: ((fun (x): fun (y): #false) :: Int -> Int -> Int)(0)("no")
+       ~throws error.annot_msg("argument")
+
+check: ((fun (x): fun (y): #false) :: Int -> Int -> Int)(0)(1)
+       ~throws error.annot_msg("result")
+
+check: ((fun (f): f(0)) :: (Int -> Int) -> Int)(fun (v): v)
+       ~is 0
+
+check: ((fun (f): f(0)) :: (Int -> Int) -> Int)(fun (v): "oops")
+       ~throws error.annot_msg("result")
+
+check: ((fun (f): f(0)) :: (String -> Int) -> Int)(fun (v): 5)
+       ~throws error.annot_msg("argument")
+
+check:
+  use_static
+  fun f(x) :: Any -> List:
+    fun (y): [x, y]
+  f(1)(2)[0]
+  ~is 1
+
+check:
+  ~eval
+  use_static
+  def f = dynamic(fun (x): x) :: Int -> Int
+  f(1, 2)
+  ~throws values("wrong number of arguments",
+                 "(based on static information)")
+
+check:
+  ~eval
+  use_static
+  def f = dynamic(fun (x): fun (y): x) :: Int -> (Int -> Int)
+  f(1)(2, 3)
+  ~throws values("wrong number of arguments",
+                 "(based on static information)")
+
+// Multiple result values
+
+check: (fun (x): #false) :: Int -> (Int, Int)
+       ~completes
+
+check: ((fun (x): values(x, x)) :: Int -> (Int, Int))(1)
+       ~is values(1, 1)
+
+check: ((fun (x): values("no", x)) :: Int -> (Int, Int))(1)
+       ~throws error.annot_msg("result")
+
+check:
+  use_static
+  let g :: Int -> (Int, Int -> Int) = (fun (x): values(x, fun (y): y + x))
+  let (v, f) = g(1)
+  f("no")
+  ~throws error.annot_msg("argument")
+
+check:
+  ~eval
+  use_static
+  def g :: Int -> (Int, Int -> Int) = (fun (x): values(x, fun (y): y + x))
+  def (v, f) = g(1)
+  f("no", 2)
+  ~throws values("wrong number of arguments",
+                 "(based on static information)")
+
+// Optional arguments
+
+check: (fun (x): x) :: (Int = _) -> Int
+       ~throws error.annot_msg()
+
+check: (fun (x = 0): x) :: (Int = _) -> Int
+       ~completes
+
+check: ((fun (x = 0): x) :: (Int = _) -> Int)()
+       ~is 0
+
+check: ((fun (x = 0): x) :: (Int = _) -> Int)(1)
+       ~is 1
+
+check: ((fun (y = 0, x = 0): [x, y]) :: (Int, Int = _) -> List)(1)
+       ~is [0, 1]
+
+check: ((fun (x = 0): x) :: (Int = _) -> Int)("no")
+       ~throws error.annot_msg("argument")
+
+check:
+  ~eval
+  use_static
+  def f = dynamic(fun (x, y = 0): x) :: (Int, Int = _) -> Int
+  f(1, 2, 3)
+  ~throws values("wrong number of arguments",
+                 "(based on static information)")
+
+// Rest arguments
+
+check: (fun (x, y, ...): #false) :: Int -> Int
+       ~completes
+
+check: (fun (x, y, ...): #false) :: (Int, Int, ...) -> Int
+       ~completes
+
+check: (fun (x, y, ...): #false) :: (Int, & List) -> Int
+       ~completes
+
+check: (fun (x, y, ...): #false) :: (& List) -> Int
+       ~throws values(error.annot_msg(),
+                      "(& List) -> Int")
+
+check: ((fun (x, y, ...): math.sum(x, y, ...)) :: (Int, & List.of(Int)) -> Int)(1, 2, 3)
+       ~is 6
+
+check: ((fun (x, y = -3, z, ...): math.sum(x, y, z, ...)) :: (Int, & List.of(Int)) -> Int)(1, 2, 3)
+       ~is 6
+
+check: ((fun (x, y = -3, z, ...): math.sum(x, y, z, ...)) :: (Int, & List.of(Int)) -> Int)(1)
+       ~is -2
+
+check: ((fun (x, y = -3, z, ...): math.sum(x, y, z, ...)) :: (Int, & List.of(Int)) -> Int)()
+       ~throws "arity mismatch"
+
+check: ((fun (x, y, ...): math.sum(x, y, ...)) :: (Int, Int, ...) -> Int)(1, "no", 3)
+       ~throws error.annot_msg("argument")
+
+check: ((fun (x, y, ...): math.sum(x, y, ...)) :: (Int, & List.of(Int)) -> Int)(1, "no", 3)
+       ~throws error.annot_msg("rest-argument list")
+
+check: ((fun (x, y, ...): math.sum(x, y, ...)) :: (Int, & List.of(Int)) -> Int)("no", 2, 3)
+       ~throws error.annot_msg("argument")
+
+check:
+  ~eval
+  use_static
+  def f = dynamic(fun (x, y, ...): x) :: (Int, Int, ...) -> Int
+  f()
+  ~throws values("wrong number of arguments",
+                 "(based on static information)")
+
+// Keyword arguments
+
+check: (fun (x, ~y: y): #false) :: (Int, ~y: Int) -> Int
+       ~completes
+
+check: (fun (x, ~y: y = 10): #false) :: (Int, ~y: Int) -> Int
+       ~completes
+
+check: (fun (x, ~y: y): #false) :: (Int, ~y: Int = _) -> Int
+       ~throws error.annot_msg()
+
+check: ((fun (x, ~y: y = 10): [x, y]) :: (Int, ~y: Int) -> List)(1)
+       ~throws "required keyword argument not supplied"
+
+check: ((fun (x, ~y: y = 10): [x, y]) :: (Int, ~y: Int) -> List)(1, ~y: 2)
+       ~is [1, 2]
+
+check: ((fun (x, ~y: y = 10): [x, y]) :: (Int, ~y: Int = _) -> List)(1)
+       ~is [1, 10]
+
+check: ((fun (x, ~y: y = 10): [x, y]) :: (Int, ~y: Int = _) -> List)(1, ~y: 2)
+       ~is [1, 2]
+
+check: ((fun (x, ~y: y = math.abs): y) :: (Int, ~y: Int -> Int = _) -> Any)(1, ~y: fun (x): x)(-10)
+       ~is -10
+
+check: ((fun (x, ~y: y = math.abs): y) :: (Int, ~y: Int -> Int = _) -> Any)(1, ~y: fun (x): x)("no")
+       ~throws error.annot_msg("argument")
+
+check: ((fun (x, ~y: y = 10, ~z: z): [x, y, z]) :: (Int, ~y: Int = _, ~z: Int) -> List)(1, ~y: 2, ~z: 3)
+       ~is [1, 2, 3]
+
+check: ((fun (x, ~y: y, z, ...): [x, y, z, ...]) :: (Int, ~y: Int, & List.of(Int)) -> List)(1, 3, 4, ~y: 2)
+       ~is [1, 2, 3, 4]
+
+check: ((fun (x, ~y: y, & zs): [x, y, & zs]) :: (Int, ~y: Int, & List.of(Int)) -> List)(1, 3, 4, ~y: 2)
+       ~is [1, 2, 3, 4]
+
+check: ((fun (x, ~y: y = 10, z, ...): [x, y, z, ...]) :: (Int, ~y: Int = _, & List.of(Int)) -> List)(1, 3, 4, ~y: 2)
+       ~is [1, 2, 3, 4]
+
+check: ((fun (x, ~y: y = 10, & zs): [x, y, & zs]) :: (Int, ~y: Int = _, & List.of(Int)) -> List)(1, 3, 4, ~y: 2)
+       ~is [1, 2, 3, 4]
+
+check: ((fun (x, ~y: y = 10, z, ...): [x, y, z, ...]) :: (Int, ~y: Int = _, & List.of(Int)) -> List)(1, 3, 4)
+       ~is [1, 10, 3, 4]
+
+check: ((fun (x, ~y: y = 10, & zs): [x, y, & zs]) :: (Int, ~y: Int = _, & List.of(Int)) -> List)(1, 3, 4)
+       ~is [1, 10, 3, 4]
+
+check:
+  ~eval
+  use_static
+  def f = dynamic(fun (x, ~y: y): x) :: (Int, ~y: Int) -> Int
+  f(1, 2)
+  ~throws values("wrong number of arguments",
+                 "(based on static information)")
+  
+check:
+  ~eval
+  use_static
+  def f = dynamic(fun (x, ~y: y): x) :: (Int, ~y: Int) -> Int
+  f(1)
+  ~throws values("missing keyword argument",
+                 "~y")
+
+check:
+  ~eval
+  use_static
+  def f = dynamic(fun (x, ~y: y): x) :: (Int, ~y: Int) -> Int
+  f(1, ~y: 2)
+  ~is 1
+
+// Keyword rest arguments
+
+check: ((fun (x, ~& kws): kws) :: (Int, ~& Map) -> Map)(1, ~y: 2)
+       ~is { #'~y: 2 }
+
+check: (fun (x): #false) :: (Int, ~& Map) -> Map
+       ~throws error.annot_msg()
+
+check: (fun (x, ~y: y): #false) :: (Int, ~& Map) -> Map
+       ~throws error.annot_msg()
+
+check: (fun (x, ~y: y = 10): #false) :: (Int, ~& Map) -> Map
+       ~throws error.annot_msg()
+
+check: ((fun (x, ~y: y = 10, ~& kws): kws) :: (Int, ~& Map) -> Map)(1, ~y: 2)
+       ~completes
+
+check: ((fun (x, ~y: y, ~& kws): kws) :: (Int, ~y: Int) -> Map)(1, ~y: 2)
+       ~is {}
+
+check: ((fun (x, ~y: y, ~& kws): kws) :: (Int, ~y: Int, ~& Map) -> Map)(1, ~y: 2, ~z: 3)
+       ~is { #'~z: 3 }
+
+check: ((fun (x, ~y: y, ~& kws): kws) :: (Int, ~y: Int, ~& Map.of(Keyword, Int -> Int)) -> Map)(1, ~y: 2, ~z: 3)
+       ~throws error.annot_msg("keyword rest-argument map")
+
+check: ((fun (x, ~y: y = "ok", ~& kws, z, ...): [kws, z, ...]) :: (Int, ~& Map, & List.of(Int)) -> Any)(1, ~y: 2, ~z: 3)
+       ~is [{ #'~z: 3 }]
+
+check: ((fun (x, ~y: y = "ok", ~& kws, z, ...): [kws, z, ...]) :: (Int, ~& Map, & List.of(Int)) -> Any)(1, ~y: 2, ~z: 3, 4, 5)
+       ~is [{ #'~z: 3 }, 4, 5]
+
+check:
+  use_static
+  let f = (fun (x, ~y: y, ~& kws, z, ...): [[z, ...], kws]) :: (Int, ~y: Int, ~& Map, Int, ...) -> matching([[_, ...], _ :: Map])
+  f(1, ~y: 2, ~z: 3, 4, 5, 6)
+  ~is [[4, 5, 6], { #'~z: 3 }]
+
+check:
+  use_static
+  let f = ((fun (x, ~y: y, ~& kws): kws) :: (Int, ~y: Int, ~& Map.of(Keyword, Int -> Int)) -> Map)
+  f(1, ~y: 2, ~z: fun (x): x)[#'~z](10)
+  ~is 10
+
+check:
+  use_static
+  let f = ((fun (x, ~y: y, ~& kws): kws) :: (Int, ~y: Int, ~& Map.of(Keyword, Int -> Int)) -> Map)
+  f(1, ~y: 2, ~z: fun (x): x)[#'~z]("no")
+  ~throws error.annot_msg("argument")
+
+
+
