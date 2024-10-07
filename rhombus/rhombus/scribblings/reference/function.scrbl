@@ -522,7 +522,7 @@ Only one @rhombus(~& map_bind) can appear in a @rhombus(rest) sequence.
   grammar results:
     $annot
     ($result, ..., $rest_result, ...)
-    #,@racket(values, ~annot) ($result, ..., $rest_result, ...)
+    #,(@rhombus(values, ~annot)) ($result, ..., $rest_result, ...)
   grammar arg:
     plain_arg
     named_arg
@@ -533,23 +533,23 @@ Only one @rhombus(~& map_bind) can appear in a @rhombus(rest) sequence.
     $keyword: $annot
     $keyword: $annot = _
   grammar named_arg:
-    $identifier :: $annot
-    $identifier :: $annot = _
-    $keyword: $identifier :: $annot
-    $keyword: $identifier :: $annot = _
+    $id :: $annot
+    $id :: $annot = _
+    $keyword: $id :: $annot
+    $keyword: $id :: $annot = _
   grammar rest_arg:
     $annot #,(@litchar{,}) $ellipsis
     & $list_annot
     ~& $map_annot
-    & $identifier :: $list_annot
-    ~& $identifier :: $map_annot
+    & $id :: $list_annot
+    ~& $id :: $map_annot
   grammar result:
     $annot
-    $identifier :: $annot
+    $id :: $annot
   grammar rest_result:
     $annot #,(@litchar{,}) $ellipsis
     & $list_annot
-    & $identifier :: $list_annot
+    & $id :: $list_annot
   grammar ellipsis:
     #,(dots_expr)
 ){
@@ -596,7 +596,7 @@ Only one @rhombus(~& map_bind) can appear in a @rhombus(rest) sequence.
     g2(1, 2)
 )
 
- When an @rhombus(arg) has an @rhombus(identifier) and @rhombus(::), the
+ When an @rhombus(arg) has an @rhombus(id) and @rhombus(::), the
  argument is named for use in later argument annotations, including
  result annotations. As in @rhombus(fun), each name refers to the
  argument after any conversion implied by its annotation.
@@ -633,10 +633,10 @@ Only one @rhombus(~& map_bind) can appear in a @rhombus(rest) sequence.
  Result annotations are analogous to argument annotations, except that
  keywords cannot be used for results. A multiple-annotation result
  sequence in parentheses can be preceded optionally with
- @rhombus(values, ~annot). Note that using @rhombus(Any) as the result
+ @rhombus(values, ~annot). Note that using @rhombus(Any, ~annot) as the result
  annotation implies a check that the converted function produces a single
  result when it is called. In the special case that the result annotation
- sequence is equivalent to @rhombus((Any, ...)) or @rhombus((& Any)),
+ sequence is equivalent to @rhombus((Any, ...), ~annot) or @rhombus((& Any), ~annot),
  then a call to the function converted by the @rhombus(->, ~annot)
  annotation is a tail call with respect to the converting wrapper.
 
@@ -651,12 +651,21 @@ Only one @rhombus(~& map_bind) can appear in a @rhombus(rest) sequence.
  To accept multiple argument annotations in parentheses,
  @rhombus(->, ~annot) relies on help from @rhombus(#%parens, ~annot).
 
+ See also @rhombus(Function.all_of, ~annot), which can be used not only
+ to join multiple @rhombus(->), but to provide a name that the converted
+ function uses for reporting failed annotation checks.
+
 }
 
 @doc(
   ~nonterminal:
     arrow_annot: :: annot
-  annot.macro 'Function.all_of($arrow_annot, ...)'
+  annot.macro 'Function.all_of($annot_or_name, ...)'
+  grammar annot_or_name:
+    $arrow_annot
+    ~name:
+      $body
+      ...
 ){
 
  Creates an annotation that is satisfied by a function that satisfies
@@ -668,9 +677,20 @@ Only one @rhombus(~& map_bind) can appear in a @rhombus(rest) sequence.
  combine the @rhombus(arrow_annot)s and using @rhombus(&&, ~annot) is
  that @rhombus(&&, ~annot) would effectively apply every
  @rhombus(arrow_annot) to every call of the function, while
- @rhombus(Function.all_of, ~annot) selects for each call the first
+ @rhombus(Function.all_of, ~annot) selects only the first
  @rhombus(arrow_annot) whose argument annotations are satisfied by the
- supplied arguments for that call.
+ supplied arguments for each call to the function.
+
+ If a @rhombus(~name) form is among the @rhombus(annot_or_name)s, it can
+ appear only once. The @rhombus(body) forms under @rhombus(~name) are
+ evaluated only when an error is to be reported, and the result must
+ satisfy @rhombus(error.Who, ~annot). The @rhombus(~name) clause is
+ removed from the textual representation of
+ @rhombus(Function.all_of, ~annot) when reporting a failure to match the
+ overall annotation. The textual representation of
+ @rhombus(Function.all_of, ~annot) is further reduced to
+ @rhombus(arrow_annot) when only one is provided (with or without
+ @rhombus(~name)).
 
 @examples(
   ~repl:    
@@ -692,6 +712,13 @@ Only one @rhombus(~& map_bind) can appear in a @rhombus(rest) sequence.
     f("apple")
     ~error:
       f(#'apple)
+  ~repl:
+    fun build(filter :: Function.all_of(Int -> Int,
+                                        String -> String,
+                                        ~name: "filter for build")):
+      [filter(1), filter("apple")]
+    ~error:
+      build(fun (x): "apple")
 )
 
 }
