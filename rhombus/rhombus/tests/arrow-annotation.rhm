@@ -425,22 +425,66 @@ block:
   check f(1, 2, 3) ~throws "arity mismatch"
   check f(~x: 1) ~throws "does not accept keyword arguments"
 
+check:
+  ~eval
+  use_static
+  block:
+    let f :: Function.all_of(Int -> Int,
+                             (Int, Int) -> List):
+      #false
+    f()
+  ~throws values("wrong number of arguments",
+                 "(based on static information)")
+
+check:
+  ~eval
+  use_static
+  block:
+    let f :: Function.all_of(Int -> Int,
+                             (Int, Int) -> List):
+      #false
+    f(1, 2, 3)
+  ~throws values("wrong number of arguments",
+                 "(based on static information)")
+
+block:
+  let f :: Function.all_of(Int -> Int,
+                           String -> String,
+                           Boolean -> Boolean):
+    fun (x): if x | x | "no"
+  check f(1) ~is 1
+  check f("two") ~is "two"
+  check f(#true) ~is #true
+  check f([]) ~throws "no matching case"
+  check f(#false) ~throws error.annot_msg("result")
+
 block:
   let f :: Function.all_of((Int, Real, ...) -> Real,
                            (Real) -> Real):
     math.sum
   check f(1) ~is 1
   check f(1, 2.0) ~is 3.0
-  // Can't reach second clause, because clause choice is based on arity alone
-  check f(1.0) ~throws error.annot_msg("argument")
+  check f(1.0) ~is 1.0
+  check f("a") ~throws "no matching case"
 
 block:
+  // distinct arities
+  let f :: Function.all_of((Real) -> Real,
+                           (Int, Real, Real, ...) -> Int):
+    math.sum
+  check f(1.0) ~is 1.0
+  check f(1, 2) ~is 3
+  check f(1.0, 2) ~throws error.annot_msg("argument")
+  check f(1, 2.0) ~throws error.annot_msg("result")
+
+block:
+  // overlapping arities
   let f :: Function.all_of((Real) -> Real,
                            (Int, Real, ...) -> Int):
     math.sum
   check f(1.0) ~is 1.0
   check f(1, 2) ~is 3
-  check f(1.0, 2) ~throws error.annot_msg("argument")
+  check f(1.0, 2) ~throws "no matching case"
   check f(1, 2.0) ~throws error.annot_msg("result")
 
 block:
@@ -450,8 +494,21 @@ block:
       math.sum(n, ...)
   check f(1, ~x: #false) ~is 1
   check f(1, 2.0, ~x: #false) ~is 3.0
-  // Can't reach second clause, because clause choice is based on arity alone
-  check f(1.0, ~x: #false) ~throws error.annot_msg("argument")
+  check f(1.0, ~x: #false) ~is 1.0
+
+block:
+  use_static
+  let f :: Function.all_of((Int, ~x: Int) -> Map,
+                           (String, String, ~y: String) -> Map):
+    fun (a, b = #false, ~& kws):
+      kws ++ { #'~val: a, #'~opt: b }
+  check f(1, ~x: 2) ~is { #'~x: 2, #'~val: 1, #'~opt: #false }
+  check f("a", "b", ~y: "b") ~is { #'~y: "b", #'~val: "a", #'~opt: "b" }
+  check f("a", ~x: 2) ~throws "no matching case"
+  check f(1, ~y: "b") ~throws "no matching case"
+  // note that static mode can't rule this out, due to the way
+  // that multi-case keyword information is represented
+  check f(#false, ~x: 2, ~y: "b") ~throws "no matching case"
 
 block:
   use_static
@@ -461,8 +518,8 @@ block:
       kws ++ { #'~val: a }
   check f(1, ~x: 2) ~is { #'~val: 1, #'~x: 2 }
   check f("a", ~y: "b") ~is { #'~val: "a", #'~y: "b" }
-  check f("a", ~x: 2) ~throws error.annot_msg("argument")
-  check f(1, ~y: "b") ~throws error.annot_msg("argument")
+  check f("a", ~x: 2) ~throws "no matching case"
+  check f(1, ~y: "b") ~throws "no matching case"
   // note that static mode can't rule this out, due to the way
   // that multi-case keyword information is represented
   check f(#false, ~x: 2, ~y: "b") ~throws "no matching case"

@@ -312,9 +312,9 @@
 (define-syntax (arrow-binder stx)
   (syntax-parse stx
     [(_ arg-id data)
-     (do-arrow-binder #'arg-id #'data)]))
+     (do-arrow-binder #'arg-id #'data #'#%app)]))
 
-(define-for-syntax (do-arrow-binder arg-id data)
+(define-for-syntax (do-arrow-binder arg-id data fail-k)
   (syntax-parse data
     [(result-id arity
                 ([lhs::binding-info lhs-body lhs-static-infos lhs-str lhs-kw lhs-name lhs-opt] ...)
@@ -344,6 +344,7 @@
                                         (if (syntax-e #'p)
                                             #'(lambda (v) (not (eq? v unsafe-undefined)))
                                             #'(lambda (v) #t)))
+     #:with fail-k fail-k
      (with-syntax ([((lhs-arg ...) ...)
                     (for/list ([arg-id (in-list (syntax->list #'(lhs-arg-id ...)))]
                                [kw (in-list (syntax->list #'(lhs-kw ...)))]
@@ -373,24 +374,35 @@
                        #:with rest-list-id (or (and (syntax-e #'name) #'name) #'rest-list)
                        (define a-block
                          #'(let ()
-                             (a.matcher-id rest-arg-id a.data if/flattened (void)
-                                           (raise-rest-argument-annotation-failure 'result-id rest-arg-id 'a-str whole?))
-                             (a.committer-id rest-arg-id a.data)
-                             (a.binder-id rest-arg-id a.data)
-                             (define-static-info-syntax/maybe a-bind-id . a-bind-static-infos)
-                             ...
-                             a-body))
+                             (a.matcher-id rest-arg-id a.data
+                                           if/blocked
+                                           (let ()
+                                             (a.committer-id rest-arg-id a.data)
+                                             (a.binder-id rest-arg-id a.data)
+                                             (define-static-info-syntax/maybe a-bind-id . a-bind-static-infos)
+                                             ...
+                                             (success-k
+                                              a-body))
+                                           (fail-k
+                                            (lambda ()
+                                              (raise-rest-argument-annotation-failure 'result-id rest-arg-id 'a-str whole?))))))
                        (list #'apply #'rest-arg-id #'(rest-id)
                              (if (syntax-e #'whole?)
                                  #`([(rest-list-id)
                                      a-static-infos
                                      (let ([rest-arg-id (list->treelist rest-arg-id)])
                                        #,a-block)]
-                                    [(rest-id) () (rest-treelist->list rest-list-id)])
+                                    [(rest-id) () (success-k (rest-treelist->list rest-list-id))])
                                  #`([(rest-id)
                                      ()
-                                     (for/list ([rest-arg-id (in-list rest-arg-id)])
-                                       #,a-block)])))])])
+                                     (let loop ([args rest-arg-id] [accum '()])
+                                       (if (null? args)
+                                           (success-k (reverse accum))
+                                           (let ([success-k
+                                                  (lambda (v)
+                                                    (loop (cdr args) (cons v accum)))]
+                                                 [rest-arg-id (car args)])
+                                             #,a-block)))])))])])
        (with-syntax ([((maybe-make-keyword-procedure ...) (kw-arg-id ...) (kw-id ...) f/kw-apply (kw-preamble ...) (kw-rest-bind ...))
                       (syntax-parse #'kw-rest
                         [#f (list #'(begin) '() '() #'f-apply '() '())]
@@ -426,38 +438,46 @@
                                    a-static-infos
                                    (let ()
                                       (a.matcher-id kw-map a.data
-                                                    if/flattened
-                                                    (void)
-                                                    (raise-keyword-rest-argument-annotation-failure 'result-id kw-map 'a-str))
-                                      (a.committer-id kw-map a.data)
-                                      (a.binder-id kw-map a.data)
-                                      (define-static-info-syntax/maybe a-bind-id . a-bind-static-infos)
-                                      ...
-                                      a-body)]
+                                                    if/blocked
+                                                    (let ()
+                                                      (a.committer-id kw-map a.data)
+                                                      (a.binder-id kw-map a.data)
+                                                      (define-static-info-syntax/maybe a-bind-id . a-bind-static-infos)
+                                                      ...
+                                                      (success-k
+                                                       a-body))
+                                                    (fail-k
+                                                     (lambda ()
+                                                       (raise-keyword-rest-argument-annotation-failure 'result-id kw-map 'a-str)))))]
                                   [(kws-id kw-vals-id)
                                    ()
-                                   (rest-map->keywords kw-rest-map-id)]))])])
+                                   (call-with-values (lambda () (rest-map->keywords kw-rest-map-id))
+                                                     (lambda (kws vals) (success-k kws vals)))]))])])
          (with-syntax ([(rest-bind ...) (if (syntax-e #'kw-rest-first?)
                                             #'(kw-rest-bind ... rest-bind ...)
                                             #'(rest-bind ... kw-rest-bind ...))])
            (define inner-proc
              #`(lambda (kw-arg-id ... lhs-arg ... ... . rest-arg-id)
                  kw-preamble ...
-                 (let*-values-with-static-infos
+                 (let*-values-with-static-infos/k
+                  success-k
                   ([(left-id)
                     lhs-static-infos
                     (cond
                       [(check-not-undefined lhs-arg-id)
                        (lhs.matcher-id lhs-arg-id lhs.data
-                                       if/flattened
-                                       (void)
-                                       (raise-argument-annotation-failure 'result-id lhs-arg-id 'lhs-str))
-                       (lhs.committer-id lhs-arg-id lhs.data)
-                       (lhs.binder-id lhs-arg-id lhs.data)
-                       (define-static-info-syntax/maybe lhs-bind-id . lhs-bind-static-infos)
-                       ...
-                       lhs-body]
-                      [else lhs-arg-id])]
+                                       if/blocked
+                                       (let ()
+                                         (lhs.committer-id lhs-arg-id lhs.data)
+                                         (lhs.binder-id lhs-arg-id lhs.data)
+                                         (define-static-info-syntax/maybe lhs-bind-id . lhs-bind-static-infos)
+                                         ...
+                                         (let ([left-id lhs-body])
+                                           (success-k left-id)))
+                                       (fail-k
+                                        (lambda ()
+                                          (raise-argument-annotation-failure 'result-id lhs-arg-id 'lhs-str))))]
+                      [else (success-k lhs-arg-id)])]
                    ...
                    rest-bind ...)
                   (call-with-values
@@ -557,9 +577,13 @@
              (andmap (lambda (a)
                        (let* ([a (abs (syntax-e a))])
                          (zero? (bitwise-and a (sub1 a)))))
-                     arities))
-        ;; No keywords, no optional arguments other than rests, so
-        ;; generate a `case-lambda` for the dispatch
+                     arities)
+             (for/fold ([covered 0]) ([a (in-list arities)])
+               (and covered
+                    (zero? (bitwise-and covered (syntax-e a)))
+                    (bitwise-ior covered (syntax-e a)))))
+        ;; No keywords, no optional arguments other than rests, and
+        ;; independent arities; generate a `case-lambda` for the dispatch
         #`(define result-id
             (let ([f arg-id])
               (case-lambda
@@ -581,19 +605,28 @@
                                                      (loop (arithmetic-shift a -1)
                                                            (add1 n)))])))
                         (if (mask . < . 0)
-                            #`[#,args (apply #,(do-arrow-binder #f #'a.data) #,@(let loop ([args args])
-                                                                                  (if (pair? args)
-                                                                                      (cons (car args) (loop (cdr args)))
-                                                                                      (list args))))]
-                            #`[#,args (#,(do-arrow-binder #f #'a.data) #,@args)])])))))]
+                            #`[#,args (apply #,(do-arrow-binder #f #'a.data #'#%app)
+                                             #,@(let loop ([args args])
+                                                  (if (pair? args)
+                                                      (cons (car args) (loop (cdr args)))
+                                                      (list args))))]
+                            #`[#,args (#,(do-arrow-binder #f #'a.data #'#%app)
+                                       #,@args)])])))))]
        [else
-        ;; Some keywords or optional arguments
+        ;; Some keywords, optional arguments, or overlapping arities that
+        ;; might be decided by argument annotations
         (define body
           #`(let ([len (length args)])
-              (cond
-                #,@(for/list ([arity (in-list arities)]
-                              [infoer (in-list (syntax->list #'(a-infoer ...)))]
-                              [data (in-list (syntax->list #'(a-data ...)))])
+              #,(let loop ([arities arities]
+                           [infoers (syntax->list #'(a-infoer ...))]
+                           [datas (syntax->list #'(a-data ...))])
+                  (cond
+                    [(null? arities)
+                     #'(error 'result-id "no matching case for arguments")]
+                    [else
+                     (define arity (car arities))
+                     (define infoer (car infoers))
+                     (define data (car datas))
                      (syntax-parse #`(#,infoer () #,data)
                        [a-impl::binding-impl 
                         #:with a::binding-info #'a-impl.info
@@ -606,18 +639,23 @@
                                                              (syntax->datum #'required)
                                                              (syntax->datum #'allowed))]
                             [_ (values (syntax-e arity) null null)]))
-                        #`[(and (bitwise-bit-set? #,mask len)                                
-                                #,(if (null? required-kws)
-                                      #'#t
-                                      #`(sorted-list-subset? '#,required-kws kws))
-                                #,(if (or no-keywords?
-                                          (eq? allowed-kws #f))
-                                      #'#t
-                                      #`(sorted-list-subset? kws '#,allowed-kws)))
-                           #,(if no-keywords?
-                                 #`(apply #,(do-arrow-binder #f #'a.data) args)
-                                 #`(keyword-apply #,(do-arrow-binder #f #'a.data) kws kw-args args))]]))
-                [else (error 'result-id "no matching case for arguments")])))
+                        #`(let ([next (lambda ()
+                                        #,(loop (cdr arities)
+                                                (cdr infoers)
+                                                (cdr datas)))])
+                            (if (and (bitwise-bit-set? #,mask len)                                
+                                     #,(if (null? required-kws)
+                                           #'#t
+                                           #`(sorted-list-subset? '#,required-kws kws))
+                                     #,(if (or no-keywords?
+                                               (eq? allowed-kws #f))
+                                           #'#t
+                                           #`(sorted-list-subset? kws '#,allowed-kws)))
+                                (let ([esc-next (lambda (err) (next))])
+                                  #,(if no-keywords?
+                                        #`(apply #,(do-arrow-binder #f #'a.data #'esc-next) args)
+                                        #`(keyword-apply #,(do-arrow-binder #f #'a.data #'esc-next) kws kw-args args)))
+                                (next)))])]))))
         (if no-keywords?
             #`(define result-id
                 (let ([f arg-id])
@@ -650,6 +688,30 @@
          (let*-values-with-static-infos
           binds
           body))]))
+
+(define-syntax (let*-values-with-static-infos/k stx)
+  (syntax-parse stx
+    [(_ success-k () body)
+     #'(let ([success-k values])
+         body)]
+    [(_ success-k ([ids () rhs] . binds) body)
+     #'(let ([success-k
+              (lambda ids
+                (let*-values-with-static-infos/k
+                 success-k
+                 binds
+                 body))])
+         rhs)]
+    [(_ success-k ([(id) static-infos rhs] . binds) body)
+     #'(let ([success-k
+              (lambda (tmp)
+                (define id tmp)
+                (define-static-info-syntax/maybe id . static-infos)
+                (let*-values-with-static-infos/k
+                 success-k
+                 binds
+                 body))])
+         rhs)]))
 
 (define (raise-argument-annotation-failure who val ctc)
   (raise-binding-failure who "argument" val ctc))
