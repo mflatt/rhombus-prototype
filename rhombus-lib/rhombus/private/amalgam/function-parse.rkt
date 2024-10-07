@@ -11,7 +11,8 @@
                      "static-info-pack.rkt"
                      "entry-point-adjustment.rkt"
                      (only-in "annotation-string.rkt" annotation-any-string)
-                     "to-list.rkt")
+                     "to-list.rkt"
+                     "sorted-list-subset.rkt")
          racket/unsafe/undefined
          "treelist.rkt"
          "to-list.rkt"
@@ -1036,7 +1037,9 @@
                                  => (lambda (results)
                                       (find-call-result-at
                                        results
-                                       (+ (length rands) (length extra-args))))]
+                                       (+ (length rands) (length extra-args))
+                                       null
+                                       #f))]
                                 [else #'()])
                               result-static-infos))
         (define arity (arithmetic-shift 1 (length formals)))
@@ -1147,7 +1150,12 @@
                                          => (lambda (results)
                                               (find-call-result-at
                                                results
-                                               (+ num-rands (length extra-rands))))]
+                                               (+ num-rands (length extra-rands))
+                                               (sort (for/list ([kw (in-list kws)]
+                                                                #:when (syntax-e kw))
+                                                       (syntax-e kw))
+                                                     keyword<?)
+                                               kwrsts))]
                                         [else #'()])
                                       extra-result-static-infos))
          (values w-call-e result-static-infos)))])
@@ -1156,14 +1164,26 @@
    #f))
 
 ;; does not support keyword arguments, for now
-(define-for-syntax (find-call-result-at results arity)
+(define-for-syntax (find-call-result-at results arity kws kw-rest?)
   (syntax-parse results
     [(#:at_arities r)
      (let loop ([r #'r])
        (syntax-parse r
-         [((mask results) . rest)
-          (if (bitwise-bit-set? (syntax-e #'mask) arity)
-              #'results
+         [((a results) . rest)
+          (define-values (mask req-kws allow-kws)
+            (syntax-parse #'a
+              [(mask req-kws allow-kws) (values #'mask #'req-kws #'allow-kws)]
+              [mask (values #'mask #'() #'())]))
+          (if (and (bitwise-bit-set? (syntax-e mask) arity)
+                   (or kw-rest? (sorted-list-subset? (syntax->datum req-kws) kws))
+                   (or (not allow-kws)
+                       (sorted-list-subset? kws (syntax->datum allow-kws))))
+              (if (or (not kw-rest?)
+                      (and (not allow-kws)
+                           (sorted-list-subset? (syntax->datum req-kws) kws)))
+                  #'results
+                  ;; we don't know whether the call matches or not, so stop searching
+                  #'())
               (loop #'rest))]
          [_ #'()]))]
     [_ results]))

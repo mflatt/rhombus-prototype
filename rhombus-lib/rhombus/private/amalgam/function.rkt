@@ -28,7 +28,8 @@
          (submod "define-arity.rkt" for-info)
          "class-primitive.rkt"
          "rhombus-primitive.rkt"
-         (submod "module.rkt" for-module+))
+         (submod "module.rkt" for-module+)
+         (submod "arrow-annotation.rkt" for-arrow-annot))
 
 (provide (for-spaces (#f
                       rhombus/defn
@@ -56,6 +57,7 @@
   #:fields ()
   #:namespace-fields
   (of_arity
+   all_of
    pass)
   #:properties
   ()
@@ -233,6 +235,13 @@
                      #`(function-arity-static ... . #,(get-function-static-infos)))
                     #'tail)))]))))
 
+(define-annotation-syntax all_of
+  (annotation-prefix-operator
+   '((default . stronger))
+   'macro
+   (lambda (stx)
+     (parse-arrow-all-of stx))))
+  
 (define (check-nonneg-int who v)
   (unless (exact-nonnegative-integer? v)
     (raise-argument-error* who rhombus-realm "NonnegInt" v)))

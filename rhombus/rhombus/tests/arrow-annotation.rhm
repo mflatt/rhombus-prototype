@@ -126,6 +126,11 @@ check:
   ~throws values("wrong number of arguments",
                  "(based on static information)")
 
+check:
+  ~eval
+  1 :: (Int, Int = _, Int) -> Int
+  ~throws "non-optional argument follows an optional by-position argument"
+
 // Rest arguments
 
 check: (fun (x, y, ...): #false) :: Int -> Int
@@ -395,3 +400,80 @@ block:
     fun (x, ..., ~& kws): "ok"
   check f(1, 2, 3, ~count: 3) ~is "ok"
   check f(1, 2, ~count: 3) ~throws error.annot_msg("rest-argument list")
+
+check:
+  ~eval
+  1 :: (Int, x :: Int = _, y :: Int) -> Int
+  ~throws "non-optional argument follows an optional by-position argument"
+
+// Case annotations
+
+block:
+  let f :: Function.all_of(Int -> Int,
+                           (Int, Int) -> List):
+    fun
+    | (x):
+        if x == 0 | "zer" | x + 1
+    | (x, y):
+        if x ==y | x | [x, y]
+  check f(1) ~is 2
+  check f(1, 2) ~is [1, 2]
+  check f("x") ~throws error.annot_msg("argument")
+  check f(0) ~throws error.annot_msg("result")
+  check f(0, 0) ~throws error.annot_msg("result")
+  check f() ~throws "arity mismatch"
+  check f(1, 2, 3) ~throws "arity mismatch"
+  check f(~x: 1) ~throws "does not accept keyword arguments"
+
+block:
+  let f :: Function.all_of((Int, Real, ...) -> Real,
+                           (Real) -> Real):
+    math.sum
+  check f(1) ~is 1
+  check f(1, 2.0) ~is 3.0
+  // Can't reach second clause, because clause choice is based on arity alone
+  check f(1.0) ~throws error.annot_msg("argument")
+
+block:
+  let f :: Function.all_of((Real) -> Real,
+                           (Int, Real, ...) -> Int):
+    math.sum
+  check f(1.0) ~is 1.0
+  check f(1, 2) ~is 3
+  check f(1.0, 2) ~throws error.annot_msg("argument")
+  check f(1, 2.0) ~throws error.annot_msg("result")
+
+block:
+  let f :: Function.all_of((Int, Real = _, ~x: Any) -> Real,
+                           (Real, ~x: Any) -> Real):
+    fun (~x: x, n, ...):
+      math.sum(n, ...)
+  check f(1, ~x: #false) ~is 1
+  check f(1, 2.0, ~x: #false) ~is 3.0
+  // Can't reach second clause, because clause choice is based on arity alone
+  check f(1.0, ~x: #false) ~throws error.annot_msg("argument")
+
+block:
+  use_static
+  let f :: Function.all_of((Int, ~x: Int) -> Map,
+                           (String, ~y: String) -> Map):
+    fun (a, ~& kws):
+      kws ++ { #'~val: a }
+  check f(1, ~x: 2) ~is { #'~val: 1, #'~x: 2 }
+  check f("a", ~y: "b") ~is { #'~val: "a", #'~y: "b" }
+  check f("a", ~x: 2) ~throws error.annot_msg("argument")
+  check f(1, ~y: "b") ~throws error.annot_msg("argument")
+  // note that static mode can't rule this out, due to the way
+  // that multi-case keyword information is represented
+  check f(#false, ~x: 2, ~y: "b") ~throws "no matching case"
+
+check:
+  ~eval
+  use_static
+  def f :: Function.all_of((Int, ~x: Int) -> Map,
+                           (String, ~y: String) -> Map):
+    fun (a, ~& kws):
+      kws ++ { #'~val: a }
+  f(1, ~z: 2)
+  ~throws values("keyword argument not recognized",
+                 "(based on static information)")
