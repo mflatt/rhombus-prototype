@@ -514,14 +514,15 @@ Only one @rhombus(~& map_bind) can appear in a @rhombus(rest) sequence.
     annot: ::
     list_annot: :: annot
     map_annot: :: annot
-  ~literal: = _ ::
+  ~literal: = _ :: values
   annot.macro '$args -> $results'
   grammar args:
     $annot
     ($arg, ..., $rest_arg, ...)
   grammar results:
     $annot
-    ($annot, ...)
+    ($result, ..., $rest_result, ...)
+    #,@racket(values, ~annot) ($result, ..., $rest_result, ...)
   grammar arg:
     plain_arg
     named_arg
@@ -542,6 +543,13 @@ Only one @rhombus(~& map_bind) can appear in a @rhombus(rest) sequence.
     ~& $map_annot
     & $identifier :: $list_annot
     ~& $identifier :: $map_annot
+  grammar result:
+    $annot
+    $identifier :: $annot
+  grammar rest_result:
+    $annot #,(@litchar{,}) $ellipsis
+    & $list_annot
+    & $identifier :: $list_annot
   grammar ellipsis:
     #,(dots_expr)
 ){
@@ -622,7 +630,25 @@ Only one @rhombus(~& map_bind) can appear in a @rhombus(rest) sequence.
     k(~a: 1, ~b: 2, ~c: 3)
 )
 
- To recognize multiple argument annotations in parentheses,
+ Result annotations are analogous to argument annotations, except that
+ keywords cannot be used for results. A multiple-annotation result
+ sequence in parentheses can be preceded optionally with
+ @rhombus(values, ~annot). Note that using @rhombus(Any) as the result
+ annotation implies a check that the converted function produces a single
+ result when it is called. In the special case that the result annotation
+ sequence is equivalent to @rhombus((Any, ...)) or @rhombus((& Any)),
+ then a call to the function converted by the @rhombus(->, ~annot)
+ annotation is a tail call with respect to the converting wrapper.
+
+@examples(
+  def n_values :: (Int) -> (Any, ...):
+    fun (n):
+      values(& 0..n)
+  n_values(1)
+  n_values(3)
+)
+
+ To accept multiple argument annotations in parentheses,
  @rhombus(->, ~annot) relies on help from @rhombus(#%parens, ~annot).
 
 }

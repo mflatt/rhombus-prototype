@@ -79,6 +79,9 @@ check: (fun (x): #false) :: Int -> (Int, Int)
 check: ((fun (x): values(x, x)) :: Int -> (Int, Int))(1)
        ~is values(1, 1)
 
+check: ((fun (x): values(x, x)) :: Int -> values(Int, Int))(1)
+       ~is values(1, 1)
+
 check: ((fun (x): values("no", x)) :: Int -> (Int, Int))(1)
        ~throws error.annot_msg("result")
 
@@ -405,6 +408,54 @@ check:
   ~eval
   1 :: (Int, x :: Int = _, y :: Int) -> Int
   ~throws "non-optional argument follows an optional by-position argument"
+
+block:
+  let f :: (Int, Int) -> (a :: Int, satisfying(fun (b): b == a)):
+    fun (x, y):
+      values(x, y)
+  check f(1, 1) ~is values(1, 1)
+  check f(1, 2) ~throws error.annot_msg("result")
+
+// Rest results
+
+block:
+  let f :: (Int) -> (Int, ...):
+    fun (x):
+      match x
+      | 1: 1
+      | 2: values(2, 2)
+      | 3: values(2, "x")
+      | ~else:  values(3, 3, 3, 3)
+  check f(1) ~is values(1)
+  check f(2) ~is values(2, 2)
+  check f(3) ~throws error.annot_msg("result")
+  check f(4) ~is values(3, 3, 3, 3)
+
+block:
+  let f :: (Int) -> (Int, & List.of(Int)):
+    fun (x):
+      match x
+      | 1: 1
+      | 2: values(2, 2)
+      | 3: values(2, "x")
+      | ~else:  values(3, 3, 3, 3)
+  check f(1) ~is values(1)
+  check f(2) ~is values(2, 2)
+  check f(3) ~throws error.annot_msg("rest-result list")
+  check f(4) ~is values(3, 3, 3, 3)
+
+block:
+  // Check that `values(Any, ...)` works as a tail call
+  let f:
+    fun ():
+      Continuation.call_with_immediate_mark(#'mark, fun (x): x)
+  let f_tail :: () -> (Any, ...) = f
+  let f_nontail :: () -> Any = f
+  let f_also_tail :: () -> (& Any) = f
+  check (Continuation.with_mark #'mark = "yes": f()) ~is "yes"
+  check (Continuation.with_mark #'mark = "yes": f_tail()) ~is "yes"
+  check (Continuation.with_mark #'mark = "yes": f_nontail()) ~is #false
+  check (Continuation.with_mark #'mark = "yes": f_also_tail()) ~is "yes"
 
 // Case annotations
 

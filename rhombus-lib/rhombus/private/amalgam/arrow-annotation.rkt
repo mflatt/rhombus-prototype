@@ -17,6 +17,8 @@
          "function-arity-key.rkt"
          "function-arity.rkt"
          (submod "define-arity.rkt" for-info)
+         (only-in "values.rkt"
+                  [values rhombus:values])
          "values-key.rkt"
          "static-info.rkt"
          "if-blocked.rkt"
@@ -72,59 +74,88 @@
                                        (bind-quote ::)))))
 
 (define-for-syntax (parens-arrow-annotation arrow-name args head tail)
-  (define-values (non-rest-args rest-name+ann rest-ann-whole? kw-rest-name+ann kw-rest-first?)
-    (extract-rest-args arrow-name args))
-  (arrow-annotation (let loop ([args non-rest-args] [has-opt? #f])
-                      (cond
-                        [(null? args) null]
-                        [else
-                         (define arg (car args))
-                         (define (non-opt)
-                           (when has-opt?
-                             (raise-syntax-error #f "non-optional argument follows an optional by-position argument"
-                                                 arrow-name
-                                                 arg)))
-                         (define-values (a opt?)
-                           (syntax-parse arg
-                             #:datum-literals (group op)
-                             [(group kw:keyword (_::block (group name:identifier _:::-bind c ... _::equal _::_-bind)))
-                              (values (list #'kw #'name #t (syntax-parse #'(group c ...)
-                                                             [c::annotation #'c.parsed]))
-                                      #f)]
-                             [(group kw:keyword (_::block (group c ... _::equal _::_-bind)))
-                              (values (list #'kw #f #t (syntax-parse #'(group c ...)
-                                                         [c::annotation #'c.parsed]))
-                                      #f)]
-                             [(group kw:keyword (_::block (group name:identifier _:::-bind c ...)))
-                              (values (list #'kw #'name #f (syntax-parse #'(group c ...)
-                                                             [c::annotation #'c.parsed]))
-                                      #f)]
-                             [(group kw:keyword (_::block c::annotation))
-                              (values (list #'kw #f #f #'c.parsed)
-                                      #f)]
-                             [(group name:identifier _:::-bind c ... _::equal _::_-bind)
-                              (values (list #f #'name #t (syntax-parse #'(group c ...)
-                                                           [c::annotation #'c.parsed]))
-                                      #t)]
-                             [(group c ... _::equal _::_-bind)
-                              (values (list #f #f #t (syntax-parse #'(group c ...)
-                                                       [c::annotation #'c.parsed]))
-                                      #t)]
-                             [(group name:identifier _:::-bind c ...)
-                              (non-opt)
-                              (values (list #f #'name #f (syntax-parse #'(group c ...)
-                                                           [c::annotation #'c.parsed]))
-                                      #f)]
-                             [c::annotation
-                              (non-opt)
-                              (values (list #f #f #f #'c.parsed)
-                                      #f)]))
-                         (cons a (loop (cdr args) (or has-opt? opt?)))]))
+  (define-values (multi-kw+name+opt+lhs rest-name+ann rest-ann-whole? kw-rest-name+ann kw-rest-first?)
+    (parse-annotation-sequence arrow-name args #f))
+  (arrow-annotation multi-kw+name+opt+lhs
                     rest-name+ann rest-ann-whole?
                     kw-rest-name+ann kw-rest-first?
                     head tail))
 
-(define-for-syntax (extract-rest-args arrow-name args)
+(define-for-syntax (parse-annotation-sequence arrow-name args as-result?)
+  (define-values (non-rest-args rest-name+ann rest-ann-whole? kw-rest-name+ann kw-rest-first?)
+    (extract-rest-args arrow-name args as-result?))
+  (define (check-keyword kw)
+    (when as-result?
+      (raise-syntax-error #f "keywords are not allowed on result annotations"
+                          arrow-name
+                          kw)))
+  (define (check-optional eql)
+    (when as-result?
+      (raise-syntax-error #f "optional results are not allowed"
+                          arrow-name
+                          eql)))
+  (define multi-kw+name+opt+lhs
+    (let loop ([args non-rest-args] [has-opt? #f])
+      (cond
+        [(null? args) null]
+        [else
+         (define arg (car args))
+         (define (non-opt)
+           (when has-opt?
+             (raise-syntax-error #f "non-optional argument follows an optional by-position argument"
+                                 arrow-name
+                                 arg)))
+         (define-values (a opt?)
+           (syntax-parse arg
+             #:datum-literals (group op)
+             [(group kw:keyword (_::block (group name:identifier _:::-bind c ... _::equal _::_-bind)))
+              (check-keyword #'kw)
+              (values (list #'kw #'name #t (syntax-parse #'(group c ...)
+                                             [c::annotation #'c.parsed]))
+                      #f)]
+             [(group kw:keyword (_::block (group c ... _::equal _::_-bind)))
+              (check-keyword #'kw)
+              (values (list #'kw #f #t (syntax-parse #'(group c ...)
+                                         [c::annotation #'c.parsed]))
+                      #f)]
+             [(group kw:keyword (_::block (group name:identifier _:::-bind c ...)))
+              (check-keyword #'kw)
+              (values (list #'kw #'name #f (syntax-parse #'(group c ...)
+                                             [c::annotation #'c.parsed]))
+                      #f)]
+             [(group kw:keyword (_::block c::annotation))
+              (check-keyword #'kw)
+              (values (list #'kw #f #f #'c.parsed)
+                      #f)]
+             [(group name:identifier _:::-bind c ... eql::equal _::_-bind)
+              (check-optional #'eql)
+              (values (list #f #'name #t (syntax-parse #'(group c ...)
+                                           [c::annotation #'c.parsed]))
+                      #t)]
+             [(group c ... eql::equal _::_-bind)
+              (check-optional #'eql)
+              (values (list #f #f #t (syntax-parse #'(group c ...)
+                                       [c::annotation #'c.parsed]))
+                      #t)]
+             [(group name:identifier _:::-bind c ...)
+              (non-opt)
+              (values (list #f #'name #f (syntax-parse #'(group c ...)
+                                           [c::annotation #'c.parsed]))
+                      #f)]
+             [c::annotation
+              (non-opt)
+              (values (list #f #f #f #'c.parsed)
+                      #f)]))
+         (cons a (loop (cdr args) (or has-opt? opt?)))])))
+  (if as-result?
+      (values (map (lambda (l) (list (cadr l) (cadddr l))) multi-kw+name+opt+lhs) rest-name+ann rest-ann-whole?)
+      (values multi-kw+name+opt+lhs rest-name+ann rest-ann-whole? kw-rest-name+ann kw-rest-first?)))
+
+(define-for-syntax (extract-rest-args arrow-name args as-result?)
+  (define (no-second)
+    (if as-result?
+        "second rest result not allowed"
+        "second rest argument not allowed"))
   (let loop ([args args] [non-rest-accum '()] [rest-name+ann #f] [rest-ann-whole? #f]
                          [kw-rest-name+ann #f] [kw-rest-first? #f])
     (define (parse-ann c)
@@ -141,16 +172,21 @@
        (raise-syntax-error #f "misplaced ellipsis" arrow-name #'dots)]
       [(g (group dots::...-bind) . args)
        (when rest-name+ann
-         (raise-syntax-error #f "second rest argument not allowed" arrow-name #'dots))
+         (raise-syntax-error #f (no-second) arrow-name #'dots))
        (syntax-parse #'g
+         #:datum-literals (group)
+         [(group name:identifier _:::-bind . c)
+          (raise-syntax-error #f "name not allowed for repeated rest" arrow-name #'name)]
          [c::annotation
           (loop #'args non-rest-accum (list #f #'c.parsed) #f kw-rest-name+ann kw-rest-first?)])]
       [((group amp::&-bind . c) . args)
        (when rest-name+ann
-         (raise-syntax-error #f "second rest argument not allowed" arrow-name #'amp))
+         (raise-syntax-error #f (no-second) arrow-name #'amp))
        (define name+ann (parse-ann #'c))
        (loop #'args non-rest-accum name+ann #t kw-rest-name+ann kw-rest-first?)]
       [((group amp::~&-bind . c) . args)
+       (when as-result?
+         (raise-syntax-error #f "keyword-rest result not allowed" arrow-name #'amp))
        (when kw-rest-name+ann
          (raise-syntax-error #f "second keyword-rest argument not allowed" arrow-name #'amp))
        (define name+ann (parse-ann #'c))
@@ -165,23 +201,26 @@
                                      kw-rest-name+ann kw-rest-first?
                                      head stx)
   (define arrow (syntax-parse stx [(a . _) #'a]))
-  (define-values (multi-name+rhs loc tail)
-    (syntax-parse stx
-      [(_ (~and p-res (_::parens res ...)) . tail)
-       (values (for/list ([res (in-list (syntax->list #'(res ...)))])
-                 (syntax-parse res
-                   #:datum-literals (group)
-                   [(group name:identifier _:::-bind c ...)
-                    (list #'name (syntax-parse #'(group c ...)
-                                   [c::annotation #'c.parsed]))]
-                   [c::annotation (list #f #'c.parsed)]))
-               (datum->syntax #f (list head arrow #'p-res))
-               #'tail)]
-      [(_ . tail)
-       #:with (~var res (:annotation-infix-op+form+tail arrow)) #`(group . tail)
-       (values (list (list #f #'res.parsed))
-               (datum->syntax #f (list head arrow #'res.parsed))
-               #'res.tail)]))
+  (define-values (multi-name+rhs res-rest-name+ann res-rest-ann-whole? loc tail)
+    (let ([multi (lambda (args p-res tail)
+                   (define-values (multi-name+rhs res-rest-name+ann res-rest-ann-whole?)
+                     (parse-annotation-sequence head args #t))
+                   (values multi-name+rhs
+                           res-rest-name+ann res-rest-ann-whole?
+                           (datum->syntax #f (list head arrow p-res))
+                           tail))])
+      (syntax-parse stx
+        [(_ vals (~and p-res (_::parens res ...)) . tail)
+         #:when (free-identifier=? (in-annotation-space #'vals) (annot-quote rhombus:values))
+         (multi (syntax->list #'(res ...)) #'p-res #'tail)]
+        [(_ (~and p-res (_::parens res ...)) . tail)
+         (multi (syntax->list #'(res ...)) #'p-res #'tail)]
+        [(_ . tail)
+         #:with (~var res (:annotation-infix-op+form+tail arrow)) #`(group . tail)
+         (values (list (list #f #'res.parsed))
+                 #f #f
+                 (datum->syntax #f (list head arrow #'res.parsed))
+                 #'res.tail)])))
   (define multi-kws (map car multi-kw+name+opt+lhs))
   (define multi-names (map cadr multi-kw+name+opt+lhs))
   (define multi-opts (map caddr multi-kw+name+opt+lhs))
@@ -230,6 +269,10 @@
                          [_ #f]))
                 #,kw-rest-first?
                 ([r.binding r.body r.static-infos rhs-name rhs-str] ...)
+                #,(and res-rest-name+ann
+                       (syntax-parse res-rest-name+ann
+                         [(name a::annotation-binding-form)
+                          #`(name a.binding a.body a.static-infos #,res-rest-ann-whole? #,(shrubbery-syntax->string #'a))]))
                 #,static-infos])
         (if (and (andmap not multi-kws)
                  (andmap not multi-opts)
@@ -244,7 +287,7 @@
 
 (define-for-syntax (parse-arrow-all-of stx)
   (syntax-parse stx
-    [(form-id (~and args (_::parens g ...)) . tail)
+    [(form-id (~and args (_::parens in-g ...)) . tail)
      #:with (a::annotation ...) #'(g ...)
      (define loc (datum->syntax #f (list #'form-id #'args)))
      (for ([a (in-list (syntax->list #'(a.parsed ...)))]
@@ -281,7 +324,7 @@
 
 (define-syntax (arrow-infoer stx)
   (syntax-parse stx
-    [(_ in-static-infos (result-id arity lhss rest kw-rest kw-rest-first? rhs static-infos))
+    [(_ in-static-infos (result-id arity lhss rest kw-rest kw-rest-first? rhs res-rest static-infos))
      (binding-info "function"
                    #'function
                    #'static-infos
@@ -289,11 +332,11 @@
                    #'arrow-matcher
                    #'arrow-committer
                    #'arrow-binder
-                   #'(result-id arity lhss rest kw-rest kw-rest-first? rhs))]))
+                   #'(result-id arity lhss rest kw-rest kw-rest-first? rhs res-rest))]))
 
 (define-syntax (arrow-matcher stx)
   (syntax-parse stx
-    [(_ arg-id (result-id arity lhss _ _ _ rhs) IF success fail)
+    [(_ arg-id (result-id arity lhss _ _ _ _ _) IF success fail)
      #`(IF (and (procedure? arg-id)
                 #,(let ([a (syntax-e #'arity)])
                     (if (and (integer? a)
@@ -321,7 +364,8 @@
                 rest
                 kw-rest
                 kw-rest-first?
-                ([rhs-i::binding-form rhs-body rhs-static-infos rhs-name rhs-str] ...))
+                ([rhs-i::binding-form rhs-body rhs-static-infos rhs-name rhs-str] ...)
+                res-rest)
      #:with (rhs-impl::binding-impl ...) #`((rhs-i.infoer-id () rhs-i.data) ...)
      #:with (rhs::binding-info ...) #'(rhs-impl.info ...)
      #:with (((lhs-bind-id lhs-bind-use . lhs-bind-static-infos) ...) ...) #'(lhs.bind-infos ...)
@@ -363,176 +407,194 @@
                                [kw (in-list (syntax->list #'(lhs-kw ...)))])
                       (if (syntax-e kw)
                           (list kw left-id)
-                          (list left-id)))]
-                   [(f-apply rest-arg-id rest-id (rest-bind ...))
-                    (syntax-parse #'rest
-                      [#f (list #'#%app '() (if (syntax-e #'kw-rest) '(null) '()) '())]
-                      [(name a-i::binding-form a-body a-static-infos whole? a-str)
-                       #:with a-impl::binding-impl #`(a-i.infoer-id () a-i.data)
-                       #:with a::binding-info #'a-impl.info
-                       #:with ((a-bind-id a-bind-use . a-bind-static-infos) ...) #'a.bind-infos
-                       #:with rest-list-id (or (and (syntax-e #'name) #'name) #'rest-list)
-                       (define a-block
-                         #'(let ()
-                             (a.matcher-id rest-arg-id a.data
-                                           if/blocked
-                                           (let ()
-                                             (a.committer-id rest-arg-id a.data)
-                                             (a.binder-id rest-arg-id a.data)
-                                             (define-static-info-syntax/maybe a-bind-id . a-bind-static-infos)
-                                             ...
-                                             (success-k
-                                              a-body))
-                                           (fail-k
-                                            (lambda ()
-                                              (raise-rest-argument-annotation-failure 'result-id rest-arg-id 'a-str whole?))))))
-                       (list #'apply #'rest-arg-id #'(rest-id)
-                             (if (syntax-e #'whole?)
-                                 #`([(rest-list-id)
+                          (list left-id)))])
+       (define (generate-rest rest kw-rest success-k fail-k raise-rest-argument-annotation-failure check-always?)
+         (define (add-normal-cwv l)
+           (if check-always? (cons #'call-with-values l) l))
+         (with-syntax ([success-k success-k]
+                       [fail-k fail-k]
+                       [raise-rest-argument-annotation-failure raise-rest-argument-annotation-failure])
+           (syntax-parse rest
+             [#f (add-normal-cwv (list #'#%app '() (if (syntax-e kw-rest) '(null) '()) '()))]
+             [(name a-i::binding-form a-body a-static-infos whole? a-str)
+              #:with a-impl::binding-impl #`(a-i.infoer-id () a-i.data)
+              #:with a::binding-info #'a-impl.info
+              #:with ((a-bind-id a-bind-use . a-bind-static-infos) ...) #'a.bind-infos
+              #:with rest-list-id (or (and (syntax-e #'name) #'name) #'rest-list)
+              (cond
+                [(and check-always?
+                      (free-identifier=? #'a.matcher-id #'always-succeed)
+                      (null? (syntax-e #'(res-id ...))))
+                 ;; no argument checking or constraint on number of result => tail-call original
+                 (list #'call-with-unchanged-values #'#%app '() '() '())]
+                [else
+                 (define a-block
+                   #'(let ()
+                       (a.matcher-id rest-arg-id a.data
+                                     if/blocked
+                                     (let ()
+                                       (a.committer-id rest-arg-id a.data)
+                                       (a.binder-id rest-arg-id a.data)
+                                       (define-static-info-syntax/maybe a-bind-id . a-bind-static-infos)
+                                       ...
+                                       (success-k
+                                        a-body))
+                                     (fail-k
+                                      (lambda ()
+                                        (raise-rest-argument-annotation-failure 'result-id rest-arg-id 'a-str whole?))))))
+                 (add-normal-cwv
+                  (list #'apply #'rest-arg-id #'(rest-id)
+                        (if (syntax-e #'whole?)
+                            #`([(rest-list-id)
+                                a-static-infos
+                                (let ([rest-arg-id (list->treelist rest-arg-id)])
+                                  #,a-block)]
+                               [(rest-id) () (success-k (rest-treelist->list rest-list-id))])
+                            #`([(rest-id)
+                                ()
+                                (let loop ([args rest-arg-id] [accum '()])
+                                  (if (null? args)
+                                      (success-k (reverse accum))
+                                      (let ([success-k
+                                             (lambda (v)
+                                               (loop (cdr args) (cons v accum)))]
+                                            [rest-arg-id (car args)])
+                                        #,a-block)))]))))])])))
+       (with-syntax ([(f-apply rest-arg-id rest-id (rest-bind ...))
+                      (generate-rest #'rest #'kw-rest #'success-k #'fail-k #'raise-rest-argument-annotation-failure #f)])
+         (with-syntax ([((maybe-make-keyword-procedure ...) (kw-arg-id ...) (kw-id ...) f/kw-apply (kw-preamble ...) (kw-rest-bind ...))
+                        (syntax-parse #'kw-rest
+                          [#f (list #'(begin) '() '() #'f-apply '() '())]
+                          [(name a-i::binding-form a-body a-static-infos a-str)
+                           #:with a-impl::binding-impl #`(a-i.infoer-id () a-i.data)
+                           #:with a::binding-info #'a-impl.info
+                           #:with ((a-bind-id a-bind-use . a-bind-static-infos) ...) #'a.bind-infos
+                           #:with kw-rest-map-id (or (and (syntax-e #'name) #'name) #'kw-rest-map)
+                           (define kws (for/list ([kw (in-list (syntax->list #'(lhs-kw ...)))]
+                                                  #:when (syntax-e kw))
+                                         kw))
+                           (define req-kws (for/list ([kw (in-list (syntax->list #'(lhs-kw ...)))]
+                                                      [opt (in-list (syntax->list #'(lhs-opt ...)))]
+                                                      #:when (and (syntax-e kw)
+                                                                  (not (syntax-e opt))))
+                                             kw))
+                           (define arity-mask (car (syntax-e #'arity)))
+                           (list #`(make-keyword-procedure/reduce-arity #,req-kws #,arity-mask)
+                                 #'(kws-arg-id kw-vals-arg-id) #'(kws-id kw-vals-id) #'keyword-apply
+                                 (if (null? kws)
+                                     (list #'(define kw-map (keywords->map kws-arg-id kw-vals-arg-id)))
+                                     (append
+                                      (list #'(define kw-map/all (keywords->map kws-arg-id kw-vals-arg-id)))
+                                      (for/list ([arg-id (in-list (syntax->list #'(lhs-arg-id ...)))]
+                                                 [kw (in-list (syntax->list #'(lhs-kw ...)))]
+                                                 [opt (in-list (syntax->list #'(lhs-opt ...)))]
+                                                 ;; If there's a keyword-rest arg, we'll have to
+                                                 ;; extract arguments manually
+                                                 #:when (syntax-e kw))
+                                        #`(define #,arg-id (hash-ref kw-map/all '#,kw unsafe-undefined)))
+                                      (list #`(define kw-map (drop-keywords kw-map/all '#,kws)))))
+                                 #'([(kw-rest-map-id)
                                      a-static-infos
-                                     (let ([rest-arg-id (list->treelist rest-arg-id)])
-                                       #,a-block)]
-                                    [(rest-id) () (success-k (rest-treelist->list rest-list-id))])
-                                 #`([(rest-id)
+                                     (let ()
+                                       (a.matcher-id kw-map a.data
+                                                     if/blocked
+                                                     (let ()
+                                                       (a.committer-id kw-map a.data)
+                                                       (a.binder-id kw-map a.data)
+                                                       (define-static-info-syntax/maybe a-bind-id . a-bind-static-infos)
+                                                       ...
+                                                       (success-k
+                                                        a-body))
+                                                     (fail-k
+                                                      (lambda ()
+                                                        (raise-keyword-rest-argument-annotation-failure 'result-id kw-map 'a-str)))))]
+                                    [(kws-id kw-vals-id)
                                      ()
-                                     (let loop ([args rest-arg-id] [accum '()])
-                                       (if (null? args)
-                                           (success-k (reverse accum))
-                                           (let ([success-k
-                                                  (lambda (v)
-                                                    (loop (cdr args) (cons v accum)))]
-                                                 [rest-arg-id (car args)])
-                                             #,a-block)))])))])])
-       (with-syntax ([((maybe-make-keyword-procedure ...) (kw-arg-id ...) (kw-id ...) f/kw-apply (kw-preamble ...) (kw-rest-bind ...))
-                      (syntax-parse #'kw-rest
-                        [#f (list #'(begin) '() '() #'f-apply '() '())]
-                        [(name a-i::binding-form a-body a-static-infos a-str)
-                         #:with a-impl::binding-impl #`(a-i.infoer-id () a-i.data)
-                         #:with a::binding-info #'a-impl.info
-                         #:with ((a-bind-id a-bind-use . a-bind-static-infos) ...) #'a.bind-infos
-                         #:with kw-rest-map-id (or (and (syntax-e #'name) #'name) #'kw-rest-map)
-                         (define kws (for/list ([kw (in-list (syntax->list #'(lhs-kw ...)))]
-                                                #:when (syntax-e kw))
-                                       kw))
-                         (define req-kws (for/list ([kw (in-list (syntax->list #'(lhs-kw ...)))]
-                                                    [opt (in-list (syntax->list #'(lhs-opt ...)))]
-                                                    #:when (and (syntax-e kw)
-                                                                (not (syntax-e opt))))
-                                           kw))
-                         (define arity-mask (car (syntax-e #'arity)))
-                         (list #`(make-keyword-procedure/reduce-arity #,req-kws #,arity-mask)
-                               #'(kws-arg-id kw-vals-arg-id) #'(kws-id kw-vals-id) #'keyword-apply
-                               (if (null? kws)
-                                   (list #'(define kw-map (keywords->map kws-arg-id kw-vals-arg-id)))
-                                   (append
-                                    (list #'(define kw-map/all (keywords->map kws-arg-id kw-vals-arg-id)))
-                                    (for/list ([arg-id (in-list (syntax->list #'(lhs-arg-id ...)))]
-                                               [kw (in-list (syntax->list #'(lhs-kw ...)))]
-                                               [opt (in-list (syntax->list #'(lhs-opt ...)))]
-                                               ;; If there's a keyword-rest arg, we'll have to
-                                               ;; extract arguments manually
-                                               #:when (syntax-e kw))
-                                      #`(define #,arg-id (hash-ref kw-map/all '#,kw unsafe-undefined)))
-                                    (list #`(define kw-map (drop-keywords kw-map/all '#,kws)))))
-                               #'([(kw-rest-map-id)
-                                   a-static-infos
-                                   (let ()
-                                      (a.matcher-id kw-map a.data
-                                                    if/blocked
-                                                    (let ()
-                                                      (a.committer-id kw-map a.data)
-                                                      (a.binder-id kw-map a.data)
-                                                      (define-static-info-syntax/maybe a-bind-id . a-bind-static-infos)
-                                                      ...
-                                                      (success-k
-                                                       a-body))
-                                                    (fail-k
-                                                     (lambda ()
-                                                       (raise-keyword-rest-argument-annotation-failure 'result-id kw-map 'a-str)))))]
-                                  [(kws-id kw-vals-id)
-                                   ()
-                                   (call-with-values (lambda () (rest-map->keywords kw-rest-map-id))
-                                                     (lambda (kws vals) (success-k kws vals)))]))])])
-         (with-syntax ([(rest-bind ...) (if (syntax-e #'kw-rest-first?)
-                                            #'(kw-rest-bind ... rest-bind ...)
-                                            #'(rest-bind ... kw-rest-bind ...))])
-           (define inner-proc
-             #`(lambda (kw-arg-id ... lhs-arg ... ... . rest-arg-id)
-                 kw-preamble ...
-                 (let*-values-with-static-infos/k
-                  success-k
-                  ([(left-id)
-                    lhs-static-infos
-                    (cond
-                      [(check-not-undefined lhs-arg-id)
-                       (lhs.matcher-id lhs-arg-id lhs.data
-                                       if/blocked
-                                       (let ()
-                                         (lhs.committer-id lhs-arg-id lhs.data)
-                                         (lhs.binder-id lhs-arg-id lhs.data)
-                                         (define-static-info-syntax/maybe lhs-bind-id . lhs-bind-static-infos)
-                                         ...
-                                         (let ([left-id lhs-body])
-                                           (success-k left-id)))
-                                       (fail-k
-                                        (lambda ()
-                                          (raise-argument-annotation-failure 'result-id lhs-arg-id 'lhs-str))))]
-                      [else (success-k lhs-arg-id)])]
-                   ...
-                   rest-bind ...)
-                  (call-with-values
-                   (lambda ()
-                     ;; At first by-position argument that's `undefined`, stop passing by-position arguments
-                     (cond
-                       #,@(let loop ([args (syntax->list #'((left-kw+id ...) ...))]
-                                     [kws (syntax->list #'(lhs-kw ...))]
-                                     [opts (syntax->list #'(lhs-opt ...))]
-                                     [accum '()])
-                            (cond
-                              [(null? args) '()]
-                              [(or (not (syntax-e (car opts)))
-                                   (syntax-e (car kws)))
-                               (loop (cdr args) (cdr kws) (cdr opts)
-                                     (cons (car args) accum))]
-                              [else
-                               (cons
-                                #`[(eq? #,(car (syntax-e (car args))) unsafe-undefined)
-                                   #,(with-syntax ([((left-kw+id ...) ...)
-                                                    (append (reverse accum)
-                                                            (for/list ([arg (in-list (cdr args))]
-                                                                       [kw (in-list (cdr kws))]
-                                                                       #:when (syntax-e kw))
-                                                              arg))])
-                                       #`(f/kw-apply f kw-id ... left-kw+id ... ... . rest-id))]
-                                (loop (cdr args) (cdr kws) (cdr opts) (cons (car args) accum)))]))
-                       [else
-                        (f/kw-apply f kw-id ... left-kw+id ... ... . rest-id)]))
-                   (case-lambda
-                     [(res-in-id ...)
-                      (let*-values-with-static-infos
-                       ([(res-id)
-                         rhs-static-infos
-                         (let ()
-                           (rhs.matcher-id res-in-id rhs.data
-                                           if/flattened
-                                           (void)
-                                           (raise-result-annotation-failure 'result-id res-in-id 'rhs-str))
-                           (rhs.committer-id result rhs.data)
-                           (rhs.binder-id res-in-id rhs.data)
-                           (define-static-info-syntax/maybe rhs-bind-id . rhs-bind-static-infos)
-                           ...
-                           rhs-body)]
-                        ...)
-                       (values res-id ...))]
-                     [args
-                      (raise-result-arity-error 'result-id '#,(length (syntax->list #'(res-in-id ...))) args)])))))
-           (if (not arg-id)
-               inner-proc
-               #`(define result-id
-                   (let ([f #,arg-id])
-                     (maybe-make-keyword-procedure
-                      ...
-                      #,inner-proc)))))))]))
+                                     (call-with-values (lambda () (rest-map->keywords kw-rest-map-id))
+                                                       (lambda (kws vals) (success-k kws vals)))]))])])
+           (with-syntax ([(rest-bind ...) (if (syntax-e #'kw-rest-first?)
+                                              #'(kw-rest-bind ... rest-bind ...)
+                                              #'(rest-bind ... kw-rest-bind ...))]
+                         [(call-with-values/rest r-apply res-rest-arg-id res-rest-id (res-rest-bind ...))
+                          (generate-rest #'res-rest #'#f #'values #'#%app #'raise-rest-result-annotation-failure #t)])
+             (define inner-proc
+               #`(lambda (kw-arg-id ... lhs-arg ... ... . rest-arg-id)
+                   kw-preamble ...
+                   (let*-values-with-static-infos/k
+                    success-k
+                    ([(left-id)
+                      lhs-static-infos
+                      (cond
+                        [(check-not-undefined lhs-arg-id)
+                         (lhs.matcher-id lhs-arg-id lhs.data
+                                         if/blocked
+                                         (let ()
+                                           (lhs.committer-id lhs-arg-id lhs.data)
+                                           (lhs.binder-id lhs-arg-id lhs.data)
+                                           (define-static-info-syntax/maybe lhs-bind-id . lhs-bind-static-infos)
+                                           ...
+                                           (let ([left-id lhs-body])
+                                             (success-k left-id)))
+                                         (fail-k
+                                          (lambda ()
+                                            (raise-argument-annotation-failure 'result-id lhs-arg-id 'lhs-str))))]
+                        [else (success-k lhs-arg-id)])]
+                     ...
+                     rest-bind ...)
+                    (call-with-values/rest
+                     (lambda ()
+                       ;; At first by-position argument that's `undefined`, stop passing by-position arguments
+                       (cond
+                         #,@(let loop ([args (syntax->list #'((left-kw+id ...) ...))]
+                                       [kws (syntax->list #'(lhs-kw ...))]
+                                       [opts (syntax->list #'(lhs-opt ...))]
+                                       [accum '()])
+                              (cond
+                                [(null? args) '()]
+                                [(or (not (syntax-e (car opts)))
+                                     (syntax-e (car kws)))
+                                 (loop (cdr args) (cdr kws) (cdr opts)
+                                       (cons (car args) accum))]
+                                [else
+                                 (cons
+                                  #`[(eq? #,(car (syntax-e (car args))) unsafe-undefined)
+                                     #,(with-syntax ([((left-kw+id ...) ...)
+                                                      (append (reverse accum)
+                                                              (for/list ([arg (in-list (cdr args))]
+                                                                         [kw (in-list (cdr kws))]
+                                                                         #:when (syntax-e kw))
+                                                                arg))])
+                                         #`(f/kw-apply f kw-id ... left-kw+id ... ... . rest-id))]
+                                  (loop (cdr args) (cdr kws) (cdr opts) (cons (car args) accum)))]))
+                         [else
+                          (f/kw-apply f kw-id ... left-kw+id ... ... . rest-id)]))
+                     (case-lambda
+                       [(res-in-id ... . res-rest-arg-id)
+                        (let*-values-with-static-infos
+                         ([(res-id)
+                           rhs-static-infos
+                           (let ()
+                             (rhs.matcher-id res-in-id rhs.data
+                                             if/flattened
+                                             (void)
+                                             (raise-result-annotation-failure 'result-id res-in-id 'rhs-str))
+                             (rhs.committer-id result rhs.data)
+                             (rhs.binder-id res-in-id rhs.data)
+                             (define-static-info-syntax/maybe rhs-bind-id . rhs-bind-static-infos)
+                             ...
+                             rhs-body)]
+                          ...
+                          res-rest-bind ...)
+                         (r-apply values res-id ... . res-rest-id))]
+                       [args
+                        (raise-result-arity-error 'result-id '#,(length (syntax->list #'(res-in-id ...))) args)])))))
+             (if (not arg-id)
+                 inner-proc
+                 #`(define result-id
+                     (let ([f #,arg-id])
+                       (maybe-make-keyword-procedure
+                        ...
+                        #,inner-proc))))))))]))
 
 (define-syntax (all-of-infoer stx)
   (syntax-parse stx
@@ -724,6 +786,11 @@
       (raise-binding-failure who "rest-argument list" val ctc)
       (raise-binding-failure who "argument" val ctc)))
 
+(define (raise-rest-result-annotation-failure who val ctc whole?)
+  (if whole?
+      (raise-binding-failure who "rest-result list" val ctc)
+      (raise-binding-failure who "result" val ctc)))
+
 (define (raise-keyword-rest-argument-annotation-failure who val ctc)
   (raise-binding-failure who "keyword rest-argument map" val ctc))
 
@@ -787,3 +854,7 @@
                                   '(kw ...)
                                   #f)]))
 
+(define-syntax (call-with-unchanged-values stx)
+  (syntax-parse stx
+    [(_ generator receiver) #'(generator)]
+    [_ (error "should not get here")]))

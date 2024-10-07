@@ -792,7 +792,13 @@
                    #'arg
                    all-static-infos
                    #`((arg (0) . #,all-static-infos))
-                   #'predicate-binding-matcher
+                   (syntax-parse #'predicate
+                     [(lam (_) #t) ;; matches `Any` and maybe more
+                      #:when (or (free-identifier=? #'lam #'lambda)
+                                 (free-identifier=? #'lam #'#%plain-lambda))
+                      #'always-succeed]
+                     [else
+                      #'predicate-binding-matcher])
                    #'predicate-binding-committer
                    #'predicate-binding-binder
                    #`[arg predicate])]))
