@@ -409,6 +409,19 @@ check:
 // Case annotations
 
 block:
+  let f :: Function.all_of(): math.sum
+  check f() ~throws "arity mismatch"
+  check f(1, 2, 3) ~throws "arity mismatch"
+
+check:
+  ~eval
+  use_static
+  def f :: Function.all_of(): math.sum
+  f()
+  ~throws values("wrong number of arguments",
+                 "(based on static information)")
+
+block:
   let f :: Function.all_of(Int -> Int,
                            (Int, Int) -> List):
     fun
@@ -534,3 +547,33 @@ check:
   f(1, ~z: 2)
   ~throws values("keyword argument not recognized",
                  "(based on static information)")
+
+block:
+  let f :: Function.all_of((x :: Any) -> satisfying(fun (y): y == x),
+                           (x :: Any, y :: satisfying(fun (y): y == x)) -> List):
+    fun | (x):
+            if x | x | #true
+        | (x, y):
+            [x, y]
+  check f(1) ~is 1
+  check f(1, 1) ~is [1, 1]
+  check f(1, 2) ~throws error.annot_msg("argument")
+  check f(#false) ~throws error.annot_msg("result")
+
+block:
+  use_static
+  def f :: Function.all_of(() -> List,
+                           Int -> Map):
+    fun | (): [0]
+        | (v): { #'val: v }
+  check f()[0] ~is 0
+  check f(1)[#'val] ~is 1
+
+block:
+  use_static
+  def f :: Function.all_of((~x: Any) -> List,
+                           (~y: Any) -> Map):
+    fun | (~x: x): [x]
+        | (~y: y): { #'val: y }
+  check f(~x: 10)[0] ~is 10
+  check f(~y: 11)[#'val] ~is 11

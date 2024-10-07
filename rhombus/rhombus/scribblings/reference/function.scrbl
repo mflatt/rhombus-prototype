@@ -38,7 +38,7 @@ normally bound to implement function calls.
  @rhombus(keyword)s that are listed. Each @rhombus(keyword) must be
  distinct.
 
- See also @rhombus(->, ~annot).
+ See also @rhombus(->, ~annot) and @rhombus(Function.all_of, ~annot).
 
 @margin_note_block{Due to the current limitation in the function arity
  protocol, a function must require an exact set of keywords across all
@@ -624,6 +624,49 @@ Only one @rhombus(~& map_bind) can appear in a @rhombus(rest) sequence.
 
  To recognize multiple argument annotations in parentheses,
  @rhombus(->, ~annot) relies on help from @rhombus(#%parens, ~annot).
+
+}
+
+@doc(
+  ~nonterminal:
+    arrow_annot: :: annot
+  annot.macro 'Function.all_of($arrow_annot, ...)'
+){
+
+ Creates an annotation that is satisfied by a function that satisfies
+ every @rhombus(arrow_annot), each of which should correspond to a
+ @rhombus(->, ~annot) annotation (or one that is ultimately defined by
+ expansion to @rhombus(->, ~annot)).
+
+ The difference between using @rhombus(Function.all_of, ~annot) to
+ combine the @rhombus(arrow_annot)s and using @rhombus(&&, ~annot) is
+ that @rhombus(&&, ~annot) would effectively apply every
+ @rhombus(arrow_annot) to every call of the function, while
+ @rhombus(Function.all_of, ~annot) selects for each call the first
+ @rhombus(arrow_annot) whose argument annotations are satisfied by the
+ supplied arguments for that call.
+
+@examples(
+  ~repl:    
+    def mutable saved = 0
+    def f :: Function.all_of(() -> Int,
+                             Int -> Void):
+      fun | (): saved
+          | (v): saved := v
+    f(1)
+    f()
+    saved := #false
+    ~error:
+      f()
+  ~repl:
+    def f :: Function.all_of(Int -> Int,
+                             String -> String):
+      fun (x): x
+    f(1)
+    f("apple")
+    ~error:
+      f(#'apple)
+)
 
 }
 

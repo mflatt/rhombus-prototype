@@ -1148,13 +1148,16 @@
                                         [(and call-result?
                                               (rator-static-info #'#%call-result))
                                          => (lambda (results)
+                                              (define sorted-kws
+                                                (sort (for/list ([kw (in-list kws)]
+                                                                 #:when (syntax-e kw))
+                                                        (syntax-e kw))
+                                                      keyword<?))
                                               (find-call-result-at
                                                results
-                                               (+ num-rands (length extra-rands))
-                                               (sort (for/list ([kw (in-list kws)]
-                                                                #:when (syntax-e kw))
-                                                       (syntax-e kw))
-                                                     keyword<?)
+                                               (- (+ num-rands (length extra-rands))
+                                                  (length sorted-kws))
+                                               sorted-kws
                                                kwrsts))]
                                         [else #'()])
                                       extra-result-static-infos))
