@@ -85,7 +85,7 @@
     $other_class_clause
 ){
 
- Binds @rhombus(id_name) as a class name in several @tech{spaces}:
+ Binds @rhombus(id_name) as a @deftech{class} name in several @tech{spaces}:
 
 @itemlist(
 
