@@ -1,0 +1,29 @@
+#lang rhombus/static/and_meta
+import:
+  lib("racket/base.rkt") as rkt
+
+export:
+  type
+  os
+  arch
+  host
+  machine_type
+  version
+
+fun type():
+  rkt.#{system-type}()
+
+fun os():
+  rkt.#{system-type}(#'#{os*})
+
+fun arch():
+  rkt.#{system-type}(#'#{arch})
+
+fun host():
+  String.snapshot(rkt.#{system-type}(#'#{machine}))
+
+fun machine_type():
+  rkt.#{system-type}(#'#{target-machine})
+
+fun version():
+  String.snapshot(rkt.#{version}())
