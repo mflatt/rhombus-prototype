@@ -98,9 +98,10 @@
      #:with (a-info::binding-info ...) #'(a-impl.info ...)
 
      (define-values (new-rest-data rest-static-infos rest-name-id rest-annotation-str rest-bind-ids+static-infos
-                                   rest-repetition?)
+                                   rest-repetition?
+                                   rest-evidence-ids)
        (syntax-parse #'rest-data
-         [#f (values #'#f #'() #'rest #f #'() #f)]
+         [#f (values #'#f #'() #'rest #f #'() #f #'())]
          [(rest-accessor rest-to-repetition rest-repetition? rest-infoer-id rest-a-data)
           #:with rest-static-infos
           (case (syntax-e #'rest-repetition?)
@@ -155,7 +156,8 @@
                                          #`((#:repet (#,in-seq #,@sequencers)))))
                                      #'(rest-info.bind-uses ...))])
                     #'((rest-info.bind-id bind-uses rest-info.bind-static-info ...) ...))
-                  (syntax-e #'rest-repetition?))]))
+                  (syntax-e #'rest-repetition?)
+                  #'rest-info.evidence-ids)]))
 
      (define all-composite-static-infos
        (let* ([composite-static-infos #'(composite-static-info ... . static-infos)]
@@ -202,10 +204,12 @@
                    all-composite-static-infos
                    #`((a-info.bind-id a-info.bind-uses a-info.bind-static-info ...) ... ... . #,rest-bind-ids+static-infos)
                    #'composite-matcher
+                   #`(a-info.evidence-ids ... #,rest-evidence-ids)
                    #'composite-committer
                    #'composite-binder
                    #`(predicate steppers accessors #,(generate-temporaries #'(a-info.name-id ...))
-                                (a-info.name-id ...) (a-info.matcher-id ...) (a-info.committer-id ...) (a-info.binder-id ...) (a-info.data ...)
+                                (a-info.name-id ...) (a-info.matcher-id ...)
+                                (a-info.committer-id ...) (a-info.binder-id ...) (a-info.data ...)
                                 #,new-rest-data))]))
 
 (define-syntax (composite-matcher stx)
@@ -266,11 +270,12 @@
 
 (define-syntax (composite-committer stx)
   (syntax-parse stx
-    [(_ c-arg-id (predicate steppers accessors (tmp-id ...)
-                            name-ids matcher-ids (committer-id ...) binder-ids (data ...)
-                            rest-data))
+    [(_ c-arg-id all-evidence-ids (predicate steppers accessors (tmp-id ...)
+                                         name-ids matcher-ids (committer-id ...) binder-ids (data ...)
+                                         rest-data))
+     #:with (evidence-ids ... rest-evidence-ids) #'all-evidence-ids
      #`(begin
-         (committer-id tmp-id data)
+         (committer-id tmp-id evidence-ids data)
          ...
          #,@(syntax-parse #'rest-data
               [#f #'()]
@@ -280,15 +285,16 @@
                #:with rest::binding-info #'rest-info
                (if (syntax-e #'rest-repetition?)
                    #'((define-values rest-seq-tmp-ids (rest-tmp-id)))
-                   #'((rest.committer-id rest-tmp-id rest.data)))]))]))
+                   #'((rest.committer-id rest-tmp-id rest-evidence-ids rest.data)))]))]))
 
 (define-syntax (composite-binder stx)
   (syntax-parse stx
-    [(_ c-arg-id (predicate steppers accessors (tmp-id ...)
-                            name-ids matcher-ids committer-ids (binder-id ...) (data ...)
-                            rest-data))
+    [(_ c-arg-id all-evidence-ids (predicate steppers accessors (tmp-id ...)
+                                             name-ids matcher-ids committer-ids (binder-id ...) (data ...)
+                                             rest-data))
+     #:with (evidence-ids ... rest-evidence-ids) #'all-evidence-ids
      #`(begin
-         (binder-id tmp-id data)
+         (binder-id tmp-id evidence-ids data)
          ...
          #,@(syntax-parse #'rest-data
               [#f #'()]
@@ -326,7 +332,7 @@
                                                           (lambda ()
                                                             (quote-syntax (rest.bind-static-info ...)))))
                             ...))))
-                   #'((rest.binder-id rest-tmp-id rest.data)))]))]))
+                   #'((rest.binder-id rest-tmp-id rest-evidence-ids rest.data)))]))]))
 
 ;; ------------------------------------------------------------
 
@@ -363,8 +369,8 @@
               (rest.matcher-id arg-id rest.data
                                if/blocked
                                (lambda ()
-                                 (rest.committer-id arg-id rest.data)
-                                 (rest.binder-id arg-id rest.data)
+                                 (rest.committer-id arg-id rest.evidence-ids rest.data)
+                                 (rest.binder-id arg-id rest.evidence-ids rest.data)
                                  (values (maybe-repetition-as-list rest.bind-id rest.bind-uses)
                                          ...))
                                (#,fail arg-id)))))]))

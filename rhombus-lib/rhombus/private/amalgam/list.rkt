@@ -639,8 +639,9 @@
                    (static-infos-union (get-treelist-static-infos) #'up-static-infos)
                    #'()
                    #'treelist-empty-matcher
-                   #'literal-bind-nothing
+                   #'()
                    #'literal-commit-nothing
+                   #'literal-bind-nothing
                    #'datum)]))
 
 (define-syntax (empty-infoer stx)
@@ -651,8 +652,9 @@
                    (static-infos-union (get-list-static-infos) #'up-static-infos)
                    #'()
                    #'empty-matcher
-                   #'literal-bind-nothing
+                   #'()
                    #'literal-commit-nothing
+                   #'literal-bind-nothing
                    #'datum)]))
 
 (define-syntax (treelist-empty-matcher stx)
