@@ -157,7 +157,7 @@
                                      #'(rest-info.bind-uses ...))])
                     #'((rest-info.bind-id bind-uses rest-info.bind-static-info ...) ...))
                   (syntax-e #'rest-repetition?)
-                  #'rest-info.evidence-ids)]))
+                  #'rest-tmp-id)]))
 
      (define all-composite-static-infos
        (let* ([composite-static-infos #'(composite-static-info ... . static-infos)]
@@ -198,16 +198,17 @@
                                             . #,composite-static-infos)]
                                         [else composite-static-infos])])
          composite-static-infos))
+     (define tmp-ids (generate-temporaries #'(a-info.name-id ...)))
      (binding-info (build-annotation-str #'constructor-str (syntax->list #'(a-info.annotation-str ...)) rest-annotation-str
                                          #:rest-repetition? rest-repetition?)
                    #'composite
                    all-composite-static-infos
                    #`((a-info.bind-id a-info.bind-uses a-info.bind-static-info ...) ... ... . #,rest-bind-ids+static-infos)
                    #'composite-matcher
-                   #`(a-info.evidence-ids ... #,rest-evidence-ids)
+                   #`(#,tmp-ids a-info.evidence-ids ... #,rest-evidence-ids)
                    #'composite-committer
                    #'composite-binder
-                   #`(predicate steppers accessors #,(generate-temporaries #'(a-info.name-id ...))
+                   #`(predicate steppers accessors #,tmp-ids
                                 (a-info.name-id ...) (a-info.matcher-id ...)
                                 (a-info.committer-id ...) (a-info.binder-id ...) (a-info.data ...)
                                 #,new-rest-data))]))
@@ -271,11 +272,11 @@
 (define-syntax (composite-committer stx)
   (syntax-parse stx
     [(_ c-arg-id all-evidence-ids (predicate steppers accessors (tmp-id ...)
-                                         name-ids matcher-ids (committer-id ...) binder-ids (data ...)
-                                         rest-data))
-     #:with (evidence-ids ... rest-evidence-ids) #'all-evidence-ids
+                                             name-ids matcher-ids (committer-id ...) binder-ids (data ...)
+                                             rest-data))
+     #:with ((tmp-id/evidence ...) evidence-ids ... rest-tmp-id/evidence) #'all-evidence-ids
      #`(begin
-         (committer-id tmp-id evidence-ids data)
+         (committer-id tmp-id/evidence evidence-ids data)
          ...
          #,@(syntax-parse #'rest-data
               [#f #'()]
@@ -284,17 +285,17 @@
                             rest-repetition? rest-info rest-seq-tmp-ids)
                #:with rest::binding-info #'rest-info
                (if (syntax-e #'rest-repetition?)
-                   #'((define-values rest-seq-tmp-ids (rest-tmp-id)))
-                   #'((rest.committer-id rest-tmp-id rest-evidence-ids rest.data)))]))]))
+                   #'((define-values rest-seq-tmp-ids (rest-tmp-id/evidence)))
+                   #'((rest.committer-id rest-tmp-id/evidence rest.evidence-ids rest.data)))]))]))
 
 (define-syntax (composite-binder stx)
   (syntax-parse stx
     [(_ c-arg-id all-evidence-ids (predicate steppers accessors (tmp-id ...)
                                              name-ids matcher-ids committer-ids (binder-id ...) (data ...)
                                              rest-data))
-     #:with (evidence-ids ... rest-evidence-ids) #'all-evidence-ids
+     #:with ((tmp-id/evidence ...) evidence-ids ... rest-tmp-id/evidence) #'all-evidence-ids
      #`(begin
-         (binder-id tmp-id evidence-ids data)
+         (binder-id tmp-id/evidence evidence-ids data)
          ...
          #,@(syntax-parse #'rest-data
               [#f #'()]
@@ -332,7 +333,7 @@
                                                           (lambda ()
                                                             (quote-syntax (rest.bind-static-info ...)))))
                             ...))))
-                   #'((rest.binder-id rest-tmp-id rest-evidence-ids rest.data)))]))]))
+                   #'((rest.binder-id rest-tmp-id/evidence rest.evidence-ids rest.data)))]))]))
 
 ;; ------------------------------------------------------------
 
