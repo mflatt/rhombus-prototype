@@ -21,7 +21,8 @@
 (module+ for-rest
   (provide maybe-repetition-as-list
            build-overall-rest-getter
-           (for-syntax make-repetition-bind)))
+           (for-syntax deepen-repetition
+                       make-repetition-bind)))
 
 (define-for-syntax (composite-binding-transformer tail
                                                   #:rest-arg [rest-arg #f]
@@ -151,17 +152,9 @@
                   #'rest-info.static-infos
                   #'rest-info.name-id
                   #'rest-info.annotation-str
-                  (with-syntax ([(bind-uses ...)
-                                 (if (syntax-e #'rest-repetition?)
-                                     (let ([in-seq (if (syntax-e #'no-rest-map?) #'rest-to-repetition #'in-list)])
-                                       (for/list ([uses (in-list (syntax->list #'(rest-info.bind-uses ...)))]
-                                                  [id (in-list (syntax->list #'(rest-info.bind-id ...)))])
-                                         (define sequencers (uses->sequencers uses))
-                                         (unless sequencers
-                                           (raise-syntax-error #f "cannot bind within a repetition" id))
-                                         #`((#:repet (#,in-seq #,@sequencers)))))
-                                     #'(rest-info.bind-uses ...))])
-                    #'((rest-info.bind-id bind-uses rest-info.bind-static-info ...) ...))
+                  (if (syntax-e #'rest-repetition?)
+                      (deepen-repetition #'rest-info.bind-infos #'rest-to-repetition (syntax-e #'no-rest-map?))
+                      #'rest-info.bind-infos)
                   (syntax-e #'rest-repetition?)
                   #'(rest-tmp-id rest-info.evidence-ids))]))
 
@@ -523,6 +516,19 @@
          (if rest-repetition? ", ..." ""))
         "")
     (if kind "}" ")"))))
+
+(define-for-syntax (deepen-repetition bind-infos rest-to-repetition no-rest-map?)
+  (with-syntax ([((rest-info-bind-id rest-info-bind-uses rest-info-bind-static-info ...) ...)
+                 bind-infos])
+    (with-syntax ([(bind-uses ...)
+                   (let ([in-seq (if no-rest-map? rest-to-repetition #'in-list)])
+                     (for/list ([uses (in-list (syntax->list #'(rest-info-bind-uses ...)))]
+                                [id (in-list (syntax->list #'(rest-info-bind-id ...)))])
+                       (define sequencers (uses->sequencers uses))
+                       (unless sequencers
+                         (raise-syntax-error #f "cannot bind within a repetition" id))
+                       #`((#:repet (#,in-seq #,@sequencers)))))])
+      #'((rest-info-bind-id bind-uses rest-info-bind-static-info ...) ...))))
 
 (define-for-syntax (uses->sequencers uses)
   (for/or ([use (in-list (syntax->list uses))])

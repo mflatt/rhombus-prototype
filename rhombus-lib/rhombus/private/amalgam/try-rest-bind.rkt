@@ -11,11 +11,28 @@
          "if-blocked.rkt"
          "treelist.rkt"
          "list-bounds-key.rkt"
+         "maybe-list-tail.rkt"
          (submod "composite.rkt" for-rest))
 
 (provide (for-spaces (#f
                       rhombus/bind)
                      try-rest-bind))
+
+;; The `try-rest-bind` form is used to handle the tail of a list that starts
+;; with a splice or repetition that is not handled dierctory in "composite.rkt".
+;;
+;; Examples:
+;;  [x, a, ..., b, ...] => [x, & (try-rest-bind #:repetition a [b, ...])]
+;;  [x, &a, b, ...] => [x, & (try-rest-bind #:splice a [b, ...])]
+;;  [x, &a, ..., b, ...] => [x, & (try-rest-bind #:splice-repetition a [b, ...])]
+;;  [x, a, ..., b, ..., c, ...] => [x, & (try-rest-bind #:repetition a [& (try-rest-bind #:repetition b [c, ...])])]
+;;
+;; Those different modes, #:repetition, #:splice, and
+;; #:splice-repetition have a lot in common, so we implement one form
+;; that internally branches on the mode --- although it might have
+;; been better to just split them apart and lift out (or copy) the
+;; common work. A further complication is parameterizing over both
+;; treelists and pair lists, which mostly affects the matcher step.
 
 (define-syntax try-rest-bind
   (expression-prefix-operator
@@ -50,7 +67,8 @@
                                       first-rest-infoer-id first-rest-data
                                       rest-rest-infoer-id rest-rest-data])
      #:with all-static-infos (static-infos-union #'static-infos #'up-static-infos)
-     #:with first-rest-impl::binding-impl #`(first-rest-infoer-id #,(if (eq? (syntax-e #'head-mode) '#:splice)
+     #:with first-rest-impl::binding-impl #`(first-rest-infoer-id #,(if (memq (syntax-e #'head-mode)
+                                                                              '(#:splice #:splice-repetition))
                                                                         #'all-static-infos
                                                                         #'())
                                                                   first-rest-data)
@@ -65,9 +83,9 @@
          #:datum-literals (group)
          [(group min max) (values (or (extract-int #'min) 0) (extract-int #'max))]
          [_ (values 0 #f)]))
-     (define-values (head-min head-max) (extract-bounds
-                                         (and (eq? (syntax-e #'head-mode) '#:splice)
-                                              (static-info-lookup #'first-i.static-infos #'bounds-key))))
+     (define-values (head-min sr-head-max) (extract-bounds
+                                            (static-info-lookup #'first-i.static-infos #'bounds-key)))
+     (define head-max (and (eq? (syntax-e #'head-mode) '#:splice) sr-head-max))
      (define-values (rest-min rest-max) (extract-bounds
                                          (static-info-lookup #'rest-i.static-infos #'bounds-key)))
      (define (strip-constructor str)
@@ -75,43 +93,48 @@
        (substring str
                   (if (syntax-e #'as-treelist?) 5 9)
                   (sub1 (string-length str))))
-     (binding-info (annotation-string-from-pattern
-                    (string-append (if (eq? (syntax-e #'head-mode) '#:splice) "& " "")
-                                   (annotation-string-to-pattern
-                                    (syntax-e #'first-i.annotation-str))
-                                   (if (eq? (syntax-e #'head-mode) '#:splice) ", " ", ..., ")
-                                   (strip-constructor
-                                    (annotation-string-to-pattern
-                                     (syntax-e #'rest-i.annotation-str)))))
-                   #'rest
-                   (static-infos-union 
-                    #`((bounds-key (group #,(+ head-min rest-min) #,(and head-max rest-max (+ head-max rest-max)))))
-                    #'static-infos)
-                   (append (syntax->list #'first-i.bind-infos)
-                           (syntax->list #'rest-i.bind-infos))
-                   #'try-rest-matcher
-                   #'evidence
-                   #'try-rest-committer
-                   #'try-rest-binder
-                   #`(head-mode
-                      as-treelist? rest-to-repetition
-                      evidence
-                      prefix suffix #,(generate-temporaries-tree #`(#,(if (eq? (syntax-e #'head-mode) '#:splice)
-                                                                          #'first-i.evidence-ids
-                                                                          #'())
-                                                                    rest-i.evidence-ids))
-                      [#,head-min #,head-max #,rest-min #,rest-max]
-                      first-i.matcher-id first-i.evidence-ids first-i.committer-id first-i.binder-id first-i.data
-                      first-i.bind-infos #,(and (eq? (syntax-e #'head-mode) '#:repetition)
-                                                (generate-temporaries #'(first-i.bind-id ...)))
-                      rest-i.matcher-id rest-i.evidence-ids rest-i.committer-id rest-i.binder-id rest-i.data))]))
+     (define no-rest-map? (free-identifier=? #'always-succeed #'first-i.matcher-id))
+     (with-syntax ([out-first-i-bind-infos (if (memq (syntax-e #'head-mode) '(#:repetition #:splice-repetition))
+                                               (deepen-repetition #'first-i.bind-infos #'rest-to-repetition no-rest-map?)
+                                               #'first-i.bind-infos)])
+       (binding-info (annotation-string-from-pattern
+                      (string-append (if (eq? (syntax-e #'head-mode) '#:repetition) "" "& ")
+                                     (annotation-string-to-pattern
+                                      (syntax-e #'first-i.annotation-str))
+                                     (if (eq? (syntax-e #'head-mode) '#:splice) ", " ", ..., ")
+                                     (strip-constructor
+                                      (annotation-string-to-pattern
+                                       (syntax-e #'rest-i.annotation-str)))))
+                     #'rest
+                     (static-infos-union 
+                      #`((bounds-key (group #,(+ head-min rest-min) #,(and head-max rest-max (+ head-max rest-max)))))
+                      #'static-infos)
+                     (append (syntax->list #'out-first-i-bind-infos)
+                             (syntax->list #'rest-i.bind-infos))
+                     #'try-rest-matcher
+                     #'evidence
+                     #'try-rest-committer
+                     #'try-rest-binder
+                     #`(head-mode
+                        as-treelist? rest-to-repetition #,no-rest-map?
+                        evidence
+                        prefix suffix #,(generate-temporaries-tree #`(#,(if (eq? (syntax-e #'head-mode) '#:splice)
+                                                                            #'first-i.evidence-ids
+                                                                            #'())
+                                                                      rest-i.evidence-ids))
+                        [#,head-min #,head-max #,sr-head-max #,rest-min #,rest-max]
+                        first-i.matcher-id first-i.evidence-ids first-i.committer-id first-i.binder-id first-i.data
+                        first-i.bind-infos #,(and (memq (syntax-e #'head-mode)
+                                                        '(#:repetition #:splice-repetition))
+                                                  (generate-temporaries #'(first-i.bind-id ...)))
+                        rest-i.matcher-id rest-i.evidence-ids rest-i.committer-id rest-i.binder-id rest-i.data)))]))
 
 (define-syntax (try-rest-matcher stx)
   (syntax-parse stx
     [(_ val-id (head-mode
-                as-treelist? rest-to-repetition
+                as-treelist? rest-to-repetition no-rest-map?
                 evidence _ _ _
-                [head-min head-max rest-min rest-max]
+                [head-min head-max sr-head-max rest-min rest-max]
                 first-matcher-id first-evidence-ids first-committer-id first-binder-id first-data
                 first-bind-infos first-seq-tmp-ids
                 rest-matcher-id rest-evidence-ids rest-committer-id rest-binder-id rest-data)
@@ -155,37 +178,86 @@
                                           (loop (sub1 i)))])))))
               (IF evidence success fail)))]
        [else
+        (define splice-repetition? (eq? (syntax-e #'head-mode) '#:splice-repetition))
         ;; trust `rest-matcher-id` to bail out quickly if the rest of the list is too
         ;; long, don't use `first` past the point whee the rest would be too small
         (with-syntax ([((bind ...)
-                        state init state-done? state-next state-first state-rest
-                        accum-next accum-result
-                        list-length)
+                        list-length
+                        state init state-done?
+                        ;; sub-state
+                        init-sub-state
+                        substate-can?
+                        substate-continue?
+                        next-sub-state
+                        ;; state
+                        state-first
+                        state-rest
+                        state-next
+                        ;; accum
+                        accum-next
+                        accum-result)
                        (if (syntax-e #'as-treelist?)
                            (list #'()
-                                 #'i
-                                 #'0
-                                 #'(lambda (i) (>= i (- len rest-min)))
-                                 #'add1
-                                 #'(lambda (i) (treelist-ref val-id i))
-                                 #'(lambda (i) (treelist-sublist val-id (add1 i)  (treelist-length val-id)))
+                                 #'treelist-length
+                                 #'i #'0 #'(lambda (i) (>= i (- len rest-min)))
+                                 ;; sub-state
+                                 (if splice-repetition?
+                                     #'(lambda (i) (let ([j (- len rest-min i)])
+                                                     (if sr-head-max (min sr-head-max j) j)))
+                                     #'(lambda (i) 1))
+                                 (if splice-repetition?
+                                     #'(lambda (i j) (> j 0))
+                                     #'(lambda (i j) #t))
+                                 (if splice-repetition?
+                                     #'(lambda (i j) (> j (max 1 head-min)))
+                                     #'(lambda (i j) #f))
+                                 #'(lambda (i j) (sub1 j))
+                                 ;; state
+                                 (if splice-repetition?
+                                     #'(lambda (i j) (treelist-sublist val-id i (+ i j)))
+                                     #'(lambda (i j) (treelist-ref val-id i)))
+                                 (if splice-repetition?
+                                     #'(lambda (i j) (treelist-sublist val-id (+ i j) (treelist-length val-id)))
+                                     #'(lambda (i j) (treelist-sublist val-id (add1 i) (treelist-length val-id))))
+                                 #'+
+                                 ;; accum
                                  #'(lambda (accum i) null)
-                                 #'(lambda (accum i) (treelist-sublist val-id 0 (add1 i)))
-                                 #'treelist-length)
+                                 #'(lambda (accum i) (treelist-sublist val-id 0 (add1 i))))
                            (list #`([stop-at #,(if (eqv? 0 (syntax-e #'rest-min))
                                                    #'null
                                                    #'(if (len . > . rest-min)
                                                          (list-tail val-id (- len rest-min))
                                                          val-id))])
-                                 #'lst
-                                 #'val-id
-                                 #'(lambda (lst) (eq? lst stop-at))
-                                 #'cdr
-                                 #'car
-                                 #'cdr
+                                 #'length
+                                 #'lst #'val-id #'(lambda (lst) (eq? lst stop-at))
+                                 ;; sub-state
+                                 (if splice-repetition?
+                                     #'(lambda (lst) (if sr-head-max
+                                                         (if (maybe-list-tail lst sr-head-max)
+                                                             sr-head-max
+                                                             (- (length lst) rest-min))
+                                                         (- (length lst) rest-min)))
+                                     #'(lambda (i) 1))
+                                 (if splice-repetition?
+                                     #'(lambda (i j) (> j 0))
+                                     #'(lambda (i j) #t))
+                                 (if splice-repetition?
+                                     #'(lambda (i j) (> j (max 1 head-min)))
+                                     #'(lambda (i j) #f))
+                                 #'(lambda (i j) (sub1 j))
+                                 ;; state
+                                 (if splice-repetition?
+                                     #'(lambda (lst j) (pairlist-sublist lst 0 j))
+                                     #'(lambda (lst j) (car lst)))
+                                 (if splice-repetition?
+                                     #'(lambda (lst j) (list-tail lst j))
+                                     #'(lambda (lst j) (cdr lst)))
+                                 (if splice-repetition?
+                                     #'(lambda (lst j) (list-tail lst j))
+                                     #'(lambda (lst j) (cdr lst)))
+                                 ;; accum
                                  #'(lambda (accum lst) (cons (car lst) accum))
-                                 #'(lambda (accum lst) (reverse (cons (car lst) accum)))
-                                 #'length))])
+                                 #'(lambda (accum lst) (reverse (cons (car lst) accum)))))])
           #`(begin
               (define evidence
                 (let* ([len (list-length val-id)]
@@ -196,40 +268,48 @@
                      (cond
                        [(state-done? state)
                         #f]
-                       #,(if (free-identifier=? #'always-succeed #'first-matcher-id)
+                       #,(if (and (not splice-repetition?)
+                                  (syntax-e #'no-rest-map?))
                              #`[else
-                                (or (loop (state-next state) (accum-next accum state))
-                                    (let ([suffix (state-rest state)])
+                                (or (loop (state-next state 1) (accum-next accum state))
+                                    (let ([suffix (state-rest state 1)])
                                       (rest-matcher-id suffix rest-data
                                                        if/blocked
                                                        (let ([result (accum-result accum state)])
                                                          (vector (lambda () result) suffix #,@(flatten-tree #'rest-evidence-ids)))
                                                        #f)))]
                              #`[else
-                                (define elem (state-first state))
-                                (first-matcher-id elem first-data
-                                                  if/blocked
-                                                  (let* ([elem-evidence (lambda ()
-                                                                          (first-committer-id elem first-evidence-ids first-data)
-                                                                          (first-binder-id elem first-evidence-ids first-data)
-                                                                          (values (maybe-repetition-as-list first-bind-id first-bind-uses)
-                                                                                  ...))]
-                                                         [accum-evidence (cons elem-evidence accum)])
-                                                    (or (loop (state-next state) accum-evidence)
-                                                        (let ([suffix (state-rest state)])
-                                                          (rest-matcher-id suffix rest-data
-                                                                           if/blocked
-                                                                           (let ([getter (build-overall-rest-getter '(first-bind-id ...)
-                                                                                                                    accum-evidence)])
-                                                                             (vector getter suffix #,@(flatten-tree #'rest-evidence-ids)))
-                                                                           #f))))
-                                                  #f)]))))))
+                                (let sub-loop ([sub-state (init-sub-state state)])
+                                  (and
+                                   (substate-can? state sub-state)
+                                   (let ()
+                                     (define elem (state-first state sub-state))
+                                     (first-matcher-id elem first-data
+                                                       if/blocked
+                                                       (let* ([elem-evidence (lambda ()
+                                                                               (first-committer-id elem first-evidence-ids first-data)
+                                                                               (first-binder-id elem first-evidence-ids first-data)
+                                                                               (values (maybe-repetition-as-list first-bind-id first-bind-uses)
+                                                                                       ...))]
+                                                              [accum-evidence (cons elem-evidence accum)])
+                                                         (or (loop (state-next state sub-state) accum-evidence)
+                                                             (let ([suffix (state-rest state sub-state)])
+                                                               (rest-matcher-id suffix rest-data
+                                                                                if/blocked
+                                                                                (let ([getter (build-overall-rest-getter '(first-bind-id ...)
+                                                                                                                         accum-evidence)])
+                                                                                  (vector getter suffix #,@(flatten-tree #'rest-evidence-ids)))
+                                                                                #f))
+                                                             (and (substate-continue? state sub-state)
+                                                                  (sub-loop (next-sub-state state sub-state)))))
+                                                       (and (substate-continue? state sub-state)
+                                                            (sub-loop (next-sub-state state sub-state)))))))]))))))
               (IF evidence success fail)))])]))
 
 (define-syntax (try-rest-committer stx)
   (syntax-parse stx
     [(_ val-id evidence (head-mode
-                         as-treelist? rest-to-repetition
+                         as-treelist? rest-to-repetition no-rest-map?
                          _ prefix suffix (~and evidence-ids (first-evidence-ids rest-evidence-ids))
                          _
                          first-matcher-id _ first-committer-id first-binder-id first-data
@@ -245,7 +325,7 @@
 (define-syntax (try-rest-binder stx)
   (syntax-parse stx
     [(_ val-id evidence (head-mode
-                         as-treelist? rest-to-repetition
+                         as-treelist? rest-to-repetition no-rest-map?
                          _ prefix suffix (first-evidence-ids rest-evidence-ids)
                          _
                          first-matcher-id _ first-committer-id first-binder-id first-data
@@ -259,7 +339,7 @@
                                       #'(first-bind-id ...)
                                       #'((first-bind-static-info ...) ...)
                                       #'first-seq-tmp-ids
-                                      (free-identifier=? #'always-succeed #'first-matcher-id)
+                                      (syntax-e #'no-rest-map?)
                                       #'rest-to-repetition))
          (rest-binder-id suffix rest-evidence-ids rest-data))]))
 

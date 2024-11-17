@@ -168,24 +168,13 @@ list is a pair, a pair is a pair list only if its ``rest'' is a list.
   grammar splice:
     $repet_bind #,(@litchar{,}) $ellipsis
     #,(@rhombus(&, ~bind)) $pair_list_bind
+      #,(@rhombus(&, ~bind)) $pair_list_repet_bind #,(@litchar{,}) $ellipsis
   grammar ellipsis:
     #,(dots)
 ){
 
  Matches a @tech{pair list} with @rhombus(bind_or_splice)s in the same
  way that @rhombus(List, ~bind) matches lists.
-
- Unlike a @rhombus(List, ~bind), a @rhombus(splice) that does not impose
- a predicate or conversion on a matching value is constant-time only when
- the @rhombus(splice) is at the end of the pattern. Matching @math{N}
- elements to a splice in the middle of a pair list takes at least
- @math{O(N)} time. Along those lines, when multiple @rhombus(splice)s are
- among the @rhombus(bind_or_splice)s, a splice using
- @rhombus(#,(@rhombus(&, ~bind)) pair_list_bind) requires @math{O(N)}
- time to produce each @math{N}-length candidate match to
- @rhombus(pair_list_bind).
-
- @see_implicit(@rhombus(#%brackets, ~bind), @brackets, "binding")
 
 @examples(
   def PairList(1, x, y) = PairList[1, 2, 3]
@@ -197,6 +186,16 @@ list is a pair, a pair is a pair list only if its ``rest'' is a list.
   def PairList(1, x, ...) = PairList[1, 2, 3]
   PairList[x, ...]
 )
+
+ Unlike a @rhombus(List, ~bind), a @rhombus(splice) that does not impose
+ a predicate or conversion on a matching value is constant-time only when
+ the @rhombus(splice) is at the end of the pattern. Matching @math{N}
+ elements to a splice in the middle of a pair list takes at least
+ @math{O(N)} time. Along those lines, when multiple @rhombus(splice)s are
+ among the @rhombus(bind_or_splice)s, a splice using
+ @rhombus(#,(@rhombus(&, ~bind)) pair_list_bind) requires @math{O(N)}
+ time to produce each @math{N}-length candidate match to
+ @rhombus(pair_list_bind).
 
 }
 

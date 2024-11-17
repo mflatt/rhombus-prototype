@@ -91,6 +91,7 @@ it supplies its elements in order.
   grammar splice:
     $repet_bind #,(@litchar{,}) $ellipsis
     #,(@rhombus(&, ~bind)) $list_bind
+    #,(@rhombus(&, ~bind)) $list_repet_bind #,(@litchar{,}) $ellipsis
   grammar ellipsis:
     #,(dots)
 ){
@@ -99,12 +100,52 @@ it supplies its elements in order.
  @rhombus(splice) is included, at least as many elements as
  @rhombus(bind)s. Each @rhombus(splice) matches a sublist, and the
  matching sublist is deterministic if only one @rhombus(splice) is
- present. If multiple @rhombus(splice)s are present, matching is greedy:
- the first @rhombus(splice) matches as many elements as possible to
- achieve a successful match, and so on for subsequent matches with the
- remaining elements. In the case of a
- @rhombus(#,(@rhombus(&, ~bind)) list_bind) splice, static information
- associated by @rhombus(List) is propagated to @rhombus(list_bind).
+ present with @rhombus(&) or @dots, but not both.
+
+@examples(
+  def List(1, x, y) = [1, 2, 3]
+  y
+  def [1, also_x, also_y] = [1, 2, 3]
+  also_y
+  def List(1, & xs) = [1, 2, 3]
+  xs
+  def List(1, x, ...) = [1, 2, 3]
+  [x, ...]
+  def List(1, x, ..., 3) = [1, 2, 3]
+  [x, ...]
+)
+
+ If multiple @rhombus(splice)s are present, matching is greedy: the
+ first @rhombus(splice) matches as many elements as possible to achieve a
+ successful match, and so on for subsequent matches with the remaining
+ elements.
+
+@examples(
+  def List(x, ..., z, ...) = [1, 2, "c", 5]
+  [[x, ...], [z, ...]]
+  def List(x, ..., #'stop, z, ...) = [1, 2, "c", #'stop, 5]
+  [[x, ...], [z, ...]]
+  def List(x :: Int, ..., y, z, ...) = [1, 2, "c", "d", 5]
+  [[x, ...], y, [z, ...]]
+)
+
+ For a
+ @rhombus(#,(@rhombus(&, ~bind)) list_repet_bind #,(@litchar{,})  ellipsis)
+ splice repetition, @rhombus(list_repet_bind) is matched greedily to a
+ non-empty sequence.
+
+@examples(
+  def List(x, ..., z, ...) = [1, 2, "c", 5]
+  [[x, ...], [z, ...]]
+  def List(x, ..., #'stop, z, ...) = [1, 2, "c", #'stop, 5]
+  [[x, ...], [z, ...]]
+  def List(x :: Int, ..., y, z, ...) = [1, 2, "c", "d", 5]
+  [[x, ...], y, [z, ...]]
+  def List(& [x, ...], ...) = [1, 2, 3, 4]
+  [[x, ...], ...]
+  def List(& [x :: Int, ..., y], ..., z, ...) = [1, 2, "c", 4, "e", 6]
+  [[[x, ...], ...], [y, ...], [z, ...]]
+)
 
  When @rhombus(splice) does not impose a predicate or conversion on a
  matching value (e.g., @rhombus(repet_bind) or @rhombus(list_bind) is an
@@ -133,25 +174,12 @@ it supplies its elements in order.
  the longest plausible sequence to @rhombus(list_bind), then backtracks
  as needed by trying smaller sequences.
 
+ In the case of a @rhombus(#,(@rhombus(&, ~bind)) list_bind) splice or
+ @rhombus(#,(@rhombus(&, ~bind)) list_repet_bind #,(@litchar{,}) ellipsis)
+ splice repetition, static information associated by @rhombus(List) is
+ propagated to @rhombus(list_bind) or @rhombus(list_repet_bind).
+
  @see_implicit(@rhombus(#%brackets, ~bind), @brackets, "binding")
-
-@examples(
-  def List(1, x, y) = [1, 2, 3]
-  y
-  def [1, also_x, also_y] = [1, 2, 3]
-  also_y
-  def List(1, & xs) = [1, 2, 3]
-  xs
-  def List(1, x, ...) = [1, 2, 3]
-  [x, ...]
-  def List(1, x, ..., 3) = [1, 2, 3]
-  [x, ...]
-  def List(x, ..., #'stop, z, ...) = [1, 2, "c", #'stop, 5]
-  [[x, ...], [z, ...]]
-  def List(x :: Int, ..., y, z, ...) = [1, 2, "c", "d", 5]
-  [[x, ...], y, [z, ...]]
-)
-
 }
 
 @doc(

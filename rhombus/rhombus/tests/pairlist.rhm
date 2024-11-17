@@ -473,6 +473,24 @@ check:
   ~is PairList[PairList[1], PairList[], 2]
 
 check:
+  match PairList[1, "end", 2, 3, 4, "end", 5]
+  | PairList[& PairList[x, ..., "end"], ..., z]:
+      [[[x, ...], ...], z]
+  ~is [[[1, "end", 2, 3, 4]], 5]
+
+check:
+  match PairList[1, "end", 2, 3, 4, "end", 5]
+  | PairList[& PairList[x, ..., "end"], ..., z]:
+      [[[x, ...], ...], z]
+  ~is [[[1, "end", 2, 3, 4]], 5]
+
+check:
+  match PairList[1, "end", 2, 3, 4, "end", 5]
+  | PairList[& PairList[x :: Int, ..., "end"], ..., z]:
+      [[[x, ...], ...], z]
+  ~is [[[1], [2, 3, 4]], 5]
+
+check:
   PairList[PairList.repet(PairList[1, 2, 3]), ...] ~is PairList[1, 2, 3]
   PairList[PairList.repet("oops"), ...] ~throws values(
     "PairList.repet: " ++ error.annot_msg(),

@@ -35,7 +35,8 @@
          "try-rest-bind.rkt"
          "number.rkt"
          (submod "comparable.rkt" for-builtin)
-         "list-last.rkt")
+         "list-last.rkt"
+         "maybe-list-tail.rkt")
 
 (provide (for-spaces (rhombus/namespace
                       #f
@@ -685,7 +686,8 @@
 
 (define-annotation-constructor (NonemptyList NonemptyList.of)
   ()
-  #'nonempty-treelist? #,(get-treelist-static-infos)
+  #'nonempty-treelist? ((#%treelist-bounds (group 1 #f))
+                        #,@(get-treelist-static-infos))
   1
   #f
   (lambda (arg-id predicate-stxs)
@@ -697,7 +699,8 @@
 
 (define-annotation-constructor (NonemptyPairList NonemptyPairList.of)
   ()
-  #'nonempty-list? #,(get-list-static-infos)
+  #'nonempty-list? ((#%list-bounds (group 1 #f))
+                    #,@(get-list-static-infos))
   1
   #f
   (lambda (arg-id predicate-stxs)
@@ -1148,6 +1151,17 @@
                                      (#,group-tag rest-arg ...))
                                   make-rest-selector
                                   #f)]
+               [(and (pair? (cdr args))
+                     (syntax-parse (cadr args)
+                       [(group _::...-bind) #t]
+                       [_ #f]))
+                (generate-binding #'form-id (reverse accum) null #'tail
+                                  #`(#,group-tag try-rest-bind #,static-infos form-id
+                                     #:splice-repetition #,mid-splice-allowed? #,rest-to-repetition #,bounds-key
+                                     (#,group-tag rest-arg ...)
+                                     #,@(cddr args))
+                                  make-rest-selector
+                                  #f)]
                [else
                 (generate-binding #'form-id (reverse accum) null #'tail
                                   #`(#,group-tag try-rest-bind #,static-infos form-id
@@ -1239,7 +1253,7 @@
                                   #:rest-accessor (and make-rest-selector (make-rest-selector len 0))
                                   #:rest-repetition? rest-repetition?
                                   #:rest-to-repetition #'in-list
-                                  #:bounds-key '#%list-bounds
+                                  #:bounds-key #'#%list-bounds
                                   #:static-infos (get-list-static-infos)))
 
 (define-binding-syntax List (make-binding generate-treelist-binding make-treelist-rest-selector get-treelist-static-infos
@@ -1418,12 +1432,6 @@
                     #:rep-solo-for-form #'for/treelist
                     #:repetition? #t
                     #:span-form-name? #f))
-
-(define (maybe-list-tail l n)
-  (or (and (eqv? n 0)
-           l)
-      (and (pair? l)
-           (maybe-list-tail (cdr l) (sub1 n)))))
 
 (define (ensure-treelist v)
   (or (to-treelist #f v)

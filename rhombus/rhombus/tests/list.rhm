@@ -559,6 +559,24 @@ check:
   ~is [[Path("a"), Path("b")], [Path("c"), Path("d")], 0]
 
 check:
+  match [1, "end", 2, 3, 4, "end", 5]
+  | [& [x, ..., "end"], ..., z]:
+      [[[x, ...], ...], z]
+  ~is [[[1, "end", 2, 3, 4]], 5]
+
+check:
+  match [1, "end", 2, 3, 4, "end", 5]
+  | [& [x, ..., "end", & z0], ..., z]:
+      [[[x, ...], ...], z]
+  ~is [[[1, "end", 2, 3, 4]], 5]
+
+check:
+  match [1, "end", 2, 3, 4, "end", 5]
+  | [& [x :: Int, ..., "end"], ..., z]:
+      [[[x, ...], ...], z]
+  ~is [[[1], [2, 3, 4]], 5]
+
+check:
   [List.repet([1, 2, 3]), ...] ~is [1, 2, 3]
   [List.repet("oops"), ...] ~throws values(
     "List.repet: " ++ error.annot_msg(),
@@ -649,3 +667,4 @@ block:
     list_bounds(matching([x, & _ :: Triple || List, y])) ~is [2, #false]
     list_bounds(matching([x, y, ...] where: x = [y, ...].length)) ~is [1, #false]
     list_bounds(matching([_, & [x, y, ...] where: x = [y, ...].length, _])) ~is [3, #false]
+    list_bounds(NonemptyList) ~is [1, #false]
