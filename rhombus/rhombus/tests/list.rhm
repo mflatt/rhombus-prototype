@@ -1,4 +1,4 @@
-#lang rhombus
+#lang rhombus/and_meta
 import:
   "version_guard.rhm"
 
@@ -625,3 +625,27 @@ check:
     error.annot("List").msg,
     error.val("oops").msg,
   )
+
+block:
+  expr.macro 'list_bounds($(a :: annot_meta.Parsed))':
+    let (_, _, si) = annot_meta.unpack_converter(a)
+    match statinfo_meta.find(si, statinfo_meta.list_bounds_key)
+    | '$min $max':
+        '[#%literal $min, #%literal $max]'
+    | ~else:
+        '#false'
+  annot.macro 'Triple': 'matching([_, _, _])'
+  check:
+    list_bounds(matching([x, y, z])) ~is [3, 3]
+    list_bounds(matching([x, ..., z])) ~is [1, #false]
+    list_bounds(matching([& y, z])) ~is [1, #false]
+    list_bounds(matching([x, & y, z])) ~is [2, #false]
+    list_bounds(matching([x, y, ..., z])) ~is [2, #false]
+    list_bounds(matching([x, y, ..., z, ...])) ~is [1, #false]
+    list_bounds(matching([x, & [y1, y2, y3], z])) ~is [5, 5]
+    list_bounds(Triple) ~is [3, 3]
+    list_bounds(matching([x, & _ :: Triple, y])) ~is [5, 5]
+    list_bounds(matching([x, & _ :: List && Triple, y])) ~is [5, 5]
+    list_bounds(matching([x, & _ :: Triple || List, y])) ~is [2, #false]
+    list_bounds(matching([x, y, ...] where: x = [y, ...].length)) ~is [1, #false]
+    list_bounds(matching([_, & [x, y, ...] where: x = [y, ...].length, _])) ~is [3, #false]

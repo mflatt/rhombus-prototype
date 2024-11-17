@@ -33,6 +33,7 @@
                                                   #:keywords [keywords #f] ; #f or a list of keywords and #f
                                                   #:steppers [steppers #f] ; a sequence of `cdr`s for lists
                                                   #:static-infos [composite-static-infos #'()] ; for the composite value
+                                                  #:bounds-key [bounds-key #f]
                                                   #:accessor->info? [accessor->info? #f] ; extend composite info?
                                                   #:index-result-info? [index-result-info? #f]
                                                   #:sequence-element-info? [sequence-element-info? #f]
@@ -62,7 +63,7 @@
       (binding-form
        #'composite-infoer
        #`(#,constructor-str
-          #,predicate #,composite-static-infos
+          #,predicate #,composite-static-infos #,bounds-key
           #,steppers #,accessors #,static-infoss
           (a-parsed.infoer-id ... ) (a-parsed.data ...)
           #,accessor->info? #,index-result-info? #,sequence-element-info?
@@ -80,7 +81,7 @@
 (define-syntax (composite-infoer stx)
   (syntax-parse stx
     [(_ static-infos (constructor-str
-                      predicate (composite-static-info ...)
+                      predicate init-composite-static-infos bounds-key
                       steppers accessors ((static-info ...) ...)
                       (infoer-id ...) (data ...)
                       accessor->info? index-result-info? sequence-element-info?
@@ -164,8 +165,26 @@
                   (syntax-e #'rest-repetition?)
                   #'(rest-tmp-id rest-info.evidence-ids))]))
 
+     (define-values (min-len max-len)
+       (if (syntax-e #'bounds-key)
+           (let ([a-min-len (length (syntax->list #'(a-info.name-id ...)))])
+             (syntax-parse (and (not rest-repetition?)
+                                (static-info-lookup rest-static-infos #'bounds-key))
+               #:datum-literals (group)
+               [(group min max)
+                (values (+ a-min-len (syntax-e #'min))
+                        (and (syntax-e #'max) (+ a-min-len (syntax-e #'max))))]
+               [_ (if (syntax-e #'rest-data)
+                      (values a-min-len #f)
+                      (values a-min-len a-min-len))]))
+           (values #f #f)))
+
      (define all-composite-static-infos
-       (let* ([composite-static-infos #'(composite-static-info ... . static-infos)]
+       (let* ([composite-static-infos #'init-composite-static-infos]
+              [composite-static-infos (if (syntax-e #'bounds-key)
+                                          #`((bounds-key (group #,min-len #,max-len)) . #,composite-static-infos)
+                                          composite-static-infos)]
+              [composite-static-infos (static-infos-union composite-static-infos #'static-infos)]
               [composite-static-infos (if (or (null? (syntax-e rest-static-infos))
                                               (not (null? (syntax-e #'accessors))))
                                           composite-static-infos
@@ -204,19 +223,22 @@
                                         [else composite-static-infos])])
          composite-static-infos))
      (define tmp-ids (generate-temporaries #'(a-info.name-id ...)))
-     (binding-info (build-annotation-str #'constructor-str (syntax->list #'(a-info.annotation-str ...)) rest-annotation-str
-                                         #:rest-repetition? rest-repetition?)
-                   #'composite
-                   all-composite-static-infos
-                   #`((a-info.bind-id a-info.bind-uses a-info.bind-static-info ...) ... ... . #,rest-bind-ids+static-infos)
-                   #'composite-matcher
-                   #`(#,tmp-ids a-info.evidence-ids ... #,rest-evidence-ids)
-                   #'composite-committer
-                   #'composite-binder
-                   #`(predicate steppers accessors #,tmp-ids
-                                (a-info.name-id ...) (a-info.matcher-id ...)
-                                (a-info.committer-id ...) (a-info.binder-id ...) (a-info.data ...)
-                                #,new-rest-data))]))
+     (with-syntax ([predicate (if (syntax-e #'bounds-key)
+                                  #`(predicate #,min-len #,max-len)
+                                  #'predicate)])
+       (binding-info (build-annotation-str #'constructor-str (syntax->list #'(a-info.annotation-str ...)) rest-annotation-str
+                                           #:rest-repetition? rest-repetition?)
+                     #'composite
+                     all-composite-static-infos
+                     #`((a-info.bind-id a-info.bind-uses a-info.bind-static-info ...) ... ... . #,rest-bind-ids+static-infos)
+                     #'composite-matcher
+                     #`(#,tmp-ids a-info.evidence-ids ... #,rest-evidence-ids)
+                     #'composite-committer
+                     #'composite-binder
+                     #`(predicate steppers accessors #,tmp-ids
+                                  (a-info.name-id ...) (a-info.matcher-id ...)
+                                  (a-info.committer-id ...) (a-info.binder-id ...) (a-info.data ...)
+                                  #,new-rest-data)))]))
 
 (define-syntax (composite-matcher stx)
   (syntax-parse stx

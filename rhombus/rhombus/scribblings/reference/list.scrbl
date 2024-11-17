@@ -82,35 +82,56 @@ it supplies its elements in order.
   ~nonterminal:
     list_bind: def bind ~defn
     repet_bind: def bind ~defn
-  bind.macro 'List($bind, ...)'
-  bind.macro 'List($bind, ..., $rest, $bind, ...)'
-  bind.macro '#%brackets [$bind, ...]'
-  bind.macro '#%brackets [$bind, ..., $rest, $bind, ...]'
-  bind.macro 'List[$bind, ...]'
-  bind.macro 'List[$bind, ..., $rest, $bind, ...]'
-  grammar rest:
+  bind.macro 'List($bind_or_splice, ...)'
+  bind.macro '#%brackets [$bind_or_splice, ...]'
+  bind.macro 'List[$bind_or_splice, ...]'
+  grammar bind_or_splice:
+    $bind
+    $splice
+  grammar splice:
     $repet_bind #,(@litchar{,}) $ellipsis
     #,(@rhombus(&, ~bind)) $list_bind
   grammar ellipsis:
     #,(dots)
 ){
 
- Matches a list with as many elements as @rhombus(bind)s, or if
- @rhombus(rest) is included, at least as many elements as
- @rhombus(bind)s, where the @rhombus(rest) (if present) matches the
- remainder of the list. Unlike most binding forms, a list pattern
- can include a @rhombus(rest) in the middle of a @rhombus(bind)
- sequence, and not just after @rhombus(bind)s.
+ Matches a list with as many elements as @rhombus(bind)s, or if a
+ @rhombus(splice) is included, at least as many elements as
+ @rhombus(bind)s. Each @rhombus(splice) matches a sublist, and the
+ matching sublist is deterministic if only one @rhombus(splice) is
+ present. If multiple @rhombus(splice)s are present, matching is greedy:
+ the first @rhombus(splice) matches as many elements as possible to
+ achieve a successful match, and so on for subsequent matches with the
+ remaining elements. In the case of a
+ @rhombus(#,(@rhombus(&, ~bind)) list_bind) splice, static information
+ associated by @rhombus(List) is propagated to @rhombus(list_bind).
 
- When @rhombus(#,(@rhombus(&, ~bind)) list_bind) is used, the remainder of the list must match
- the @rhombus(list_bind). Static information associated by
- @rhombus(List) is propagated to @rhombus(list_bind).
-
- When @rhombus(repet_bind) is used and does not impose a predicate or
- conversion on a matching value (e.g., @rhombus(repet_bind) is an
+ When @rhombus(splice) does not impose a predicate or conversion on a
+ matching value (e.g., @rhombus(repet_bind) or @rhombus(list_bind) is an
  identifier), then the corresponding elements of a matching value are not
- traversed, which means that matching can be constant-time. Using this
- repetition in a new list similarly avoids traversing the elements.
+ traversed, which means that matching takes only the time needed by
+ @rhombus(List.sublist) (practically constant time) for a single such
+ splice. Using this repetition in a new list similarly avoids traversing
+ the elements.
+
+ A splice of the form @rhombus(#,(@rhombus(&, ~bind)) list_bind) may
+ have a statically known length. In particular, static information with
+ the key @rhombus(statinfo_meta.list_bounds_key) is associated with the
+ overall pattern, so if @rhombus(list_bind) is based on a list pattern,
+ it may report its bounds via that key. The list matcher will not attempt
+ to matches that are inconsistent with known bounds, and a
+ multi-@rhombus(splice) pattern using
+ @rhombus(#,(@rhombus(&, ~bind)) list_bind) splices is potentially
+ deterministic and efficient if bounds can be determined statically.
+
+ When multiple @rhombus(splice)s are present, the search for a match to
+ each @rhombus(repet_bind #,(@litchar{,}) ellipsis) splice first builds
+ up a candidate sequence as long as possible by stopping when an element
+ doesn't satisfy @rhombus(repet_bind), and then the matcher backtracks to
+ shorter sequences as needed to find an overall match. The search for a
+ match to @rhombus(#,(@rhombus(&, ~bind)) list_bind) tries first matching
+ the longest plausible sequence to @rhombus(list_bind), then backtracks
+ as needed by trying smaller sequences.
 
  @see_implicit(@rhombus(#%brackets, ~bind), @brackets, "binding")
 
@@ -125,6 +146,10 @@ it supplies its elements in order.
   [x, ...]
   def List(1, x, ..., 3) = [1, 2, 3]
   [x, ...]
+  def List(x, ..., #'stop, z, ...) = [1, 2, "c", #'stop, 5]
+  [[x, ...], [z, ...]]
+  def List(x :: Int, ..., y, z, ...) = [1, 2, "c", "d", 5]
+  [[x, ...], y, [z, ...]]
 )
 
 }
