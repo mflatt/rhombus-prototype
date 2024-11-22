@@ -30,7 +30,7 @@ export:
     :~
     is_a
     #'
-    names: .
+    names: . #%call
     for
     import
     export
@@ -721,13 +721,32 @@ spacer.bridge #'(self, tail, context, esc):
         | ~else: t
       '$self $(adjust_one(tail, context, esc, adjust))'
 
-spacer.bridge .(self, tail, context, esc):
+spacer.bridge .(~left: left, self, tail, context, esc):
   ~in: ~expr
   match tail
   | '$(id :: Identifier) $tail ...':
-      '$self $(spacer.adjust_rest_sequence(spacer.set(id, #'~datum), '$tail ...', context, esc))'
+      let id = spacer.set(id, #'~datum)
+      let (left, id):
+        match left
+        | '': values(left, id)
+        | '$pre ... $(left :: Term)':
+            let key = left.property(#'field_key) || Symbol.gen()
+            values('$pre ... $(left.property(#'field_key, key, #true))',
+                   id.property(#'field, Pair(#'of, key), #true))
+      '$left $self $(spacer.adjust_rest_sequence(id, '$tail ...', context, esc))'
   | ~else:
-      '$self $(spacer.adjust_sequence(tail, context, esc))'
+      '$left $self $(spacer.adjust_sequence(tail, context, esc))'
+
+spacer.bridge #%call(~left: left, self, tail, context, esc):
+  ~in: ~expr
+  match tail
+  | '$parens $tail ...':
+      match left
+      | '$pre ... $(left :: Term)':
+          let key = left.property(#'field_key) || Symbol.gen()
+          let left = left.property(#'field_key, key, #true)
+          let parens = parens.property(#'annot, Pair(#'result, key), #true)
+          '$pre ... $left $(self || '') $(spacer.adjust_rest_sequence(parens, '$tail ...', context, esc))'
 
 meta:
   def for_spaces = [#'#{rhombus/for_clause}, & body_spaces]
