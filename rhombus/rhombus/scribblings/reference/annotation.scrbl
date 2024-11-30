@@ -226,11 +226,52 @@
  @rhombus(annot). If @rhombus(annot) is a @tech(~doc: guide_doc){converter annotation},
  its conversion applies to a non-@rhombus(#false) value.
 
+ See also @rhombus(definitely).
+
 @examples(
   #false :: maybe(String)
   "string" :: maybe(String)
   ~error:
     #true :: maybe(String)
+)
+
+}
+
+@doc(
+  expr.macro 'definitely($expr)'
+  bind.macro 'definitely($bind)'
+){
+
+ An an expression, @rhombus(definitely(expr)) ensures that the result of
+ @rhombus(expr) is not @rhombus(#false) by throwing an exception if the
+ result is @rhombus(#false). If @rhombus(expr) has static information
+ from @rhombus(maybe(#,(@nontermref(annot))), ~annot), then the overall
+ @rhombus(definitely) expression gets the static information of
+ @nontermref(annot).
+
+ As a binding, @rhombus(definitely(bind)) matches non-@rhombus(#false)
+ values that match @rhombus(bind). Similar to the @rhombus(definitely)
+ expression form, when static information for the input to
+ @rhombus(definitely(bind)) is
+ @rhombus(maybe(#,(@nontermref(annot))), ~annot), then @rhombus(bind)
+ more specifically starts with the static information of
+ @nontermref(annot).
+
+@examples(
+  ~repl:
+    ~error:
+      definitely(#false)
+  ~defn:
+    fun len(str :: maybe(String)):
+      use_static
+      match str
+      | definitely(s): s.length()
+      | ~else: 0
+  ~repl:
+    len("apple")
+    len(#false)
+    ~error:
+      len(1)
 )
 
 }

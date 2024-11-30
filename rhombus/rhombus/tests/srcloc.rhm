@@ -16,3 +16,11 @@ check:
   def s = dynamic(Srcloc("here", 1, 2, 3, 4))
   [s.source, s.line, s.column, s.position, s.span]
   ~is ["here", 1, 2, 3, 4]
+
+block:
+  use_static
+  let s = Srcloc("src", 1, 2, #false, 3)
+  check definitely(s.line) < dynamic(0) ~is #false
+  check definitely(s.column) < dynamic(0) ~is #false
+  check definitely(s.position) < dynamic(0) ~throws "argument is false"
+  check definitely(s.span) < dynamic(0) ~is #false

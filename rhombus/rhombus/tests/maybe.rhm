@@ -1,0 +1,30 @@
+#lang rhombus
+
+check:
+  1 :: maybe(Int) ~is 1
+  #false :: maybe(Int) ~is #false
+  "x" :: maybe(Int) ~throws error.annot_msg()
+  definitely(0) ~is 0
+  definitely(#false) ~throws "argument is false"
+
+check:
+  ~eval
+  use_static
+  (dynamic("s") :: maybe(String)).length()
+  ~throws values("no such field or method",
+                 "based on static information")
+
+block:
+  use_static
+  check definitely("s" :: maybe(String)).length() ~is 1
+  check definitely(#false :: maybe(String)).length() ~throws "argument is false"
+  let s :: maybe(String) = dynamic("s")
+  check: match s
+         | definitely(s): s.length()
+         ~is 1
+  check: match (#false :: maybe(String))
+         | definitely(s): s.length()
+         | ~else: "no"
+         ~is "no"
+  check: definitely([]).length()
+         ~is 0

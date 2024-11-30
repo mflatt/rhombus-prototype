@@ -6,6 +6,74 @@ use_static
 
 export:
   maybe
+  definitely
 
 annot.macro 'maybe($(ann :: annot_meta.Parsed))':
-  'False || $ann'
+  ~all_stx: stx
+  if annot_meta.is_predicate(ann)
+  | let (pred, statinfos) = annot_meta.unpack_predicate(ann)
+    annot_meta.pack_predicate('block:
+                                 let p = $pred
+                                 fun (v): !v || p(v)',
+                              '(($statinfo_meta.maybe_key,
+                                 $(statinfo_meta.pack(statinfos))))').relocate_span([stx])
+  | let (_, _, statinfos) = annot_meta.unpack_converter(ann)
+    let '$(f_ann :: annot_meta.Parsed)' = 'False || $ann'
+    let (bind, body, _) = annot_meta.unpack_converter('$f_ann')
+    annot_meta.pack_converter(bind,
+                              body,
+                              '(($statinfo_meta.maybe_key,
+                                 $(statinfo_meta.pack(statinfos))))')
+
+expr.macro 'definitely($(e :: expr_meta.Parsed))':
+  ~op_stx: self
+  let statinfos = statinfo_meta.gather(e)
+  let maybe_statinfos = statinfo_meta.lookup(e, statinfo_meta.maybe_key)
+  statinfo_meta.replace('match $(statinfo_meta.replace(e, '()'))
+                         | #false: definitely_failed(#' $self)
+                         | v: v',
+                        if maybe_statinfos
+                        | statinfo_meta.union(statinfos,
+                                              statinfo_meta.unpack(maybe_statinfos))
+                        | statinfos)
+
+fun definitely_failed(who):
+  throw Exn.Fail.Annot(who +& ": argument is false",
+                       Continuation.Marks.current())
+
+bind.macro 'definitely($(b :: bind_meta.Parsed))':
+  ~op_stx: self
+  bind_meta.pack('(definitely_infoer,
+                   $b)')
+
+
+bind.infoer 'definitely_infoer($statinfos, $b)':
+  let maybe_statinfos = statinfo_meta.find(statinfos, statinfo_meta.maybe_key)
+  let b_info = bind_meta.get_info(b, if maybe_statinfos
+                                     | statinfo_meta.union(statinfos,
+                                                           statinfo_meta.unpack(maybe_statinfos))
+                                     | statinfos)
+  def '($b_ann, $b_name, $b_s_infos, $b_var_infos,
+        $b_matcher, $b_evidence, $b_committer, $b_binder, $b_data)':
+    bind_meta.unpack_info(b_info)
+  '($b_ann,
+    $b_name,
+    $b_s_infos,
+    $b_var_infos,
+    definitely_matcher,
+    $b_evidence,
+    definitely_committer,
+    definitely_binder,
+    ($b_matcher, $b_committer, $b_binder, $b_data))'
+
+bind.matcher 'definitely_matcher($in_id, ($b_matcher, $_, $_, $b_data),
+                                 $IF, $success, $failure)':
+  '$IF $in_id
+   | $b_matcher($in_id, $b_data, $IF, $success, $failure)
+   | $failure'
+
+bind.committer 'definitely_committer($in_id, $evidence, ($_, $b_committer, $_, $b_data))':
+  '$b_committer($in_id, $evidence, $b_data)'
+
+bind.binder 'definitely_binder($in_id, $evidence, ($_, $_, $b_binder, $b_data))':
+  '$b_binder($in_id, $evidence, $b_data)'
