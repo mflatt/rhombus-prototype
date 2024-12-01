@@ -2,9 +2,24 @@
 (require "private/bounce.rkt"
          "private/version-case.rkt")
 
-(bounce (submod "private/amalgam.rkt" core)
-        (submod "private/amalgam.rkt" core-macro)
-        (submod "private/amalgam.rkt" core-derived))
+(require (only-space-in rhombus/impo
+                        (only-in (submod "private/amalgam.rkt" core)
+                                 !))
+         (only-space-in rhombus/modpath
+                        (only-in (submod "private/amalgam.rkt" core)
+                                 !))
+         (only-space-in rhombus/annot
+                        (only-in (submod "private/amalgam.rkt" core)
+                                 !))
+         (only-space-in rhombus/unquote_bind
+                        (only-in (submod "private/amalgam.rkt" core)
+                                 !))
+         (rename-in (submod "private/amalgam.rkt" core-derived)
+                    [?! !]))
+
+(bounce #:except (!) (submod "private/amalgam.rkt" core))
+(bounce (submod "private/amalgam.rkt" core-macro))
+(bounce #:except (?!) (submod "private/amalgam.rkt" core-derived))
 
 (meta-if-version-at-least
  "8.13.0.4"

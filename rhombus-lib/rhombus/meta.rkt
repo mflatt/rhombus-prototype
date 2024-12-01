@@ -2,10 +2,24 @@
 (require "private/bounce.rkt"
          "private/version-case.rkt")
 
-(bounce (submod "private/amalgam.rkt" core-meta)
-        (submod "private/amalgam.rkt" core-meta sequence_meta))
+(require (only-space-in rhombus/impo
+                        (only-in (submod "private/amalgam.rkt" core-meta)
+                                 !))
+         (only-space-in rhombus/modpath
+                        (only-in (submod "private/amalgam.rkt" core-meta)
+                                 !))
+         (only-space-in rhombus/annot
+                        (only-in (submod "private/amalgam.rkt" core-meta)
+                                 !))
+         (only-space-in rhombus/unquote_bind
+                        (only-in (submod "private/amalgam.rkt" core-meta)
+                                 !)))
 
-(require (for-syntax (submod "private/amalgam.rkt" core-derived)))
+(bounce #:except (!) (submod "private/amalgam.rkt" core-meta))
+(bounce (submod "private/amalgam.rkt" core-meta sequence_meta))
+
+(require (for-syntax (rename-in (submod "private/amalgam.rkt" core-derived)
+                                [?! !])))
 (provide (for-syntax (all-from-out (submod "private/amalgam.rkt" core-derived))))
 
 (bounce (submod "private/amalgam.rkt" core-meta class-meta)

@@ -240,6 +240,10 @@
 @doc(
   expr.macro 'definitely($expr)'
   bind.macro 'definitely($bind)'
+  non_target:
+    expr.macro '$expr !'
+  non_target:
+    bind.macro '$bind !'
 ){
 
  An an expression, @rhombus(definitely(expr)) ensures that the result of
@@ -257,10 +261,16 @@
  more specifically starts with the static information of
  @nontermref(annot).
 
+ The @rhombuslink(definitely, @rhombus(!, ~datum)) postfix operator is a
+ shorthand for @rhombus(definitely), both as an expression and as a
+ binding. See also @rhombus(?)
+
 @examples(
   ~repl:
     ~error:
       definitely(#false)
+    ~error:
+      #false!
   ~defn:
     fun len(str :: maybe(String)):
       use_static
@@ -272,6 +282,32 @@
     len(#false)
     ~error:
       len(1)
+)
+
+}
+
+
+@doc(
+  expr.macro '$expr ? $infix_op_and_tail'
+){
+
+ If @rhombus(expr) produces @rhombus(#false), then the result of a
+ @rhombus(?) expression is @rhombus(#false). Otherwise,
+ @rhombus(infix_op_and_tail) is expected to continue with an infix
+ operator, such as @rhombus(.), and the result of @rhombus(expr) is used
+ as the left argument to that operator. When @rhombus(expr) has static
+ information from @rhombus(maybe(#,(@nontermref(annot))), ~annot), then
+ the argument to the infix operator has static information of
+ @nontermref(annot).
+
+@examples(
+  ~defn:
+    fun len(str :: maybe(String)):
+      use_static
+      str?.length() || 0
+  ~repl:
+    len("apple")
+    len(#false)
 )
 
 }

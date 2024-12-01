@@ -1,11 +1,21 @@
 #lang rhombus
 
+def fail_msg = "claimed not false, but actual value is false"
+
 check:
   1 :: maybe(Int) ~is 1
   #false :: maybe(Int) ~is #false
   "x" :: maybe(Int) ~throws error.annot_msg()
   definitely(0) ~is 0
-  definitely(#false) ~throws "argument is false"
+  definitely(#false) ~throws fail_msg
+  0! ~is 0
+  #false! ~throws fail_msg
+  #false! || #true ~throws fail_msg
+  #false!.m() ~throws fail_msg
+  (1 :: maybe(Int))? + 10 ~is 11
+  (#false :: maybe(Int))? + 10 ~is #false
+  1? || 2 ~is 1
+  #false? || 2 ~is #false
 
 check:
   ~eval
@@ -17,10 +27,16 @@ check:
 block:
   use_static
   check definitely("s" :: maybe(String)).length() ~is 1
-  check definitely(#false :: maybe(String)).length() ~throws "argument is false"
+  check definitely(dynamic("s") :: maybe(String)).length() ~is 1
+  check ("s" :: maybe(String))!.length() ~is 1
+  check (dynamic("s") :: maybe(String))!.length() ~is 1
+  check definitely(#false :: maybe(String)).length() ~throws fail_msg
   let s :: maybe(String) = dynamic("s")
   check: match s
          | definitely(s): s.length()
+         ~is 1
+  check: match s
+         | s!: s.length()
          ~is 1
   check: match (#false :: maybe(String))
          | definitely(s): s.length()
@@ -28,3 +44,11 @@ block:
          ~is "no"
   check: definitely([]).length()
          ~is 0
+  check: s?.length()
+         ~is 1
+  check: s?.copy().length()
+         ~is 1
+  check: (#false :: maybe(String))?.copy().length()
+         ~is #false
+  check: (#false :: maybe(String))?.copy()?.length()
+         ~is #false

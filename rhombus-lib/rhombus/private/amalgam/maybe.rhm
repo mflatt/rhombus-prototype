@@ -7,6 +7,8 @@ use_static
 export:
   maybe
   definitely
+  ?! // renamed to `!`
+  ?
 
 annot.macro 'maybe($(ann :: annot_meta.Parsed))':
   ~all_stx: stx
@@ -27,36 +29,104 @@ annot.macro 'maybe($(ann :: annot_meta.Parsed))':
 
 expr.macro 'definitely($(e :: expr_meta.Parsed))':
   ~op_stx: self
+  expand_definitely(e, self)
+
+meta:
+  fun demaybe_statinfos(statinfos):
+    let maybe_statinfos = statinfo_meta.find(statinfos, statinfo_meta.maybe_key)
+    if maybe_statinfos
+    | statinfo_meta.union(statinfos,
+                          statinfo_meta.unpack(maybe_statinfos))
+    | statinfos
+
+  fun expand_definitely(e, self):
+    let statinfos = statinfo_meta.gather(e)
+    statinfo_meta.replace('match $(statinfo_meta.replace(e, '()'))
+                           | #false: definitely_failed(#' $self)
+                           | v: v',
+                          demaybe_statinfos(statinfos))
+
+expr.macro
+| '?! $e':
+    // prefix "not" operator
+    ~stronger_than: && ||
+    '! $e'
+| '$e ?!':
+    // postfix "definitely" operator
+    ~op_stx: self
+    expand_definitely(e, Symbol.from_string(self.to_source_string()))
+
+repet.macro
+| '?! $e':
+    // prefix "not" operator
+    ~stronger_than: && ||
+    '! $e'
+| '$e ?!':
+    // postfix "definitely" operator
+    ~op_stx: self
+    ~all_stx: stx
+    let '($_, $expr, $depth, $use_depth, $statinfos)' = repet_meta.unpack_list(e)
+    repet_meta.pack_list('($stx,
+                           'check_definitely_at_depth(#' $(Symbol.from_string(self.to_source_string())),
+                                                      $expr,
+                                                      $depth - $use_depth)',
+                           $depth,
+                           $use_depth,
+                           $(demaybe_statinfos(statinfos)))')
+
+expr.macro '$e ? $tail ... ~nonempty':
+  ~weaker_than: ~other
   let statinfos = statinfo_meta.gather(e)
-  let maybe_statinfos = statinfo_meta.lookup(e, statinfo_meta.maybe_key)
-  statinfo_meta.replace('match $(statinfo_meta.replace(e, '()'))
-                         | #false: definitely_failed(#' $self)
-                         | v: v',
-                        if maybe_statinfos
-                        | statinfo_meta.union(statinfos,
-                                              statinfo_meta.unpack(maybe_statinfos))
-                        | statinfos)
+  let id = 'v'
+  let id_expr = statinfo_meta.replace(id, demaybe_statinfos(statinfos))
+  let '$(v_finish :: expr_meta.AfterInfixParsed('?'))' = '$id_expr $tail ...'
+  let finish_statinfos = statinfo_meta.gather(v_finish)
+  values(
+    statinfo_meta.replace(
+      'block:
+         let $id = $e
+         if v
+         | $v_finish
+         | #false',
+      '(($statinfo_meta.maybe_key, $(statinfo_meta.pack(finish_statinfos))))'
+      ),
+    '$v_finish.tail ...'
+  )
 
 fun definitely_failed(who):
-  throw Exn.Fail.Annot(who +& ": argument is false",
+  throw Exn.Fail.Annot(who +& ": claimed not false, but actual value is false",
                        Continuation.Marks.current())
+
+fun check_definitey_at_depth(who, v, depth):
+  if depth == 0
+  | v || definitely_failed(who)
+  | for (e: (v :~ List)):
+      check_definitey_at_depth(who, e, depth-1)
 
 bind.macro 'definitely($(b :: bind_meta.Parsed))':
   ~op_stx: self
   bind_meta.pack('(definitely_infoer,
                    $b)')
 
+bind.macro
+| '?! $e':
+    // prefix "not" operator
+    ~stronger_than: && ||
+    '! $e'
+| '$b ?!':
+    'definitely($b)'
 
 bind.infoer 'definitely_infoer($statinfos, $b)':
-  let maybe_statinfos = statinfo_meta.find(statinfos, statinfo_meta.maybe_key)
-  let b_info = bind_meta.get_info(b, if maybe_statinfos
-                                     | statinfo_meta.union(statinfos,
-                                                           statinfo_meta.unpack(maybe_statinfos))
-                                     | statinfos)
-  def '($b_ann, $b_name, $b_s_infos, $b_var_infos,
+  let b_info = bind_meta.get_info(b, demaybe_statinfos(statinfos))
+  let '($b_ann, $b_name, $b_s_infos, $b_var_infos,
         $b_matcher, $b_evidence, $b_committer, $b_binder, $b_data)':
     bind_meta.unpack_info(b_info)
-  '($b_ann,
+  let b_ann_str :~ String = b_ann.unwrap()
+  let ann:
+    if b_ann_str.starts_with("matching(") && b_ann_str.ends_with(")")
+    | "matching(definitely(" ++ b_ann_str.substring(9, b_ann_str.length() - 1) ++ "))"
+    | "matching(definitely(_ :: " ++ b_ann_str ++ "))"
+  '($ann,
     $b_name,
     $b_s_infos,
     $b_var_infos,
