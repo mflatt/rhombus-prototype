@@ -353,7 +353,9 @@
                                   #`(~seq #,instance-id (... ...))
                                   instance-id)
                             #,sc)) ; inline syntax class
-                instance-id))
+                (if (eq? 'group (rhombus-syntax-class-kind rsc))
+                    #`(~and (_ _ . _) #,instance-id)
+                    instance-id)))
          #,(cons #`[#,temp-id (#,pack* (syntax #,(if dotted-bind?
                                                      #`(#,instance-id (... ...))
                                                      instance-id))
@@ -442,7 +444,7 @@
 
 (define-for-syntax (normalize-id form)
   (if (identifier? form)
-      (if (eq? (current-unquote-binding-kind) 'grouplet!)
+      (if (eq? (current-unquote-binding-kind) 'grouplet)
           #f
           (identifier-as-unquote-binding form (current-unquote-binding-kind)))
       form))

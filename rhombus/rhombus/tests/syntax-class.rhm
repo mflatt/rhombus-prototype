@@ -1068,3 +1068,22 @@ check:
   syntax_class D
   | '$(c :: C) $a' // `c :: C` doesn;t bind `a`
   ~completes
+
+syntax_class Option:
+  root_swap: o orig
+| '~opt_a: $n':
+    field o = {#'a: n}
+| '~opt_b':
+    field o = {#'b: #true}
+
+syntax_class.together:
+  syntax_class Options:    
+    fields: o
+  | '$(opt :: Option)': field o = opt
+  | '$(opt :: Option); $(tail :: Options)':
+      field o = opt ++ tail.o
+
+check:
+  match '~opt_a: 10; ~opt_b'
+  | '$(v :: Options)': v.o
+  ~matches { #'a: '10; ~opt_b' }

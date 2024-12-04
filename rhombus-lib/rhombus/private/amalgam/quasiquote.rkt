@@ -401,7 +401,7 @@
     (syntax-parse parsed
       [#f (values #f #f #f #f)]
       [id:identifier
-       (if (eq? ctx-kind 'grouplet!)
+       (if (eq? ctx-kind 'grouplet)
            (values #f #f #f #f)
            (identifier-as-unquote-binding #'id ctx-kind
                                           #:result values

@@ -299,10 +299,22 @@ check:
 
 check:
   match '(1)':
-  | '(1 $y)':
+  | '(1 $(y :: Sequence))':
       match y
       | '': "ok"
   ~is "ok"
+
+check:
+  match '(1)':
+  | '(1 $y)': "oops"
+  | ~else : "no"
+  ~is "no"
+
+check:
+  match '(1)':
+  | '(1 $(y :: Group))': "oops"
+  | ~else : "no"
+  ~is "no"
 
 // Make sure multi-element syntax can be replicated for a repetition
 check:
