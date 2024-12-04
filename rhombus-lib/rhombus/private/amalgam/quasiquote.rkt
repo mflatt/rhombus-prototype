@@ -106,7 +106,9 @@
        (if (eq? old-t new-t)
            ps
            #`(a . #,new-t))]
-      [_ ps])))
+      [_ ps]))
+
+  (struct consumes-outer (p) #:prefab))
 
 (define ...1 (void))
 
@@ -116,6 +118,7 @@
                                    handle-tail-escape handle-block-tail-escape
                                    handle-maybe-empty-sole-group
                                    handle-maybe-empty-alts handle-maybe-misformed-group
+                                   #:handle-midgroups-multi-escape [handle-midgroups-multi-escape #f]
                                    #:in-space in-space
                                    #:tail-any-escape? [tail-any-escape? #f]
                                    #:as-tail? [as-tail? #f]
@@ -125,17 +128,33 @@
                                    #:repetition-mode? [repetition-mode? #f]
                                    #:make-describe-op [make-describe-op (lambda (e name) e)]
                                    #:improve-repetition-constraints [improve-repetition-constraints (lambda (ps gs) ps)])
-  (let convert ([e orig-e] [empty-ok? splice?] [as-tail? as-tail?] [splice? splice?])
+  (let convert ([e orig-e] [empty-ok? splice?] [as-tail? as-tail?] [splice? splice?] [outer-gs #f] [handle-gs #f])
     (syntax-parse e
       #:datum-literals (group parens brackets braces block quotes multi alts)
+      ;; `$esc` as a group at the non-tail of a group sequence
       [(group
         (~var $-id (:$ in-space)) (~var esc (:esc tail-any-escape? #f)))
        #:when (and (not as-tail?) (not splice?))
        ;; Special case: a group whose content is an escape; the escape
-       ;; defaults to "group" mode instead of "term" mode
-       #:do [(define-values (p new-idrs new-sidrs new-vars) (handle-group-escape #'$-id.name #'esc.term e))]
+       ;; defaults to "group" mode instead of "term" mode, and if `outer-gs`
+       ;; has no escapes, then "multi" mode is an option
+       #:do [(define-values (p1 new-idrs1 new-sidrs1 new-vars1)
+               (if (and handle-midgroups-multi-escape
+                        outer-gs
+                        (for/and ([n-g (in-list (syntax->list outer-gs))])
+                          (syntax-parse n-g
+                            [(_ (~var _ (:$ in-space)) . _) #f]
+                            [(_ (~var _ (:... in-space)) . _) #f]
+                            [_ #t])))
+                   (handle-midgroups-multi-escape #'$-id.name #'esc.term e outer-gs handle-gs)
+                   (values #f #f #f #f)))
+             (define-values (p new-idrs new-sidrs new-vars)
+               (if p1
+                   (values p1 new-idrs1 new-sidrs1 new-vars1)
+                   (handle-group-escape #'$-id.name #'esc.term e)))]
        #:when p
-       (values p new-idrs new-sidrs new-vars #f)]
+       (values (if p1 (consumes-outer p) p) new-idrs new-sidrs new-vars #f)]
+      ;; `$esc` as a group in parens, etc. => maybe a multi-group splice
       [((~or* parens brackets braces quotes multi block)
         (group (~var $-id (:$ in-space)) (~var esc (:esc tail-any-escape? #f))))
        #:when (and (not as-tail?))
@@ -143,15 +162,18 @@
        #:do [(define-values (p new-idrs new-sidrs new-vars) (handle-multi-escape #'$-id.name #'esc.term e splice?))]
        #:when p
        (values p new-idrs new-sidrs new-vars #f)]
+      ;; single group with parens, etc. => special consruction case to support empty group as empty sequence
       [((~and tag (~or* parens brackets braces quotes multi block))
         (~and g (group . _)))
        #:when (not splice?)
        ;; Special case: for a single group with (), [], {}, '', or block, if the group
        ;; can be empty, allow a match/construction with zero groups
-       (define-values (p new-idrs new-sidrs new-vars can-be-empty?) (convert #'g #t as-tail? #f))
+       (define-values (p new-idrs new-sidrs new-vars can-be-empty?) (convert #'g #t as-tail? #f #'() #f))
        (if can-be-empty?
            (handle-maybe-empty-sole-group #'tag p new-idrs new-sidrs new-vars)
-           (values (no-srcloc #`(#,(make-datum #'tag) #,p))
+           (values (no-srcloc #`(#,(make-datum #'tag) #,@(if (consumes-outer? p)
+                                                             (consumes-outer-p p)
+                                                             (list p))))
                    new-idrs
                    new-sidrs
                    new-vars
@@ -169,14 +191,31 @@
          (define (simple gs)
            (syntax-parse gs
              [(g . gs)
-              (define-values (p new-ids new-sidrs new-vars nested-can-be-empty?) (convert #'g #f #f #f))
-              (loop #'gs new-ids new-sidrs new-vars
-                    (append (or pend-idrs '()) idrs)
-                    (append (or pend-sidrs '()) sidrs)
-                    (append (or pend-vars '()) vars)
-                    (cons p ps) really-can-be-empty? #f #f
-                    needs-group-check?
-                    splice?)]))
+              (define-values (p/tail new-ids new-sidrs new-vars nested-can-be-empty?)
+                (convert #'g #f #f #f #'gs (lambda ()
+                                             (loop #'gs null null null
+                                                   null
+                                                   null
+                                                   null
+                                                   null #f #f #f
+                                                   #f
+                                                   #f))))
+              (cond
+                [(consumes-outer? p/tail)
+                 (define tail (consumes-outer-p p/tail))
+                 (finish (reverse ps) tail
+                         (append new-ids (or pend-idrs '()) idrs)
+                         (append new-sidrs (or pend-sidrs '()) sidrs)
+                         (append new-vars (or pend-vars '()) vars)
+                         #f #f)]
+                [else
+                 (loop #'gs new-ids new-sidrs new-vars
+                       (append (or pend-idrs '()) idrs)
+                       (append (or pend-sidrs '()) sidrs)
+                       (append (or pend-vars '()) vars)
+                       (cons p/tail ps) really-can-be-empty? #f #f
+                       needs-group-check?
+                       splice?)])]))
          (define (finish ps tail idrs sidrs vars can-be-empty? needs-group-check?)
            (define (ps+tail) (let ([ps (if tail (append ps tail) ps)])
                                (if repetition-mode?
@@ -209,6 +248,7 @@
                     (append (or pend-vars '()) vars)
                     really-can-be-empty?
                     needs-group-check?)]
+           ;; `$var ...` at end of a sequence (of terms or groups) => tail repetition
            [((~var op (:tail-repetition in-space tail-any-escape?)))
             #:when (and (or tail-any-escape?
                             (identifier? #'op.term))
@@ -223,6 +263,7 @@
                   ;; tail escape is responsible for making sure it's valid
                   needs-group-check?
                   splice?)]
+           ;; `$var ...` as a whole group within a seuqnce of groups => block tail repetition
            [((~var op (:block-tail-repetition in-space tail-any-escape?)))
             #:when (or tail-any-escape?
                        (identifier? #'op.term))
@@ -234,6 +275,7 @@
                   ps really-can-be-empty? #f id
                   #f
                   splice?)]
+           ;; `$var ...` not at the end of a sequence (of terms or groups)
            [((~var op (:list-repetition in-space repetition-mode?)) . gs)
             (unless pend-idrs
               (raise-syntax-error #f
@@ -268,6 +310,7 @@
                         (cons dots ps) can-be-empty? #f #f
                         #t
                         splice?)))]
+           ;; `$esc` within a sequence
            [((op (~var $-id (:$ in-space))) (~var esc (:esc tail-any-escape? #t)) . n-gs)
             (define could-tail? (or (and (not tail) (not splice?)) as-tail?))
             (define tail? (and (null? (syntax-e #'n-gs))
@@ -309,10 +352,12 @@
                      really-can-be-empty? #t #f
                      #t
                      splice?)])]
+           ;; `...` not following something
            [((op (~var $-id (:$ in-space))))
             (raise-syntax-error #f
                                 "misplaced escape"
                                 #'$-id.name)]
+           ;; normal case
            [(g . _)
             (simple gs)]))]
       [((~and tag op) op-name)
@@ -428,6 +473,27 @@
                                         'multi)]
                         [_ 'multi]))
                     (handle-escape/match-head $-id e in-e kind splice?))
+                  #:handle-midgroups-multi-escape
+                  (lambda ($-id e in-e fixed-tail-gs handle-fixed-tail)
+                    (let-values ([(p new-idrs new-sidrs new-vars) (handle-escape $-id e in-e 'multi)])
+                      (cond
+                        [p
+                         (with-syntax ([(tmp) (generate-temporaries '(tail))])
+                           (cond
+                             [(null? (syntax-e fixed-tail-gs))
+                              (values #`(~and tmp (~parse #,p (cons #'multi #'tmp))) new-idrs new-sidrs new-vars)]
+                             [else
+                              ;; there are group patterns after this one
+                              (define-values (tail-p tail-idrs tail-sidrs tail-vars tail-empty?)
+                                (handle-fixed-tail))
+                              (with-syntax ([(tail-tmp ...) (generate-temporaries fixed-tail-gs)])
+                                (values #`(~and (tmp (... ...) tail-tmp ...)
+                                                (~parse #,p (cons group-tag #'(tmp (... ...))))
+                                                (~parse #,(cdr (syntax-e tail-p)) #'(tail-tmp ...)))
+                                        (append new-idrs tail-idrs)
+                                        (append new-sidrs tail-sidrs)
+                                        (append new-vars tail-vars)))]))]
+                        [else (values #f #f #f #f)])))
                   ;; adjust-escape-siblings
                   (lambda (idrs)
                     idrs)
@@ -560,26 +626,23 @@
                     [_ (raise-syntax-error #f
                                            (format "multi-group pattern incompatible with ~a context" kind)
                                            #'qs)])]
-                 [else (values e (and (eq? pat-kind 'group) 
-                                      (memq kind '(multi block term))))]))
+                 [else (values e (and (eq? pat-kind 'group)
+                                      (eq? kind 'term)))]))
              (define-values (pattern idrs sidrs vars can-be-empty?)
                (convert-pattern use-e
-                                #:splice? splice?
-                                #:splice-pattern (cond
-                                                   [(eq? kind 'multi)
-                                                    (lambda (e)
-                                                      #`(_ ((~datum group) . #,e)))]
-                                                   [(eq? kind 'block)
-                                                    (lambda (e)
-                                                      #`((~datum block) ((~datum group) . #,e)))]
-                                                   [else #f])))
+                                #:splice? splice?))
              (define pattern*
-               (if (and (not splice?) (eq? pat-kind 'multi))
-                   ;; replace literal `multi` head with a wildcard, and the context
-                   ;; will add a constraint for the right head symbol as needed
-                   (syntax-parse pattern
-                     [(_ . tail) #`(_ . tail)])
-                   pattern))
+               (cond
+                 [(and (not splice?) (eq? pat-kind 'multi))
+                  ;; replace literal `multi` head with a wildcard, and the context
+                  ;; will add a constraint for the right head symbol as needed
+                  (syntax-parse pattern
+                    [(_ . tail) #`(_ . tail)])]
+                 [(and (eq? pat-kind 'group) (eq? kind 'multi))
+                  #`(_ #,pattern)]
+                 [(and (eq? pat-kind 'group) (eq? kind 'block))
+                  #`((~datum block) #,pattern)]
+                 [else pattern]))
              #`(#,pattern* #,idrs #,sidrs #,(map pattern-variable->list vars))]))
         (define-values (r empty-tail)
           (quoted-shape-dispatch #'(form-id qs)

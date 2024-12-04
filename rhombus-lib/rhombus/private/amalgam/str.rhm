@@ -106,7 +106,7 @@ namespace str:
                                      ...):
                          $defn
                          ...
-                         $str':
+                         $(str :: Group)':
     let '($kw: $arg :: $res ...,
           ...)':
       '(~width: width :: maybe(NonnegInt) = #false,

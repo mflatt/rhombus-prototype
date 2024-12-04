@@ -212,9 +212,9 @@ block:
         _Posn(x, y)
     binding:
       macro
-      | '()($y, $x)':
+      | '()($y, $(x :: Group))':
           '_Posn($x, $y)'
-      | '()($v)':
+      | '()($(v :: Group))':
           '_Posn($v, 0)'
     annotation 'Posn': '_Posn'
     annot.macro 'of($x, $y)':

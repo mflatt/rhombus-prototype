@@ -31,7 +31,7 @@ expr.macro 'static_arity_check $(pattern:
     'error(~who: "static_arity.check", "should not get here")'
   fun extract_args(args):
     fun
-    | make_less('($arg, ..., $_)'): '($(make_error(arg)), ...)'
+    | make_less('($arg, ..., $(_ :: Group))'): '($(make_error(arg)), ...)'
     | make_less(_): #false
     match args
     | '($(arg :: Identifier), ...,
