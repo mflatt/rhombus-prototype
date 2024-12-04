@@ -393,17 +393,19 @@
       [(brackets) #'(~var _ :brackets)]
       [(quotes) #'(~var _ :quotes)]
       [else #`(~datum #,d)]))
-  (define (handle-escape $-id e in-e kind)
+  (define (handle-escape $-id e in-e ctx-kind)
     (define parsed
-      (parameterize ([current-unquote-binding-kind kind])
+      (parameterize ([current-unquote-binding-kind ctx-kind])
         (syntax-parse #`(#,group-tag #,e)
           [esc::unquote-binding #'esc.parsed])))
     (syntax-parse parsed
       [#f (values #f #f #f #f)]
       [id:identifier
-       (identifier-as-unquote-binding #'id kind
-                                      #:result values
-                                      #:pattern-variable pattern-variable)]
+       (if (eq? ctx-kind 'grouplet!)
+           (values #f #f #f #f)
+           (identifier-as-unquote-binding #'id ctx-kind
+                                          #:result values
+                                          #:pattern-variable pattern-variable))]
       [(pat idrs sidrs vars)
        (values #'pat
                (syntax->list #'idrs)
@@ -439,7 +441,7 @@
                   (lambda ($-id e in-e tail? fixed-tail-gs handle-fixed-tail)
                     (let-values ([(p new-idrs new-sidrs new-vars)
                                   (if (or tail? handle-fixed-tail)
-                                      (handle-escape $-id e in-e 'group)
+                                      (handle-escape $-id e in-e 'grouplet)
                                       (values #f #f #f #f))])
                       (if p
                           (with-syntax ([(tmp) (generate-temporaries '(tail))])
@@ -459,7 +461,7 @@
                                          (append new-sidrs tail-sidrs)
                                          (append new-vars tail-vars)
                                          #t))]))
-                          (let-values ([(p new-idrs new-sidrs new-vars) (handle-escape $-id e in-e 'term)])
+                          (let-values ([(p new-idrs new-sidrs new-vars) (handle-escape $-id e in-e 'term1)])
                             (values (if tail? (list p) p) new-idrs new-sidrs new-vars tail?)))))
                   ;; handle-group-escape:
                   (lambda ($-id e in-e)
@@ -469,9 +471,9 @@
                     (define kind
                       (syntax-parse in-e
                         [(head . _) (if (eq? (syntax-e #'head) 'block)
-                                        'block
-                                        'multi)]
-                        [_ 'multi]))
+                                        'block1
+                                        'multi1)]
+                        [_ 'multi1]))
                     (handle-escape/match-head $-id e in-e kind splice?))
                   #:handle-midgroups-multi-escape
                   (lambda ($-id e in-e fixed-tail-gs handle-fixed-tail)
@@ -604,34 +606,37 @@
      (syntax-parse stx
        [(form-id qs . tail)
         (define ((build pat-kind) e)
-          (define kind (current-unquote-binding-kind))
+          (define ctx-kind (current-unquote-binding-kind))
           (cond
             [(and (eq? pat-kind 'term)
-                  (not (eq? kind 'term)))
+                  (not (eq? ctx-kind 'term1)))
              #'#f]
-            [(and (eq? kind 'group)
+            [(and (eq? ctx-kind 'grouplet)
                   (eq? pat-kind 'multi)
                   (syntax-parse e [(_) #t] [_ #f]))
              ;; defer special case to term context
              #'#f]
-            [(and (eq? kind 'block)
+            [(and (eq? ctx-kind 'block1)
                   (eq? pat-kind 'group))
-             ;; request to the context to again in 'group mode:
+             ;; request to the context to again in 'group1 mode:
              #'#f]
             [else
              (define-values (use-e splice?)
                (cond
                  [(and (eq? pat-kind 'multi)
-                       (memq kind '(term group)))
+                       (memq ctx-kind '(term1 grouplet)))
                   ;; empty multi-group term is a special case that we can splice
                   ;; into a term context
                   (syntax-parse e
                     [(_) (values #'(group) #t)]
                     [_ (raise-syntax-error #f
-                                           (format "multi-group pattern incompatible with ~a context" kind)
+                                           (format "multi-group pattern incompatible with ~a context"
+                                                   (case ctx-kind
+                                                     [(term1) "term"]
+                                                     [(grouplet) "group"]))
                                            #'qs)])]
                  [else (values e (and (eq? pat-kind 'group)
-                                      (eq? kind 'term)))]))
+                                      (eq? ctx-kind 'term1)))]))
              (define-values (pattern idrs sidrs vars can-be-empty?)
                (convert-pattern use-e
                                 #:splice? splice?))
@@ -640,15 +645,15 @@
                  [(and (not splice?) (eq? pat-kind 'multi))
                   (syntax-parse pattern
                     [(_ . tail)
-                     (if (eq? kind 'group1)
+                     (if (eq? ctx-kind 'group1)
                          ;; turn into a splicing pattern
                          #`(~seq . tail)
                          ;; replace literal `multi` head with a wildcard, and the context
                          ;; will add a constraint for the right head symbol as needed
                          #`(_ . tail))])]                                    
-                 [(and (eq? pat-kind 'group) (eq? kind 'multi))
+                 [(and (eq? pat-kind 'group) (eq? ctx-kind 'multi1))
                   #`(_ #,pattern)]
-                 [(and (eq? pat-kind 'group) (eq? kind 'block))
+                 [(and (eq? pat-kind 'group) (eq? ctx-kind 'block1))
                   #`((~datum block) #,pattern)]
                  [else pattern]))
              #`(#,pattern* #,idrs #,sidrs #,(map pattern-variable->list vars))]))
@@ -660,7 +665,7 @@
                                  (build 'multi)
                                  (lambda (e)
                                    (cond
-                                     [(eq? (current-unquote-binding-kind) 'term)
+                                     [(eq? (current-unquote-binding-kind) 'term1)
                                       (define pat (syntax-parse e
                                                     #:datum-literals (op)
                                                     [((~and tag op) op-name)
