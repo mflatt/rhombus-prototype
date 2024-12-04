@@ -155,7 +155,7 @@
        #:when p
        (values (if p1 (consumes-outer p) p) new-idrs new-sidrs new-vars #f)]
       ;; `$esc` as a group in parens, etc. => maybe a multi-group splice
-      [((~or* parens brackets braces quotes multi block)
+      [((~or* quotes multi block) ;; not: parens, brackets, braces
         (group (~var $-id (:$ in-space)) (~var esc (:esc tail-any-escape? #f))))
        #:when (and (not as-tail?))
        ;; Analogous special case, but for blocks (maybe within an `alts`), etc.
@@ -263,7 +263,7 @@
                   ;; tail escape is responsible for making sure it's valid
                   needs-group-check?
                   splice?)]
-           ;; `$var ...` as a whole group within a seuqnce of groups => block tail repetition
+           ;; `$var ...` as a whole group within a sequence of groups => block tail repetition
            [((~var op (:block-tail-repetition in-space tail-any-escape?)))
             #:when (or tail-any-escape?
                        (identifier? #'op.term))
@@ -463,32 +463,32 @@
                             (values (if tail? (list p) p) new-idrs new-sidrs new-vars tail?)))))
                   ;; handle-group-escape:
                   (lambda ($-id e in-e)
-                    (handle-escape/match-head $-id e in-e 'group #f))
+                    (handle-escape/match-head $-id e in-e 'group1 #f))
                   ;; handle-multi-escape:
                   (lambda ($-id e in-e splice?)                    
                     (define kind
                       (syntax-parse in-e
-                        [(head . _) (if (memq (syntax-e #'head) '(block alts))
+                        [(head . _) (if (eq? (syntax-e #'head) 'block)
                                         'block
                                         'multi)]
                         [_ 'multi]))
                     (handle-escape/match-head $-id e in-e kind splice?))
                   #:handle-midgroups-multi-escape
                   (lambda ($-id e in-e fixed-tail-gs handle-fixed-tail)
-                    (let-values ([(p new-idrs new-sidrs new-vars) (handle-escape $-id e in-e 'multi)])
+                    (let-values ([(p new-idrs new-sidrs new-vars) (handle-escape $-id e in-e 'group1)])
                       (cond
                         [p
                          (with-syntax ([(tmp) (generate-temporaries '(tail))])
                            (cond
                              [(null? (syntax-e fixed-tail-gs))
-                              (values #`(~and tmp (~parse #,p (cons #'multi #'tmp))) new-idrs new-sidrs new-vars)]
+                              (values #`(#,p) new-idrs new-sidrs new-vars)]
                              [else
                               ;; there are group patterns after this one
                               (define-values (tail-p tail-idrs tail-sidrs tail-vars tail-empty?)
                                 (handle-fixed-tail))
                               (with-syntax ([(tail-tmp ...) (generate-temporaries fixed-tail-gs)])
                                 (values #`(~and (tmp (... ...) tail-tmp ...)
-                                                (~parse #,p (cons group-tag #'(tmp (... ...))))
+                                                (~parse (#,p) #'(tmp (... ...)))
                                                 (~parse #,(cdr (syntax-e tail-p)) #'(tail-tmp ...)))
                                         (append new-idrs tail-idrs)
                                         (append new-sidrs tail-sidrs)
@@ -523,13 +523,17 @@
                                  (list (pattern-variable (syntax-e e) e temp-id 1 (quote-syntax unpack-tail-list*)))))]))
                   ;; handle-block-tail-escape:
                   (lambda (name e in-e)
-                    (let ([temp0-id (car (generate-temporaries (list e)))]
-                          [temp-id (car (generate-temporaries (list e)))])
-                      (values temp0-id
-                              (list #`[#,temp-id (pack-multi-tail* (syntax #,temp0-id) 0)])
-                              (list (make-pattern-variable-bind e temp-id (quote-syntax unpack-multi-tail-list*)
-                                                                1 null))
-                              (list (pattern-variable (syntax-e e) e temp-id 1 (quote-syntax unpack-multi-tail-list*))))))
+                    (syntax-parse e
+                      [_::_-bind
+                       (values #'_ null null null)]
+                      [else
+                       (let ([temp0-id (car (generate-temporaries (list e)))]
+                             [temp-id (car (generate-temporaries (list e)))])
+                         (values temp0-id
+                                 (list #`[#,temp-id (pack-multi-tail* (syntax #,temp0-id) 0)])
+                                 (list (make-pattern-variable-bind e temp-id (quote-syntax unpack-multi-tail-list*)
+                                                                   1 null))
+                                 (list (pattern-variable (syntax-e e) e temp-id 1 (quote-syntax unpack-multi-tail-list*)))))]))
                   ;; handle-maybe-empty-sole-group
                   (lambda (tag pat idrs sidrs vars)
                     ;; `pat` matches a `group` form that's supposed to be under `tag`,
@@ -634,10 +638,14 @@
              (define pattern*
                (cond
                  [(and (not splice?) (eq? pat-kind 'multi))
-                  ;; replace literal `multi` head with a wildcard, and the context
-                  ;; will add a constraint for the right head symbol as needed
                   (syntax-parse pattern
-                    [(_ . tail) #`(_ . tail)])]
+                    [(_ . tail)
+                     (if (eq? kind 'group1)
+                         ;; turn into a splicing pattern
+                         #`(~seq . tail)
+                         ;; replace literal `multi` head with a wildcard, and the context
+                         ;; will add a constraint for the right head symbol as needed
+                         #`(_ . tail))])]                                    
                  [(and (eq? pat-kind 'group) (eq? kind 'multi))
                   #`(_ #,pattern)]
                  [(and (eq? pat-kind 'group) (eq? kind 'block))

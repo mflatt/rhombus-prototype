@@ -225,7 +225,7 @@
 (define-for-syntax (build-syntax-class-pattern stx-class rsc class-args open-attributes-spec
                                                form1 match-id)
   (with-syntax ([id (if (identifier? form1) form1 #'wildcard)])
-    (define (compat pack* unpack*)
+    (define (compat pack* unpack* #:splice? [splice? #f])
       (define sc (rhombus-syntax-class-class rsc))
       (define sc-call (parse-syntax-class-args stx-class
                                                sc
@@ -328,17 +328,23 @@
         (for/first ([var (in-list attribute-vars)]
                     #:when (eq? (pattern-variable-sym var) swap-to-root))
           var))
-      #`(#,(if sc
-               (if (identifier? sc)
-                   (let ([p #`(~var #,instance-id #,sc-call)])
-                     (if (rhombus-syntax-class-splicing? rsc)
-                         #`(~seq #,p) ;; communicates to `&&`
-                         p))
-                   #`(~and #,(if dotted-bind?
-                                 #`(~seq #,instance-id (... ...))
-                                 instance-id)
-                           #,sc)) ; inline syntax class
-                instance-id)
+      #`(#,((if splice?
+                (lambda (p)
+                  (with-syntax ([(tmp) (generate-temporaries '(tail))])
+                    #`(~and (~seq tmp (... ...))
+                            (~parse #,p (cons 'multi #'(tmp (... ...)))))))
+                values)
+            (if sc
+                (if (identifier? sc)
+                    (let ([p #`(~var #,instance-id #,sc-call)])
+                      (if (rhombus-syntax-class-splicing? rsc)
+                          #`(~seq #,p) ;; communicates to `&&`
+                          p))
+                    #`(~and #,(if dotted-bind?
+                                  #`(~seq #,instance-id (... ...))
+                                  instance-id)
+                            #,sc)) ; inline syntax class
+                instance-id))
          #,(cons #`[#,temp-id (#,pack* (syntax #,(if dotted-bind?
                                                      #`(#,instance-id (... ...))
                                                      instance-id))
@@ -408,12 +414,14 @@
       [(eq? (rhombus-syntax-class-kind rsc) 'group)
        (cond
          [(eq? kind 'term) (incompat)]
-         [(not (eq? kind 'group)) (retry)]
+         [(not (or (eq? kind 'group) (eq? kind 'group1))) (retry)]
          [else (compat #'pack-group* #'unpack-group*)])]
       [(eq? (rhombus-syntax-class-kind rsc) 'multi)
        (cond
          [(or (eq? kind 'multi) (eq? kind 'block))
           (compat #'pack-tagged-multi* #'unpack-multi-as-term*)]
+         [(eq? kind 'group1)
+          (compat #'pack-tagged-multi* #'unpack-multi-as-term* #:splice? #t)]
          [else (incompat)])]
       [(eq? (rhombus-syntax-class-kind rsc) 'block)
        (cond

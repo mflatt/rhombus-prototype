@@ -72,7 +72,7 @@ repet.macro '$e !!. $tail ... ~nonempty':
   let dot = syntax_meta.dynamic_name('.', ~as_static: syntax_meta.is_static(self))
   values('($e !!)', '$dot $tail ...')
 
-expr.macro '$e ?. $(id :: Identifier) $(args && '($_)') ... ~once $tail ...':
+expr.macro '$e ?. $(id :: Identifier) $(args && '($_, ...)') ... ~once $tail ...':
   ~stronger_than: ~other
   ~same_as: .
   ~op_stx: self
@@ -108,7 +108,7 @@ meta:
       v_tail
     )
 
-repet.macro '$e ?. $(id :: Identifier) $(args && '($_)') ... ~once $tail ...':
+repet.macro '$e ?. $(id :: Identifier) $(args && '($_, ...)') ... ~once $tail ...':
   ~stronger_than: ~other
   ~same_as: .
   ~op_stx: self

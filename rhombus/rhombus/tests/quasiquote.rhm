@@ -424,21 +424,49 @@ block:
 
 check:
   match '1; 2; 3'
+  | '1; $((_ :: Multi) && ''); 2;  3': "ok"
+  ~is "ok"
+
+check:
+  match '1; 2; 3'
   | '1; $(''); 2;  3': "ok"
   ~is "ok"
 
 check:
   match '1; 2; 3'
   | '1; $s; 2;  3': s
-  ~matches ''
+  | ~else: "no"
+  ~is "no"
 
 check:
   match '1; 5; 6; 2; 3'
   | '1; $s; 2;  3': s
+  | ~else: "no"
+  ~is "no"
+
+check:
+  match '1; 2; 3'
+  | '1; $(s :: Multi); 2;  3': s
+  ~matches ''
+
+check:
+  match '1; 5; 6; 2; 3'
+  | '1; $(s :: Multi); 2;  3': s
   ~matches '5; 6'
 
 check:
   match '1; 2; 3'
   | '1; $(s :: Group); 2;  3': s
+  | ~else: "no"
+  ~is "no"
+
+check:
+  match ': 1; 2':
+  | ': $x': x
+  ~matches '1; 2'
+
+check:
+  match '(1, 2)':
+  | '($x)': x
   | ~else: "no"
   ~is "no"
