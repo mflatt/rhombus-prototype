@@ -220,9 +220,9 @@
           (define-values (converted-info-pattern info-idrs info-sidrs info-vars info-can-be-empty?) (convert-pattern #'info-pattern))
           (define-values (converted-data-pattern data-idrs data-sidrs data-vars data-can-be-empty?) (convert-pattern #'data-pattern))
           (with-syntax ([((info-id info-id-ref) ...) info-idrs]
-                        [(((info-sid ...) info-sid-ref) ...) info-sidrs]
+                        [(((info-sid ...) info-sid-ref . _) ...) info-sidrs]
                         [((data-id data-id-ref) ...) data-idrs]
-                        [(((data-sid ...) data-sid-ref) ...) data-sidrs])
+                        [(((data-sid ...) data-sid-ref . _ ) ...) data-sidrs])
             #`(lambda (stx)
                 (syntax-parse stx
                   [(_ info data)
@@ -266,8 +266,8 @@
                                                 (group _::$-bind fail-id:identifier))))
                    (block-tag::block body ...))
           (define-values (converted-pattern idrs sidrs vars can-be-empty?) (convert-pattern #'data-pattern))
-          (with-syntax ([((id id-ref) ...) idrs]
-                        [(((sid ...) sid-ref) ...) sidrs])
+          (with-syntax ([((id id-ref . _) ...) idrs]
+                        [(((sid ...) sid-ref . _) ...) sidrs])
             #`(lambda (stx)
                 (syntax-parse stx
                   [(_ arg-id data IF success fail)
@@ -490,8 +490,8 @@
                    (block-tag::block body ...))
           (define-values (converted-data-pattern data-idrs data-sidrs data-vars data-can-be-empty?)
             (convert-pattern #'pat))
-          (with-syntax ([((data-id data-id-ref) ...) data-idrs]
-                        [(((data-sid ...) data-sid-ref) ...) data-sidrs])
+          (with-syntax ([((data-id data-id-ref . _) ...) data-idrs]
+                        [(((data-sid ...) data-sid-ref . _) ...) data-sidrs])
             #`(lambda (stx)
                 (syntax-parse stx
                   [(_ arg-id evidence-tree data)

@@ -52,7 +52,11 @@
 (module+ for-quasiquote
   (provide (for-syntax get-syntax-static-infos
                        get-treelist-of-syntax-static-infos
-                       get-syntax-instances)))
+                       get-syntax-instances
+                       set-parse-syntax-of-annotation!)))
+
+;; Shadow normal `syntax?`
+(define syntax? syntax*?)
 
 (define-primitive-class Syntax syntax
   #:lift-declaration
@@ -70,7 +74,8 @@
    [make_sequence Syntax.make_sequence]
    [make_id Syntax.make_id]
    [make_temp_id Syntax.make_temp_id]
-   [relocate_split Syntax.relocate_split])
+   [relocate_split Syntax.relocate_split]
+   [matched_of Syntax.matched_of])
   #:properties
   ()
   #:methods
@@ -177,6 +182,17 @@
          [(block . _) #t]
          [_ #f])
        #t))
+
+(define-annotation-syntax Syntax.matched_of
+  (annotation-prefix-operator
+   '((default . stronger))
+   'macro
+   (lambda (stx)
+     (parse-syntax-of-annotation stx))))
+
+(begin-for-syntax
+  (define parse-syntax-of-annotation #f)
+  (define (set-parse-syntax-of-annotation! proc) (set! parse-syntax-of-annotation proc)))
 
 (define-for-syntax (add-span-and-syntax-static-info orig-stx e)
   (syntax-parse orig-stx
@@ -315,7 +331,7 @@
          [else (invalid)])]
       [(pair? v) (invalid)]
       [(to-list #f v) => (lambda (v) (loop v pre-alt? tail?))]
-      [(syntax-wrap? v) (loop (syntax-wrap-stx v) pre-alt? tail?)]
+      [(syntax-wrap? v) (loop (syntax-unwrap v) pre-alt? tail?)]
       [(syntax*? v) (let ([t (unpack-term v #f #f)])
                       (cond
                         [t

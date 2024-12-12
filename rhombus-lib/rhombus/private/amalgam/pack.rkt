@@ -116,7 +116,7 @@
     (raise-error who "multi-term syntax not allowed in term context" form))
   (let loop ([r form])
     (cond
-      [(syntax-wrap? r) (loop (syntax-wrap-stx r))]
+      [(syntax-wrap? r) (loop (syntax-unwrap r))]
       [(multi-syntax? r)
        (define l (syntax->list r))
        (if (and (pair? (cdr l)) (null? (cddr l)))
@@ -501,7 +501,7 @@
 ;; normalize for multi-term pattern matching:
 (define (repack-as-multi r)
   (cond
-    [(syntax-wrap? r) (repack-as-multi (syntax-wrap-stx r))]
+    [(syntax-wrap? r) (repack-as-multi (syntax-unwrap r))]
     [(group-syntax? r) (list multi-blank r)]
     [(multi-syntax? r) r]
     [else (list multi-blank (list group-blank r))]))

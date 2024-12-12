@@ -182,8 +182,8 @@
       [((~and tag (~or* parens brackets braces quotes multi block alts group))
         g ...)
        (let loop ([gs #'(g ...)] [pend-idrs #f] [pend-sidrs #f] [pend-vars #f]
-                                 [idrs '()]  ; list of #`[#,id #,rhs] for definitions
-                                 [sidrs '()] ; list of #`[(#,id ...) #,rhs] for syntax definitions
+                                 [idrs '()]  ; list of #`[#,id #,rhs #,statinfo ...] for definitions
+                                 [sidrs '()] ; list of #`[(#,id ...) #,rhs #,statinfo ...] for syntax definitions
                                  [vars '()]  ; list of `[,id . ,depth] for visible subset of `idrs` and `sidrs`
                                  [ps '()] [can-be-empty? #t] [pend-is-splice? #f] [tail #f]
                                  [needs-group-check? #f]
@@ -1029,8 +1029,8 @@
 
 (define-for-syntax ((convert-pattern/generate-match repack-id) e)
   (define-values (pattern idrs sidrs vars can-be-empty?) (convert-pattern e))
-  (with-syntax ([((id id-ref) ...) idrs]
-                [(((sid ...) sid-ref) ...) sidrs])
+  (with-syntax ([((id id-ref id-statinfo ...) ...) idrs]
+                [(((sid ...) sid-ref sid-statinfo ...) ...) sidrs])
     (binding-form
      #'syntax-infoer
      #`(#,(string-append "'" (shrubbery-syntax->string e) "'")
@@ -1038,8 +1038,10 @@
         #,repack-id
         (id ...)
         (id-ref ...)
+        ((id-statinfo ...) ...)
         ((sid ...) ...)
-        (sid-ref ...)))))
+        (sid-ref ...)
+        ((sid-statinfo ...) ...)))))
 
 (define-syntax #%quotes
   (expression-prefix-operator
@@ -1072,6 +1074,8 @@
                                             ()
                                             ()
                                             ()
+                                            ()
+                                            ()
                                             ())))))))
 
 (define-repetition-syntax #%quotes
@@ -1092,7 +1096,9 @@
 
 (define-syntax (syntax-infoer stx)
   (syntax-parse stx
-    [(_ static-infos (annotation-str pattern repack (id ...) id-refs (sids ...) sid-refs))
+    [(_ static-infos (annotation-str pattern repack
+                                     (id ...) id-refs (id-statinfos ...)
+                                     (sids ...) sid-refs (sid-statinfos ...)))
      (define (make-sequencers depth) (for/list ([i (in-range (syntax-e depth))]) #'in-list))
      (with-syntax ([(id-sequencers ...) (for/list ([id-ref (in-list (syntax->list #'id-refs))])
                                           (syntax-parse id-ref
@@ -1107,7 +1113,10 @@
        (binding-info #'annotation-str
                      #'syntax
                      #'()
-                     #'((id ((#:repet id-sequencers))) ... (sid ((#:repet sid-sequencers))) ...)
+                     #'((id ((#:repet id-sequencers)) . id-statinfos)
+                        ...
+                        (sid ((#:repet sid-sequencers)) . sid-statinfos)
+                        ...)
                      #'syntax-matcher
                      #'tmp-ids
                      #'syntax-committer
@@ -1116,7 +1125,8 @@
 
 (define-syntax (syntax-matcher stx)
   (syntax-parse stx
-    [(_ arg-id (pattern repack (tmp-id ...) (id ...) (id-ref ...) (sid ...) (sid-ref ...)) IF success fail)
+    [(_ arg-id (pattern repack (tmp-id ...) (id ...) (id-ref ...) (sid ...) (sid-ref ...))
+        IF success fail)
      #'(IF (syntax*? arg-id)
            (begin
              (define-values (match? tmp-id ...)

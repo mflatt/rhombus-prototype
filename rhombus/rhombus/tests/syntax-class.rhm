@@ -754,10 +754,6 @@ block:
     m(['8 1', '9 2 3'])
     ~matches ['1', '2']
 
-// The following two tests currently do not work due to how
-// repetitions are handled.  If these are to be fixed, the
-// corresponding `::` forms should also be fixed.
-#//
 block:
   fun m(stx):
     def [pattern match
@@ -772,7 +768,6 @@ block:
     m(['8 1', '9 2 3'])
     ~matches ['1', '2']
 
-#//
 block:
   fun m(stx):
     def [pattern match:
@@ -816,6 +811,76 @@ block:
   check:
     m(['8 1', '9 2 3'])
     ~matches ['1', '2']
+
+block:
+  use_static
+
+  syntax_class Foo
+  | '$a $b'
+
+  check:
+    match '1 4'
+    | '$(x :: Foo)': [(x).a, (x).b]
+    ~matches ['1', '4']
+
+block:
+  use_static
+
+  syntax_class Foo
+  | '$a ... $b'
+
+  check:
+    match '1 2 3 4'
+    | '$(x :: Foo)': [(x).a, ...]
+    ~matches ['1', '2', '3']
+
+  check:
+    match '(1 2 3 4) (5 6)'
+    | '($(x :: Foo)) ...': [[(x).a, ...], ...]
+    ~matches [['1', '2', '3'], ['5']]
+
+  fun help(x :: Syntax.matched_of(Foo)):
+    [[x.a, ...], x.b]
+
+  check:
+    match '1 2 3 4'
+    | '$(x :: Foo)': help(x)
+    ~matches [['1', '2', '3'], '4']
+
+check:
+  let (pattern match
+       | '9 $x $_'
+       | '8 $x'):
+    '8 1'
+  (match).x
+  ~matches '1'
+
+check:
+  match ['(8 1)', '(9 2 3)']
+  | ['($(pattern match
+         | '9 $x $_'
+         | '8 $x'))', ...]:
+      [match.x, ...]
+  ~matches ['1', '2']
+
+check:
+  match '(8 1)'
+  | '($(pattern match
+        | '9 $x $_'
+        | '8 $x'))':
+      (match).x
+  ~matches '1'
+
+block:
+  import rhombus/meta open
+  use_static
+  expr.macro 'boo $(e :: expr_meta.Parsed) $()':
+    fun help(s :: Syntax.matched_of(expr_meta.Parsed)):
+      s.group
+    '('$(help(e))')'
+  check:
+    boo 1 + 2
+    ~matches '1 + 2'
 
 // check interaction of macro introduction and pattern variables
 block:

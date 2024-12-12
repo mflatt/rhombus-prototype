@@ -15,6 +15,7 @@
                      (submod "symbol.rkt" for-static-info)
                      (submod "list.rkt" for-listable)
                      "static-info-pack.rkt"
+                     "syntax-wrap.rkt"
                      (for-syntax racket/base))
          "space-provide.rkt"
          "immediate-callee.rkt"
@@ -67,7 +68,7 @@
                        #:root-swap '(parsed . group))))
 
 (define-for-syntax (extract-immediate-callee form tail proc static-infoss op-mode op-stx)
-  (define stx (if (syntax? form)
+  (define stx (if (syntax*? form)
                   (unpack-group form proc #f)
                   (raise-bad-macro-result (proc-name proc) "expression" form)))
   (cond

@@ -31,7 +31,8 @@
          (submod "namespace.rkt" for-exports)
          "macro-result.rkt"
          (for-template (only-in "space.rkt" space-name))
-         (submod "annotation.rkt" for-class))
+         (submod "annotation.rkt" for-class)
+         "syntax-wrap.rkt")
 
 (provide enforest-meta
          transform-meta
@@ -332,9 +333,10 @@
   (values form
           (unpack-tail new-tail proc #f)))
 
-(define ((make-check-syntax name parsed-tag recur) form proc . env)
+(define ((make-check-syntax name parsed-tag recur) form-in proc . env)
+  (define form (syntax-unwrap form-in))
   (unless (syntax? form)
-    (raise-bad-macro-result (proc-name proc) (symbol->immutable-string name) form))
+    (raise-bad-macro-result (proc-name proc) (symbol->immutable-string name) form-in))
   (if recur
       (syntax-parse form
         #:datum-literals (parsed)

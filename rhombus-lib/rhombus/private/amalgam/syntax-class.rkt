@@ -7,7 +7,6 @@
          syntax/parse/pre
          "provide.rkt"
          (only-in "binding.rkt" in-binding-space)
-         (submod "dot.rkt" for-dot-provider)
          (submod "quasiquote.rkt" convert)
          (submod "quasiquote.rkt" shape-dispatch)
          (submod "syntax-class-primitive.rkt" for-quasiquote)
@@ -31,8 +30,7 @@
                      syntax_class))
 
 (module+ for-anonymous-syntax-class
-  (provide (for-syntax parse-anonymous-syntax-class
-                       make-syntax-class-dot-provider)))
+  (provide (for-syntax parse-anonymous-syntax-class)))
 
 (define-name-root syntax_class
   #:fields
@@ -193,9 +191,6 @@
           (for/lists (patterns attributess) ([alt-stx (in-list alts)])
             (parse-pattern-cases stx alt-stx kind splicing? #:keep-attr-id? (not define-class?)))]))
      (define attributes (intersect-attributes stx attributess fields-ht swap-root))
-     (define dot-provider-id (if (null? attributes)
-                                 #f
-                                 (car (generate-temporaries (list class/inline-name)))))
      (cond
        [(not define-class?)
         ;; return a `rhombus-syntax-class` directly
@@ -207,9 +202,9 @@
                               (and swap-root
                                    (cons (syntax-e (car swap-root)) (cdr swap-root)))
                               #f
-                              (and dot-provider-id (gensym (if class/inline-name (syntax-e class/inline-name) 'sc-dot)))
-                              ;; caller is responsible for binding this name:
-                              dot-provider-id)]
+                              (if (null? attributes)
+                                  #f
+                                  (gensym (if class/inline-name (syntax-e class/inline-name) 'sc-dot))))]
        [else
         (define class-name class/inline-name)
         (define internal-class-name ((make-syntax-introducer) class-name))
@@ -222,26 +217,18 @@
         (list
          ;; return a list of definitions
          (track-all
-          #`(define-syntaxes (#,(in-syntax-class-space class-name)
-                              #,@(if (not dot-provider-id)
-                                     null
-                                     (list (in-dot-provider-space dot-provider-id))))                                       
-              #,(let ()
-                  (define (build-class key-expr dot-id-expr)
-                    #`(rhombus-syntax-class '#,kind
-                                            (quote-syntax #,internal-class-name)
-                                            (quote-syntax #,(for/list ([var (in-list attributes)])
-                                                              (pattern-variable->list var #:keep-id? #f)))
-                                            #,splicing?
-                                            '#,class-arity
-                                            '#,swap-root
-                                            #f
-                                            #,key-expr
-                                            #,dot-id-expr))
-                  (if (not dot-provider-id)
-                      (build-class #f #f)
-                      #`(values #,(build-class #`(gensym '#,class-name) #`(quote-syntax #,dot-provider-id))
-                                (make-syntax-class-dot-provider (quote-syntax #,class-name)))))))
+          #`(define-syntax #,(in-syntax-class-space class-name)
+              (rhombus-syntax-class '#,kind
+                                    (quote-syntax #,internal-class-name)
+                                    (quote-syntax #,(for/list ([var (in-list attributes)])
+                                                      (pattern-variable->list var #:keep-id? #f)))
+                                    #,splicing?
+                                    '#,class-arity
+                                    '#,swap-root
+                                    #f
+                                    #,(if (null? attributes)
+                                          #f
+                                          #`(gensym '#,class-name)))))
          #`(#,define-class #,(if (syntax-e class-formals)
                                  #`(#,internal-class-name . #,class-formals)
                                  class-name)
@@ -373,8 +360,8 @@
                      in-quotes))
 
   (define (bindings->defns idrs sidrs)
-    (with-syntax ([([val-id val-rhs] ...) idrs]
-                  [([(stx-id ...) stx-rhs] ...) sidrs])
+    (with-syntax ([([val-id val-rhs . _] ...) idrs]
+                  [([(stx-id ...) stx-rhs . _] ...) sidrs])
       #'[(define val-id val-rhs)
          ...
          (define-syntaxes (stx-id ...) stx-rhs)
@@ -410,8 +397,8 @@
                                            (let ([id (hash-ref tmp-id-ht (syntax-e #'id) #f)])
                                              (and id (list id))))
                                       (generate-temporaries #'(id)))
-                  #:with (pat-ids pat-rhs) (make-pattern-variable-bind #'id #'tmp-id (quote-syntax unpack-element*)
-                                                                       (syntax-e #'depth))
+                  #:with (pat-ids pat-rhs . _) (make-pattern-variable-bind #'id #'tmp-id (quote-syntax unpack-element*)
+                                                                           (syntax-e #'depth))
                   (loop (cdr body)
                         null
                         (list* #'[(define tmp-id rhs)

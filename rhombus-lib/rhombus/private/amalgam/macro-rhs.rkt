@@ -119,8 +119,8 @@
                            #:as-tail? #t
                            #:splice? #t
                            #:splice-pattern values)))
-    (with-syntax ([((id id-ref) ...) idrs]
-                  [(((sid ...) sid-ref) ...) sidrs]
+    (with-syntax ([((id id-ref . _) ...) idrs]
+                  [(((sid ...) sid-ref . _) ...) sidrs]
                   [(left-id ...) left-ids])
       (define body
         (cond
@@ -482,8 +482,8 @@
                                                                                                             #:splice-pattern values))
                                     (define-values (extra-patterns wrap-extra)
                                       (build-extra-patterns in-extra-ids extra-binds-stx extra-get-static-infoss-stx extra-shapes))
-                                    (with-syntax ([((p-id id-ref) ...) idrs]
-                                                  [(((s-id ...) sid-ref) ...) sidrs])
+                                    (with-syntax ([((p-id id-ref . _) ...) idrs]
+                                                  [(((s-id ...) sid-ref . _) ...) sidrs])
                                       #`[#,pattern
                                          #,@(if cut? #'(#:cut) '())
                                          #,@extra-patterns
@@ -530,8 +530,8 @@
                                     (lambda (body)
                                       (define-values (pattern idrs sidrs vars can-be-empty?)
                                         (convert-pattern #`(multi . #,gs-stx)))
-                                      (with-syntax ([((p-id id-ref) ...) idrs]
-                                                    [(((s-id ...) sid-ref) ...) sidrs])
+                                      (with-syntax ([((p-id id-ref . _) ...) idrs]
+                                                    [(((s-id ...) sid-ref . _) ...) sidrs])
                                         #`(syntax-parse extra-tail
                                             #:context (insert-multi-front-head-group orig-head extra-tail)
                                             #:disable-colon-notation
@@ -589,8 +589,8 @@
                           #:as-tail? #t
                           #:splice? #t
                           #:splice-pattern values)]))
-    (with-syntax ([((p-id id-ref) ...) idrs]
-                  [(((s-id ...) sid-ref) ...) sidrs])
+    (with-syntax ([((p-id id-ref . _) ...) idrs]
+                  [(((s-id ...) sid-ref . _) ...) sidrs])
       (values
        (append (reverse (syntax->list
                          #`(#:with #,pattern (unpack-tail #,in-extra-id #f #f))))

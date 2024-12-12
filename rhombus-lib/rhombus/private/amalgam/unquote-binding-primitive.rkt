@@ -384,9 +384,7 @@
                                                              (for/list ([var (in-list attribute-vars)]
                                                                         #:unless (eq? swap-to-root (pattern-variable-sym var)))
                                                                (pattern-variable->list var #:keep-id? #f)))
-                                                  #:key (rhombus-syntax-class-key rsc)
-                                                  #:dot-provider-id (rhombus-syntax-class-dot-provider-id rsc)
-                                                  #:bind-dot? bind-dot?))
+                                                  #:key (rhombus-syntax-class-key rsc)))
                  null)
             (if (not open-attributes)
                 null
