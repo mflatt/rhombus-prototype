@@ -46,10 +46,10 @@
     [() null]
     [(_ name _)
      (list
-      #`(define-syntaxes . #,(make-pattern-variable-bind #'name tail #'unpack-tail-list* 1 '())))]
+      #`(define-syntaxes . #,(make-pattern-variable-bind #'name tail #'unpack-tail-list* 1)))]
     [(_ name _ _)
      (list
-      #`(define-syntaxes . #,(make-pattern-variable-bind #'name tail #'unpack-tail* 0 '())))]))
+      #`(define-syntaxes . #,(make-pattern-variable-bind #'name tail #'unpack-tail* 0)))]))
 
 ;; add tail or not for an `enforest`-based simple pattern
 (define-for-syntax (maybe-return-tail expr tail-pattern tail)

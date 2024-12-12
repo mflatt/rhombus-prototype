@@ -176,7 +176,7 @@
                                                        match-id
                                                        #'sc-hier.tail))
         (if rsc
-            (values (build-syntax-class-pattern #'sc rsc #'#f open-attributes form1 match-id)
+            (values (build-syntax-class-pattern #'sc rsc #'#f open-attributes form1 match-id #f)
                     end-tail)
             ;; shortcut for kind mismatch
             (values #'#f #'()))]
@@ -190,7 +190,8 @@
                                                #'args.args
                                                open-attributes
                                                form1
-                                               match-id)
+                                               match-id
+                                               #f)
                    tail)])]))
    'none))
 
@@ -219,7 +220,8 @@
                                                         (attribute open?))
                                                     #'form-id)
                                                (attribute form1)
-                                               #f)
+                                               #f
+                                               #t)
                    #'#f)
                #'()))]))
 
@@ -232,7 +234,7 @@
 ;; used for `::` and for `pattern`, returns a parsed binding form that takes advantage
 ;; of a syntax class --- possibly an inlined syntax class and/or one with exposed fields
 (define-for-syntax (build-syntax-class-pattern stx-class rsc class-args open-attributes-spec
-                                               form1 match-id)
+                                               form1 match-id bind-dot?)
   (with-syntax ([id (if (identifier? form1) form1 #'wildcard)])
     (define (compat pack* unpack* #:splice? [splice? #f])
       (define sc (rhombus-syntax-class-class rsc))
@@ -373,16 +375,19 @@
                                                   (if swap-to-root-var
                                                       (pattern-variable-depth swap-to-root-var)
                                                       pack-depth)
-                                                  (append
-                                                   (if swap-root-to
-                                                       (list
-                                                        (pattern-variable->list
-                                                         (pattern-variable swap-root-to #f temp-id pack-depth unpack*)))
-                                                       null)
-                                                   (for/list ([var (in-list attribute-vars)]
-                                                              #:unless (eq? swap-to-root (pattern-variable-sym var)))
-                                                     (pattern-variable->list var #:keep-id? #f)))))
-                null)
+                                                  #:attribs (append
+                                                             (if swap-root-to
+                                                                 (list
+                                                                  (pattern-variable->list
+                                                                   (pattern-variable swap-root-to #f temp-id pack-depth unpack*)))
+                                                                 null)
+                                                             (for/list ([var (in-list attribute-vars)]
+                                                                        #:unless (eq? swap-to-root (pattern-variable-sym var)))
+                                                               (pattern-variable->list var #:keep-id? #f)))
+                                                  #:key (rhombus-syntax-class-key rsc)
+                                                  #:dot-provider-id (rhombus-syntax-class-dot-provider-id rsc)
+                                                  #:bind-dot? bind-dot?))
+                 null)
             (if (not open-attributes)
                 null
                 (for/list ([oa (in-list open-attributes)]
@@ -390,7 +395,7 @@
                   (define bind-id (open-attrib-bind-id oa))
                   (define var (open-attrib-var oa))
                   (make-pattern-variable-bind bind-id (pattern-variable-val-id var) (pattern-variable-unpack* var)
-                                              (pattern-variable-depth var) null))))
+                                              (pattern-variable-depth var)))))
          #,(append
             (if (identifier? form1)
                 (list

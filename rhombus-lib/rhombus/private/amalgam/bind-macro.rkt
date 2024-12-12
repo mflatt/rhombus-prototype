@@ -22,6 +22,7 @@
                      "define-arity.rkt"
                      (submod "syntax-object.rkt" for-quasiquote)
                      "call-result-key.rkt"
+                     "syntax-wrap.rkt"
                      (for-syntax racket/base
                                  syntax/parse/pre))
          (only-in "space.rkt" space-syntax)
@@ -113,7 +114,7 @@
   (space-syntax rhombus/bind))
 
 (define-for-syntax (check-syntax who s)
-  (unless (syntax? s)
+  (unless (syntax*? s)
     (raise-annotation-failure who s "Syntax")))
 
 (begin-for-syntax
@@ -511,7 +512,7 @@
   #`(parsed #:rhombus/bind #,stx))
 
 (define-for-syntax (extract-binding form proc)
-  (syntax-parse (if (syntax? form)
+  (syntax-parse (if (syntax*? form)
                     (unpack-group form proc #f)
                     #'#f)
     [b::binding #'b.parsed]

@@ -24,7 +24,8 @@
          "unquote-binding.rkt"
          "unquote-binding-identifier.rkt"
          "tag.rkt" ; for use in `~parse`
-         "sequence-pattern.rkt")
+         "sequence-pattern.rkt"
+         "syntax-wrap.rkt")
 
 (provide (for-spaces (#f
                       rhombus/bind
@@ -529,8 +530,7 @@
                              [temp-id (car (generate-temporaries (list e)))])
                          (values temp0-id
                                  (list #`[#,temp-id (pack-tail* (syntax #,temp0-id) 0)])
-                                 (list (make-pattern-variable-bind e temp-id (quote-syntax unpack-tail-list*)
-                                                                   1 '()))
+                                 (list (make-pattern-variable-bind e temp-id (quote-syntax unpack-tail-list*) 1))
                                  (list (pattern-variable (syntax-e e) e temp-id 1 (quote-syntax unpack-tail-list*)))))]))
                   ;; handle-block-tail-escape:
                   (lambda (name e in-e)
@@ -542,8 +542,7 @@
                              [temp-id (car (generate-temporaries (list e)))])
                          (values temp0-id
                                  (list #`[#,temp-id (pack-multi-tail* (syntax #,temp0-id) 0)])
-                                 (list (make-pattern-variable-bind e temp-id (quote-syntax unpack-multi-tail-list*)
-                                                                   1 null))
+                                 (list (make-pattern-variable-bind e temp-id (quote-syntax unpack-multi-tail-list*) 1))
                                  (list (pattern-variable (syntax-e e) e temp-id 1 (quote-syntax unpack-multi-tail-list*)))))]))
                   ;; handle-maybe-empty-sole-group
                   (lambda (tag pat idrs sidrs vars)
@@ -1118,7 +1117,7 @@
 (define-syntax (syntax-matcher stx)
   (syntax-parse stx
     [(_ arg-id (pattern repack (tmp-id ...) (id ...) (id-ref ...) (sid ...) (sid-ref ...)) IF success fail)
-     #'(IF (syntax? arg-id)
+     #'(IF (syntax*? arg-id)
            (begin
              (define-values (match? tmp-id ...)
                (syntax-parse (repack arg-id)

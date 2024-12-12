@@ -7,6 +7,7 @@
          syntax/parse/pre
          "provide.rkt"
          (only-in "binding.rkt" in-binding-space)
+         (submod "dot.rkt" for-dot-provider)
          (submod "quasiquote.rkt" convert)
          (submod "quasiquote.rkt" shape-dispatch)
          (submod "syntax-class-primitive.rkt" for-quasiquote)
@@ -22,14 +23,16 @@
          "pack.rkt"
          "parens.rkt"
          (rename-in "ellipsis.rkt"
-                    [... rhombus...]))
+                    [... rhombus...])
+         "syntax-wrap.rkt")
 
 (provide (for-spaces (rhombus/defn
                       rhombus/namespace)
                      syntax_class))
 
 (module+ for-anonymous-syntax-class
-  (provide (for-syntax parse-anonymous-syntax-class)))
+  (provide (for-syntax parse-anonymous-syntax-class
+                       make-syntax-class-dot-provider)))
 
 (define-name-root syntax_class
   #:fields
@@ -40,7 +43,7 @@
     [(form-id class-name args::class-args
               (_::alts alt ...))
      (build-syntax-class stx (syntax->list #'(alt ...)) null
-                         #:define-class-id #'define-syntax
+                         #:define-class? #t
                          #:class/inline-name #'class-name
                          #:class-formals #'args.formals
                          #:class-arity #'args.arity
@@ -57,7 +60,7 @@
                         (and (attribute alt)
                              (syntax->list #'(alt ...)))))
      (build-syntax-class stx pattern-alts parsed-clauses
-                         #:define-class-id #'define-syntax
+                         #:define-class? #t
                          #:class/inline-name #'class-name
                          #:class-formals #'args.formals
                          #:class-arity #'args.arity
@@ -130,12 +133,12 @@
                          #:expected-kind expected-kind)]
     [_ (raise-syntax-error who "bad syntax" orig-stx)]))
 
-;; returns a `rhombus-syntax-class` if `define-syntax-id` is #f, otherwise
+;; returns a `rhombus-syntax-class` if `define-syntaxed-id` is #f, otherwise
 ;; returns a list of definitions
 (define-for-syntax (build-syntax-class stx
                                        alts
                                        track-stxes
-                                       #:define-class-id [define-syntax-id #f]
+                                       #:define-class? [define-class? #f]
                                        #:class/inline-name [class/inline-name #f]
                                        #:class-formals [class-formals #'#f]
                                        #:class-arity [class-arity #'#f]
@@ -188,10 +191,13 @@
                   (list attrs))]
          [else
           (for/lists (patterns attributess) ([alt-stx (in-list alts)])
-            (parse-pattern-cases stx alt-stx kind splicing? #:keep-attr-id? (not define-syntax-id)))]))
+            (parse-pattern-cases stx alt-stx kind splicing? #:keep-attr-id? (not define-class?)))]))
      (define attributes (intersect-attributes stx attributess fields-ht swap-root))
+     (define dot-provider-id (if (null? attributes)
+                                 #f
+                                 (car (generate-temporaries (list class/inline-name)))))
      (cond
-       [(not define-syntax-id)
+       [(not define-class?)
         ;; return a `rhombus-syntax-class` directly
         (rhombus-syntax-class kind
                               (syntax-class-body->inline patterns class/inline-name)
@@ -200,7 +206,10 @@
                               (syntax->datum class-arity)
                               (and swap-root
                                    (cons (syntax-e (car swap-root)) (cdr swap-root)))
-                              #f)]
+                              #f
+                              (and dot-provider-id (gensym (if class/inline-name (syntax-e class/inline-name) 'sc-dot)))
+                              ;; caller is responsible for binding this name:
+                              dot-provider-id)]
        [else
         (define class-name class/inline-name)
         (define internal-class-name ((make-syntax-introducer) class-name))
@@ -213,15 +222,26 @@
         (list
          ;; return a list of definitions
          (track-all
-          #`(#,define-syntax-id #,(in-syntax-class-space class-name)
-             (rhombus-syntax-class '#,kind
-                                   (quote-syntax #,internal-class-name)
-                                   (quote-syntax #,(for/list ([var (in-list attributes)])
-                                                     (pattern-variable->list var #:keep-id? #f)))
-                                   #,splicing?
-                                   '#,class-arity
-                                   '#,swap-root
-                                   #f)))
+          #`(define-syntaxes (#,(in-syntax-class-space class-name)
+                              #,@(if (not dot-provider-id)
+                                     null
+                                     (list (in-dot-provider-space dot-provider-id))))                                       
+              #,(let ()
+                  (define (build-class key-expr dot-id-expr)
+                    #`(rhombus-syntax-class '#,kind
+                                            (quote-syntax #,internal-class-name)
+                                            (quote-syntax #,(for/list ([var (in-list attributes)])
+                                                              (pattern-variable->list var #:keep-id? #f)))
+                                            #,splicing?
+                                            '#,class-arity
+                                            '#,swap-root
+                                            #f
+                                            #,key-expr
+                                            #,dot-id-expr))
+                  (if (not dot-provider-id)
+                      (build-class #f #f)
+                      #`(values #,(build-class #`(gensym '#,class-name) #`(quote-syntax #,dot-provider-id))
+                                (make-syntax-class-dot-provider (quote-syntax #,class-name)))))))
          #`(#,define-class #,(if (syntax-e class-formals)
                                  #`(#,internal-class-name . #,class-formals)
                                  class-name)
@@ -391,7 +411,7 @@
                                              (and id (list id))))
                                       (generate-temporaries #'(id)))
                   #:with (pat-ids pat-rhs) (make-pattern-variable-bind #'id #'tmp-id (quote-syntax unpack-element*)
-                                                                       (syntax-e #'depth) null)
+                                                                       (syntax-e #'depth))
                   (loop (cdr body)
                         null
                         (list* #'[(define tmp-id rhs)
