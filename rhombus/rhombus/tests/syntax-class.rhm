@@ -194,6 +194,41 @@ block:
     | '$(b :: Bar)': b.f.b
     ~matches '3'
 
+block:
+  syntax_class Foo:
+  | '$a $b; $c; ...'
+
+  syntax_class Bar
+  | '($(f :: Foo))'
+
+  check:
+    match '1 3'
+    | '$(f :: Foo)': (f).b
+    ~matches '3'
+
+  check:
+    match '(1 3) (5 7)'
+    | '($(f :: Foo)) ...': [(f).b, ...]
+    ~matches ['3', '7']
+
+  check:
+    match '(1 3)'
+    | '$(r :: Bar)': ((r).f).b
+    ~matches '3'
+
+block:
+  syntax_class Foo:
+    kind: ~group
+  | '$a $b'
+
+  syntax_class Bar
+  | '($(f :: Foo))'
+
+  check:
+    match '(1 3)'
+    | '$(r :: Bar)': ((r).f).b
+    ~matches '3'
+
 // check that right-hand side of pattern
 // is in a more nested scope than pattern variables
 block:

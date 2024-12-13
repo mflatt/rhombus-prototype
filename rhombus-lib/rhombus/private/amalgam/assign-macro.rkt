@@ -147,7 +147,7 @@
      #':assign-parsed
      #:arity 8
      #:kind 'group
-     #:fields #'((parsed #f parsed 0 (unpack-parsed* '#:rhombus/expr))
-                 (tail #f tail tail unpack-tail-list*))
+     #:fields #'((parsed #f parsed 0 (unpack-parsed* '#:rhombus/expr) stx)
+                 (tail #f tail tail unpack-tail-list* stx))
      #:root-swap '(parsed . group)))
   )

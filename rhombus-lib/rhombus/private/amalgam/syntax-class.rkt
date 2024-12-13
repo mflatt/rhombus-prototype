@@ -437,7 +437,7 @@
                                                      (pattern-variable-sym var)))
                                   (pattern-variable-sym var))
                             #,(pattern-variable-depth var)]
-                           (#,(pattern-variable-unpack* var)
+                           (#,(keep-syntax-wrap (pattern-variable-unpack* var))
                             (quote-syntax dots)
                             #,(pattern-variable-val-id var)
                             #,(pattern-variable-depth var))))
@@ -555,3 +555,12 @@
                     #'unpack-element*)]
                [statinfos (static-infos-intersect (normalize-pvar-statinfos (pattern-variable-statinfos a))
                                                   (normalize-pvar-statinfos (pattern-variable-statinfos b)))]))
+
+;; When packing to communicate a match as a syntax-class attribute,
+;; we don't want to discard syntax wraps, because those wraps are
+;; useful when a syntax-class field itself is from a syntax class
+(define-for-syntax (keep-syntax-wrap unpack*)
+  (case (syntax-e unpack*)
+    [(unpack-term* unpack-multi-as-term* unpack-group*)
+     (quote-syntax unpack-element*)]
+    [else unpack*]))
