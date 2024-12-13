@@ -21,6 +21,7 @@
          "parse.rkt"
          "pack.rkt"
          "parens.rkt"
+         (only-in "static-info.rkt" static-infos-intersect)
          (rename-in "ellipsis.rkt"
                     [... rhombus...])
          "syntax-wrap.rkt")
@@ -178,7 +179,8 @@
                                         (or (syntax-e (declared-field-depth df)) 0)
                                         (if (syntax-e (declared-field-unpack*-id df))
                                             (declared-field-unpack*-id df)
-                                            (quote-syntax unpack-term*))))]))
+                                            (quote-syntax unpack-term*))
+                                        #'()))]))
           (values #`((#:delayed-patterns #,stx #,alts #,fields-ht
                       #,(map (lambda (pv)
                                (list (pattern-variable-sym pv)
@@ -397,14 +399,14 @@
                                            (let ([id (hash-ref tmp-id-ht (syntax-e #'id) #f)])
                                              (and id (list id))))
                                       (generate-temporaries #'(id)))
-                  #:with (pat-ids pat-rhs . _) (make-pattern-variable-bind #'id #'tmp-id (quote-syntax unpack-element*)
-                                                                           (syntax-e #'depth))
+                  #:with (pat-ids pat-rhs . pat-statinfos) (make-pattern-variable-bind #'id #'tmp-id (quote-syntax unpack-element*)
+                                                                                       (syntax-e #'depth))
                   (loop (cdr body)
                         null
                         (list* #'[(define tmp-id rhs)
                                   (define-syntaxes pat-ids pat-rhs)] '#:do
                                (accum-do))
-                        (cons (pattern-variable (syntax-e #'id) #'id #'tmp-id (syntax-e #'depth) (quote-syntax unpack-element*))
+                        (cons (pattern-variable (syntax-e #'id) #'id #'tmp-id (syntax-e #'depth) (quote-syntax unpack-element*) #'pat-statinfos)
                               rev-attrs))]
                  [(#:also (_ pat-g ...) rhs)
                   (define-values (p idrs sidrs vars can-be-empty?)
@@ -543,10 +545,13 @@
                         "field with different depths in different cases"
                         stx
                         (pattern-variable-sym a)))
-  ;; keeping the same unpack, if possible, enables optimizations for
-  ;; tail repetitions; otherwise, the term is sufficiently normalized
-  ;; by matching that we can just use `unpack-element*`
-  (if (free-identifier=? (pattern-variable-unpack* a) (pattern-variable-unpack* b))
-      a
-      (struct-copy pattern-variable a
-                   [unpack* #'unpack-element*])))
+  (struct-copy pattern-variable a
+               [unpack*
+                ;; keeping the same unpack, if possible, enables optimizations for
+                ;; tail repetitions; otherwise, the term is sufficiently normalized
+                ;; by matching that we can just use `unpack-element*`
+                (if (free-identifier=? (pattern-variable-unpack* a) (pattern-variable-unpack* b))
+                    (pattern-variable-unpack* a)
+                    #'unpack-element*)]
+               [statinfos (static-infos-intersect (normalize-pvar-statinfos (pattern-variable-statinfos a))
+                                                  (normalize-pvar-statinfos (pattern-variable-statinfos b)))]))

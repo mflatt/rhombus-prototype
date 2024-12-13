@@ -21,4 +21,4 @@
     (result temp1
             (list #`[#,temp2 (#,pack* (syntax #,temp1) 0)])
             (list (make-pattern-variable-bind id temp2 unpack* 0))
-            (list (pattern-variable (syntax-e id) id temp2 0 unpack*)))))
+            (list (pattern-variable (syntax-e id) id temp2 0 unpack* 'stx)))))

@@ -89,18 +89,18 @@
   (define-syntax-class-syntax Argument
     (make-syntax-class #':rhombus-kw-opt-binding
                        #:kind 'group
-                       #:fields #'((parsed #f parsed 0 (unpack-parsed* '#:rhombus/bind))
-                                   (maybe_keyword #f maybe_keyword 0 unpack-maybe-term*)
-                                   (maybe_expr #f maybe_expr 0 unpack-maybe-group*))))
+                       #:fields #'((parsed #f parsed 0 (unpack-parsed* '#:rhombus/bind) stx)
+                                   (maybe_keyword #f maybe_keyword 0 unpack-maybe-term* stx)
+                                   (maybe_expr #f maybe_expr 0 unpack-maybe-group* stx))))
 
   (define-syntax-class-syntax Result
     (make-syntax-class #':rhombus-ret-annotation
                        #:kind 'term
                        #:splicing? #t
-                       #:fields #'((count #f count 0 unpack-element*)
-                                   (maybe_converter #f maybe_converter 0 unpack-term*)
-                                   (static_info #f static_info 0 unpack-term*)
-                                   (annotation_string #f annotation_string 0 unpack-element*))))
+                       #:fields #'((count #f count 0 unpack-element* stx)
+                                   (maybe_converter #f maybe_converter 0 unpack-term* stx)
+                                   (static_info #f static_info 0 unpack-term* stx)
+                                   (annotation_string #f annotation_string 0 unpack-element* stx))))
 
   (define-syntax-class :unpacked-evidence-id-tree
     #:attributes (packed)

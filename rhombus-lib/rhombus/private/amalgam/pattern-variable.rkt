@@ -24,9 +24,12 @@
 
 (provide (for-syntax make-pattern-variable-bind
                      deepen-pattern-variable-bind
-                     extract-pattern-variable-bind-id-and-depth))
+                     extract-pattern-variable-bind-id-and-depth
+                     normalize-pvar-statinfos
+                     get-syntax-class-static-infos))
 
 (define-for-syntax (make-pattern-variable-bind name-id temp-id unpack* depth
+                                               #:statinfos [statinfos (get-syntax-static-infos)]
                                                #:attribs [attrib-lists '()]
                                                #:key [key #f])
   (define no-repetition?
@@ -40,19 +43,20 @@
              (quote-syntax #,temp-id)
              (quote-syntax #,unpack*)
              #,depth
+             (quote-syntax #,statinfos)
              (quote-syntax #,attrib-lists)
              #,no-repetition?
              (quote #,key))
-     #,@(get-static-infos (datum->syntax #f attrib-lists))])
+     #,@statinfos])
 
 (define-for-syntax (deepen-pattern-variable-bind sidr)
   (syntax-parse sidr
-    [(ids (make-pattern-variable-syntaxes self-id temp-id unpack* depth attrs expr? key) . sis)
+    [(ids (make-pattern-variable-syntaxes self-id temp-id unpack* depth statinfos attrs expr? key) . sis)
      (define new-ids
        (syntax-parse #'ids
          [(id) #`(id #,(in-repetition-space #'id))]
          [_ #'ids]))
-     #`(#,new-ids (make-pattern-variable-syntaxes self-id temp-id unpack* #,(add1 (syntax-e #'depth)) attrs #f key) . sis)]))
+     #`(#,new-ids (make-pattern-variable-syntaxes self-id temp-id unpack* #,(add1 (syntax-e #'depth)) statinfos attrs #f key) . sis)]))
 
 (define-for-syntax (extract-pattern-variable-bind-id-and-depth sids sid-ref)
   (list (car (syntax-e sids))
@@ -60,14 +64,21 @@
           [(make-pattern-variable-syntaxes _ _ _ depth . _) #'depth])))
 
 
-(define-for-syntax (get-static-infos attributes)
-  (define stx-si (get-syntax-static-infos))
-  (if (null? (syntax-e attributes))
-      stx-si
-      #`((#%dot-provider ((pattern-variable-dot-provider #,(get-syntax-instances)) #,(get-syntax-instances)))
-         (#%syntax-class-attributes #,attributes))))
+(define-for-syntax (get-syntax-class-static-infos statinfos attributes)
+  (cond
+    [(null? (syntax-e attributes))
+     statinfos]
+    [else
+     (define dp/s (extract-dot-provider-ids (static-info-lookup statinfos #'#%dot-provider)))
+     (define stx-dp-id (get-syntax-instances))
+     (if (for/or ([id (in-list dp/s)])
+           (free-identifier=? (in-dot-provider-space id)
+                              (in-dot-provider-space stx-dp-id)))
+         #`((#%dot-provider ((pattern-variable-dot-provider #,stx-dp-id) #,stx-dp-id))
+            (#%syntax-class-attributes #,attributes))
+         statinfos)]))
 
-(define-for-syntax (make-pattern-variable-syntaxes name-id temp-id unpack* depth attributes no-repetition? key)
+(define-for-syntax (make-pattern-variable-syntaxes name-id temp-id unpack* depth statinfos attributes no-repetition? key)
   (define (lookup-attribute stx var-id attr-id want-repet?)
     (define attr (for/or ([var (in-list (syntax->list attributes))])
                    (and (eq? (syntax-e attr-id) (syntax-e (car (syntax-e var))))
@@ -96,7 +107,7 @@
          #:do [(define attr (lookup-attribute stx #'var-id #'attr-id #f))]
          #:when attr
          (values (wrap-static-info* (pattern-variable-val-id attr)
-                                    (get-syntax-static-infos))
+                                    (normalize-pvar-statinfos (pattern-variable-statinfos attr)))
                  #'tail)]
         [_
          (if (eqv? depth 0)
@@ -116,10 +127,10 @@
                                                                append
                                                                (for/list ([var (in-list (syntax->list attributes))])
                                                                  (define attr (syntax-list->pattern-variable var))
-                                                                 (list #`(quote #,(car (syntax-e var)))
+                                                                 (list #`(quote #,(pattern-variable-sym attr))
                                                                        (pattern-variable-val-id attr))))))
                                                          #,temp-id)
-                                                   (get-static-infos attributes)))
+                                                   statinfos))
                             #'tail)])))
   (cond
     [no-repetition?
@@ -171,7 +182,7 @@
                        (list #`(quote #,(car (syntax-e var)))
                              tmp)))))
                elem)])
-      (lambda () (get-static-infos attributes))
+      (lambda () statinfos)
       #:repet-handler (lambda (stx next)
                         (syntax-parse stx
                           #:datum-literals (op |.|)
@@ -188,7 +199,7 @@
                                                             #,@(for/list ([i (in-range (sub1 var-depth))])
                                                                  #`([(elem) (in-list elem)])))
                                                          #'elem
-                                                         (get-syntax-static-infos)
+                                                         (normalize-pvar-statinfos (pattern-variable-statinfos attr))
                                                          0)
                                    #'tail)]
                           [_ (next)]))
@@ -249,12 +260,12 @@
                                      (cond
                                        [(= var-depth 0) e]
                                        [else #'elem])
-                                     (get-syntax-static-infos)
+                                     (normalize-pvar-statinfos (pattern-variable-statinfos attr))
                                      0)])]
            [else
             (wrap-static-info* #`(hash-ref (syntax-wrap-attribs #,form1)
                                            (quote #,(pattern-variable-sym attr)))
-                               (get-syntax-static-infos))])
+                               (normalize-pvar-statinfos (pattern-variable-statinfos attr)))])
          tail)]
        [else
         (fail-k)]))))
@@ -290,17 +301,34 @@
                                                [(term) (if (rhombus-syntax-class-splicing? rsc)
                                                            #'unpack-element*
                                                            #'unpack-term*)]
-                                               [else #'unpack-element*])))
+                                               [else #'unpack-element*])
+                                             (get-syntax-static-infos)))
                           (for/list ([attr (in-list (syntax->list attrs))]
                                      #:do [(define pv (syntax-list->pattern-variable attr))]
                                      #:unless (eq? (car swap) (pattern-variable-sym pv)))
                             attr))))]
                   [else attrs]))
+              (define statinfos
+                (cond
+                  [(rhombus-syntax-class-root-swap rsc)
+                   => (lambda (swap)
+                        (or (for/or ([attr (in-list (syntax->list (rhombus-syntax-class-attributes rsc)))])
+                              (define pv (syntax-list->pattern-variable attr))
+                              (and (eq? (car swap) (pattern-variable-sym pv))
+                                   (normalize-pvar-statinfos (pattern-variable-statinfos pv))))
+                            #'()))]
+                  [else (get-syntax-static-infos)]))
               (values
                (annotation-predicate-form #`(lambda (v)
                                               (and (syntax-wrap? v)
                                                    (eq? (syntax-wrap-key v) (quote #,(rhombus-syntax-class-key rsc)))))
-                                          (get-static-infos (root-swap (rhombus-syntax-class-attributes rsc))))
+                                          (get-syntax-class-static-infos statinfos
+                                                                         (root-swap (rhombus-syntax-class-attributes rsc))))
                #'tail)]
              [else (bad)])]
           [else (bad)])]))))
+
+(define-for-syntax (normalize-pvar-statinfos pvar-sis)
+  (if (eq? pvar-sis 'stx)
+      (get-syntax-static-infos)
+      pvar-sis))

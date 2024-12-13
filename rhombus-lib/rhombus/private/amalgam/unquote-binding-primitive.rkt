@@ -25,7 +25,8 @@
          (submod  "import.rkt" for-meta)
          (submod "syntax-class.rkt" for-anonymous-syntax-class)
          "sequence-pattern.rkt"
-         (only-in "static-info.rkt" unwrap-static-infos))
+         (only-in "static-info.rkt" unwrap-static-infos)
+         (submod "syntax-object.rkt" for-quasiquote))
 
 (provide (for-space rhombus/unquote_bind
                     #%parens
@@ -260,6 +261,7 @@
           (define id (pattern-variable-id var))
           (define depth (pattern-variable-depth var))
           (define unpack*-form (pattern-variable-unpack* var))
+          (define statinfos (normalize-pvar-statinfos (pattern-variable-statinfos var)))
           (define id-with-attr (compose-attr-name match-id name id))
           (values #`[#,temp-attr #,(cond
                                      [(eq? depth 'tail)
@@ -294,7 +296,7 @@
                                                          t
                                                          (loop #`(#,t #,(quote-syntax ...)) (sub1 depth)))))
                                          #,depth)])]
-                  (pattern-variable name id temp-attr (if (eq? depth 'tail) 1 depth) unpack*-form))))
+                  (pattern-variable name id temp-attr (if (eq? depth 'tail) 1 depth) unpack*-form statinfos))))
 
       ;; #f or (list (list bind-id var))
       (define open-attributes
@@ -339,6 +341,18 @@
         (for/first ([var (in-list attribute-vars)]
                     #:when (eq? (pattern-variable-sym var) swap-to-root))
           var))
+      (define all-attribs
+        (append
+         (if swap-root-to
+             (list
+              (pattern-variable->list
+               (pattern-variable swap-root-to #f temp-id pack-depth unpack* (get-syntax-static-infos))))
+             null)
+         (for/list ([var (in-list attribute-vars)]
+                    #:unless (eq? swap-to-root (pattern-variable-sym var)))
+           (pattern-variable->list var #:keep-id? #f))))
+      (define root-statinfos
+        (get-syntax-class-static-infos (get-syntax-static-infos) (datum->syntax #f all-attribs)))
       #`(#,((if splice?
                 (lambda (p)
                   (with-syntax ([(tmp) (generate-temporaries '(tail))])
@@ -375,15 +389,10 @@
                                                   (if swap-to-root-var
                                                       (pattern-variable-depth swap-to-root-var)
                                                       pack-depth)
-                                                  #:attribs (append
-                                                             (if swap-root-to
-                                                                 (list
-                                                                  (pattern-variable->list
-                                                                   (pattern-variable swap-root-to #f temp-id pack-depth unpack*)))
-                                                                 null)
-                                                             (for/list ([var (in-list attribute-vars)]
-                                                                        #:unless (eq? swap-to-root (pattern-variable-sym var)))
-                                                               (pattern-variable->list var #:keep-id? #f)))
+                                                  #:statinfos (if swap-to-root-var
+                                                                  (normalize-pvar-statinfos (pattern-variable-statinfos swap-to-root-var))
+                                                                  root-statinfos)
+                                                  #:attribs all-attribs
                                                   #:key (rhombus-syntax-class-key rsc)))
                  null)
             (if (not open-attributes)
@@ -393,7 +402,8 @@
                   (define bind-id (open-attrib-bind-id oa))
                   (define var (open-attrib-var oa))
                   (make-pattern-variable-bind bind-id (pattern-variable-val-id var) (pattern-variable-unpack* var)
-                                              (pattern-variable-depth var)))))
+                                              (pattern-variable-depth var)
+                                              #:statinfos (normalize-pvar-statinfos (pattern-variable-statinfos var))))))
          #,(append
             (if (identifier? form1)
                 (list
@@ -401,7 +411,8 @@
                      (pattern-variable->list (struct-copy pattern-variable swap-to-root-var
                                                           [sym (syntax-e #'id)]
                                                           [id #'id]))
-                     (list #'id #'id temp-id pack-depth unpack*)))
+                     (pattern-variable->list
+                      (pattern-variable #'id #'id temp-id pack-depth unpack* root-statinfos))))
                 null)
             (if (not open-attributes)
                 null
@@ -409,7 +420,7 @@
                   (define var (open-attrib-var oa))
                   (if (eq? var 'root)
                       (pattern-variable->list
-                       (pattern-variable (open-attrib-sym oa) #f temp-id pack-depth unpack*))
+                       (pattern-variable (open-attrib-sym oa) #f temp-id pack-depth unpack* root-statinfos))
                       (pattern-variable->list (struct-copy pattern-variable var
                                                            [sym (open-attrib-sym oa)]))))))))
     (define (incompat)

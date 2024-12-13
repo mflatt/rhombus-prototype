@@ -24,7 +24,6 @@
 ;; interoperability problems at the small risk of keeping fields alive
 ;; longer than intended.
 
-#;
 (begin
   (struct syntax-wrap (stx key attribs)
     #:guard (lambda (s k a name)
@@ -41,6 +40,7 @@
     (or (syntax? v)
         (syntax-wrap? v))))
 
+#;
 (begin
   (define wrapper-key (gensym 'syntax-wrapper))
 

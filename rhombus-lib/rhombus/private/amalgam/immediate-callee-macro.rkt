@@ -63,8 +63,8 @@
     (make-syntax-class #':immediate-callee/split
                        #:kind 'group
                        #:arity 8 ; actually an arity mask
-                       #:fields #'((parsed #f parsed 0 (unpack-parsed* '#:rhombus/expr))
-                                   (tail #f tail tail unpack-tail-list*))
+                       #:fields #'((parsed #f parsed 0 (unpack-parsed* '#:rhombus/expr) stx)
+                                   (tail #f tail tail unpack-tail-list* stx))
                        #:root-swap '(parsed . group))))
 
 (define-for-syntax (extract-immediate-callee form tail proc static-infoss op-mode op-stx)

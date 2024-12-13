@@ -531,7 +531,7 @@
                          (values temp0-id
                                  (list #`[#,temp-id (pack-tail* (syntax #,temp0-id) 0)])
                                  (list (make-pattern-variable-bind e temp-id (quote-syntax unpack-tail-list*) 1))
-                                 (list (pattern-variable (syntax-e e) e temp-id 1 (quote-syntax unpack-tail-list*)))))]))
+                                 (list (pattern-variable (syntax-e e) e temp-id 1 (quote-syntax unpack-tail-list*) 'stx))))]))
                   ;; handle-block-tail-escape:
                   (lambda (name e in-e)
                     (syntax-parse e
@@ -543,7 +543,7 @@
                          (values temp0-id
                                  (list #`[#,temp-id (pack-multi-tail* (syntax #,temp0-id) 0)])
                                  (list (make-pattern-variable-bind e temp-id (quote-syntax unpack-multi-tail-list*) 1))
-                                 (list (pattern-variable (syntax-e e) e temp-id 1 (quote-syntax unpack-multi-tail-list*)))))]))
+                                 (list (pattern-variable (syntax-e e) e temp-id 1 (quote-syntax unpack-multi-tail-list*) 'stx))))]))
                   ;; handle-maybe-empty-sole-group
                   (lambda (tag pat idrs sidrs vars)
                     ;; `pat` matches a `group` form that's supposed to be under `tag`,

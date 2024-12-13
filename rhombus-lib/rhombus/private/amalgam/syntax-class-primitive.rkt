@@ -66,14 +66,16 @@
                             id        ; identifier name of external form, useful for errors
                             val-id    ; identifier that holds match
                             depth     ; repetition depth relative to base name
-                            unpack*)) ; unpacker, usually an identifier
+                            unpack*   ; unpacker, usually an identifier
+                            statinfos)) ; static information for elements at depth 0, or 'stx to mean syntax
 
   (define (pattern-variable->list pv #:keep-id? [keep-id? #t])
     (list (pattern-variable-sym pv)
           (and keep-id? (pattern-variable-id pv))
           (pattern-variable-val-id pv)
           (pattern-variable-depth pv)
-          (pattern-variable-unpack* pv)))
+          (pattern-variable-unpack* pv)
+          (pattern-variable-statinfos pv)))
   (define (list->pattern-variable l)
     (apply pattern-variable l))
   (define (syntax-list->pattern-variable pv)
@@ -82,7 +84,11 @@
                       (let ([id (cadr l)]) (and (syntax-e id) id))
                       (caddr l)
                       (syntax-e (list-ref l 3))
-                      (list-ref l 4)))
+                      (list-ref l 4)
+                      (let ([v (list-ref l 5)])
+                        (if (identifier? v)
+                            'stx
+                            v))))
 
   (define (make-syntax-class pat
                              #:kind [kind 'term]
@@ -149,19 +155,19 @@
          (define-syntax-class-syntax Parsed (make-syntax-class #':form
                                                                #:kind 'group
                                                                #:arity a
-                                                               #:fields #'((parsed #f parsed 0 (unpack-parsed* 'parsed-tag)))
+                                                               #:fields #'((parsed #f parsed 0 (unpack-parsed* 'parsed-tag) stx))
                                                                #:root-swap '(parsed . group)))
          (~? (define-syntax-class-syntax AfterPrefixParsed (make-syntax-class #':prefix-op+form+tail
                                                                               #:kind 'group
                                                                               #:arity (if a (+ a 2) 2)
-                                                                              #:fields #'((parsed #f parsed 0 (unpack-parsed* 'parsed-tag))
-                                                                                          (tail #f tail tail unpack-tail-list*))
+                                                                              #:fields #'((parsed #f parsed 0 (unpack-parsed* 'parsed-tag) stx)
+                                                                                          (tail #f tail tail unpack-tail-list* stx))
                                                                               #:root-swap '(parsed . group))))
          (~? (define-syntax-class-syntax AfterInfixParsed (make-syntax-class #':infix-op+form+tail
                                                                              #:kind 'group
                                                                              #:arity (if a (+ a 2) 2)
-                                                                             #:fields #'((parsed #f parsed 0 (unpack-parsed* 'parsed-tag))
-                                                                                         (tail #f tail tail unpack-tail-list*))
+                                                                             #:fields #'((parsed #f parsed 0 (unpack-parsed* 'parsed-tag) stx)
+                                                                                         (tail #f tail tail unpack-tail-list* stx))
                                                                              #:root-swap '(parsed . group))))
          (define-syntax-class-syntax NameStart (make-syntax-class #':name-start
                                                                   #:auto-args #'(in-space)

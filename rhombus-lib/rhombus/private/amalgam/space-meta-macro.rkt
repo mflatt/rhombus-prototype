@@ -154,9 +154,9 @@
                  #`((define-syntax #,name-start-class-name (make-syntax-class #':name-start
                                                                               #:auto-args #'(in-new-space)
                                                                               #:kind 'group
-                                                                              #:fields #'((name name #f 0 unpack-term*)
-                                                                                          (head #f head tail unpack-tail-list*)
-                                                                                          (tail #f tail tail unpack-tail-list*))))))
+                                                                              #:fields #'((name name #f 0 unpack-term* stx)
+                                                                                          (head #f head tail unpack-tail-list* stx)
+                                                                                          (tail #f tail tail unpack-tail-list* stx))))))
                null))
          (cond
            [(syntax-e #'enforest?)
@@ -194,18 +194,18 @@
                 (define-syntax _class-name (make-syntax-class #':base
                                                               #:kind 'group
                                                               #:arity base-arity-mask
-                                                              #:fields #'((parsed parsed parsed 0 unpack-parsed*/tag))
+                                                              #:fields #'((parsed parsed parsed 0 unpack-parsed*/tag stx))
                                                               #:root-swap '(parsed . group)))
                 (define-syntax _prefix-more-class-name (make-syntax-class #':prefix-more
                                                                           #:kind 'group
-                                                                          #:fields #'((parsed parsed #f 0 unpack-parsed*/tag)
-                                                                                      (tail #f tail tail unpack-tail-list*))
+                                                                          #:fields #'((parsed parsed #f 0 unpack-parsed*/tag stx)
+                                                                                      (tail #f tail tail unpack-tail-list* stx))
                                                                           #:root-swap '(parsed . group)
                                                                           #:arity more-arity-mask))
                 (define-syntax _infix-more-class-name (make-syntax-class #':infix-more
                                                                          #:kind 'group
-                                                                         #:fields #'((parsed parsed #f 0 unpack-parsed*/tag)
-                                                                                     (tail #f tail tail unpack-tail-list*))
+                                                                         #:fields #'((parsed parsed #f 0 unpack-parsed*/tag stx)
+                                                                                     (tail #f tail tail unpack-tail-list* stx))
                                                                          #:root-swap '(parsed . group)
                                                                          #:arity more-arity-mask))
                 #,@(build-name-start-syntax-class)
@@ -245,7 +245,7 @@
                  class-name
                  (define-syntax _class-name (make-syntax-class #':base
                                                                #:kind 'group
-                                                               #:fields #'((parsed parsed parsed 0 unpack-term*))
+                                                               #:fields #'((parsed parsed parsed 0 unpack-term* stx))
                                                                #:root-swap '(parsed . group)
                                                                #:arity base-arity-mask)))
                 #,@(build-name-start-syntax-class)
