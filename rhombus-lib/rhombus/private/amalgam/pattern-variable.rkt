@@ -80,41 +80,30 @@
             (#%syntax-class-attributes #,attributes))
          statinfos)]))
 
+(define-for-syntax (build-attribute-hash attributes #:vars [ids #f])
+  (define vars (map syntax-list->pattern-variable (syntax->list attributes)))
+  (define key-uses (for/fold ([counts #hasheq()]) ([var (in-list vars)])
+                     (hash-update counts (pattern-variable-sym var) add1 0)))
+  (define (multi-use? key) ((hash-ref key-uses key) . > . 1))
+  #`(hasheq
+     #,@(apply
+         append
+         (append
+          (for/list ([key (in-hash-keys key-uses)]
+                     #:when (multi-use? key))
+            (list #`(quote #,key) #'(quote ambiguous)))
+          (for/list ([var (in-list vars)]
+                     [id (in-list (or ids (map pattern-variable-val-id vars)))]
+                     #:unless (multi-use? (pattern-variable-sym var)))
+            (list #`(quote #,(pattern-variable-sym var))
+                  #`(cons #,id #,(pattern-variable-depth var))))))))
+
 (define-for-syntax (make-pattern-variable-syntaxes name-id temp-id unpack* depth statinfos attributes no-repetition? key)
-  (define (lookup-attribute stx var-id attr-id want-repet?)
-    (define attr (for/or ([var (in-list (syntax->list attributes))])
-                   (and (eq? (syntax-e attr-id) (syntax-e (car (syntax-e var))))
-                        (syntax-list->pattern-variable var))))
-    ;; complain if a repetition field is not being used as such, but
-    ;; don't complain if a field is not found, because maybe the dot is
-    ;; an access of a `Syntax` method
-    (when attr
-      (unless (eq? want-repet? (not (eqv? 0 (+ depth (pattern-variable-depth attr)))))
-        (raise-syntax-error #f
-                            (format
-                             (string-append (if want-repet?
-                                                "field is not a repetition\n"
-                                                "field is a repetition\n")
-                                            "  pattern: ~a\n"
-                                            "  field: ~a")
-                             (syntax-e var-id)
-                             (syntax-e attr-id))
-                            stx)))
-    attr)
   (define expr-handler
     (lambda (stx fail)
-      (syntax-parse stx
-        #:datum-literals (op |.|)
-        [(var-id (op |.|) attr-id . tail)
-         #:do [(define attr (lookup-attribute stx #'var-id #'attr-id #f))]
-         #:when attr
-         (values (wrap-static-info* (pattern-variable-val-id attr)
-                                    (normalize-pvar-statinfos (pattern-variable-statinfos attr)))
-                 #'tail)]
-        [_
-         (if (eqv? depth 0)
-             (id-handler stx)
-             (fail))])))
+      (if (eqv? depth 0)
+          (id-handler stx)
+          (fail))))
   (define id-handler
     (lambda (stx)
       (syntax-parse stx
@@ -123,13 +112,7 @@
                                 (wrap-static-info* #`(maybe-syntax-wrap
                                                       (syntax-unwrap #,temp-id)
                                                       (quote #,key)
-                                                      (hasheq
-                                                       #,@(apply
-                                                           append
-                                                           (for/list ([var (in-list (syntax->list attributes))])
-                                                             (define attr (syntax-list->pattern-variable var))
-                                                                 (list #`(quote #,(pattern-variable-sym attr))
-                                                                       (pattern-variable-val-id attr))))))
+                                                      #,(build-attribute-hash attributes))
                                                    statinfos))
                             #'tail)])))
   (cond
@@ -173,34 +156,9 @@
          #`(maybe-syntax-wrap
             elem
             (quote #,key)
-            (hasheq
-             #,@(apply
-                 append
-                 (for/list ([var (in-list attrs)]
-                            [tmp (in-list attr-tmps)])
-                   (list #`(quote #,(car (syntax-e var)))
-                         tmp)))))])
+            #,(build-attribute-hash (datum->syntax #f attrs) #:vars attr-tmps))])
       (lambda () statinfos)
-      #:repet-handler (lambda (stx next)
-                        (syntax-parse stx
-                          #:datum-literals (op |.|)
-                          [(var-id (~and dot-op (op |.|)) attr-id . tail)
-                           #:do [(define attr (lookup-attribute stx #'var-id #'attr-id #t))]
-                           #:when attr
-                           (define var-depth (+ (pattern-variable-depth attr) depth))
-                           (values (make-repetition-info (respan #'(var-id dot-op attr-id))
-                                                         #`(([(elem) (in-list
-                                                                      (#,(pattern-variable-unpack* attr)
-                                                                       #'$
-                                                                       #,(pattern-variable-val-id attr)
-                                                                       #,var-depth))])
-                                                            #,@(for/list ([i (in-range (sub1 var-depth))])
-                                                                 #`([(elem) (in-list elem)])))
-                                                         #'elem
-                                                         (normalize-pvar-statinfos (pattern-variable-statinfos attr))
-                                                         0)
-                                   #'tail)]
-                          [_ (next)]))
+      #:repet-handler (lambda (stx next) (next))
       #:expr-handler expr-handler)]))
 
 (define-for-syntax (build-wrap-syntax-for-attributes base-stx key attributes)
@@ -209,13 +167,7 @@
      ;; some patterns in "quasiquote.rkt" rely on the #`(maybe-syntax-wrap #,base-stx . _) shape
      #`(maybe-syntax-wrap #,base-stx
                           (quote #,key)
-                          (hasheq
-                           #,@(apply
-                               append
-                               (for/list ([var (in-list (syntax->list attributes))])
-                                 (define attr (syntax-list->pattern-variable var))
-                                 (list #`(quote #,(pattern-variable-sym attr))
-                                       (pattern-variable-val-id attr))))))]
+                          #,(build-attribute-hash attributes))]
     [else base-stx]))
 
 (define-syntax pattern-variable-dot-provider
@@ -237,9 +189,15 @@
            (or (syntax-local-static-info form1 #'#%syntax-class-attributes)
                #'())
            0)]))
-     (define attr (for/or ([var (in-list (syntax->list attributes))])
-                    (and (eq? (syntax-e field-id) (syntax-e (car (syntax-e var))))
-                         (syntax-list->pattern-variable var))))
+     (define attrs (for/list ([var (in-list (syntax->list attributes))]
+                              #:when (eq? (syntax-e field-id) (syntax-e (car (syntax-e var)))))
+                     (syntax-list->pattern-variable var)))
+     (define attr (and (pair? attrs) (car attrs)))
+     (when (and (pair? attrs) (pair? (cdr attrs)))
+       (raise-syntax-error #f
+                           "field name is ambiguous"
+                           (datum->syntax #f (list form1 dot field-id))
+                           field-id))
      (cond
        [attr
         (unless (eq? (and repetition? #t)
@@ -258,8 +216,8 @@
               [form-rep-info::repetition-info
                (define e #`(#,(pattern-variable-unpack* attr)
                             #'$
-                            (hash-ref (syntax-wrap-attribs form-rep-info.body)
-                                      (quote #,(pattern-variable-sym attr)))                                                
+                            (car (hash-ref (syntax-wrap-attribs form-rep-info.body)
+                                           (quote #,(pattern-variable-sym attr))))
                             #,var-depth))
                (make-repetition-info (respan (datum->syntax #f (list form1 dot field-id)))
                                      (cond
@@ -276,8 +234,8 @@
                                      (normalize-pvar-statinfos (pattern-variable-statinfos attr))
                                      0)])]
            [else
-            (wrap-static-info* #`(hash-ref (syntax-wrap-attribs #,form1)
-                                           (quote #,(pattern-variable-sym attr)))
+            (wrap-static-info* #`(car (hash-ref (syntax-wrap-attribs #,form1)
+                                                (quote #,(pattern-variable-sym attr))))
                                (normalize-pvar-statinfos (pattern-variable-statinfos attr)))])
          tail)]
        [else

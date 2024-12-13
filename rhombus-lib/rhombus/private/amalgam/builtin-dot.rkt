@@ -39,7 +39,8 @@
     [(treelist? v) treelist-method-table]
     [(list? v) list-method-table]
     [(vector? v) array-method-table]
-    [(syntax*? v) syntax-method-table]
+    [(syntax*? v) (merge (syntax-field-table v)
+                         syntax-method-table)]
     [(pair? v) pair-method-table]
     [(string? v) string-method-table]
     [(bytes? v) bytes-method-table]

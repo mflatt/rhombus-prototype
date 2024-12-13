@@ -47,7 +47,8 @@
                      IdentifierName))
 
 (module+ for-builtin
-  (provide syntax-method-table))
+  (provide syntax-method-table
+           syntax-field-table))
 
 (module+ for-quasiquote
   (provide (for-syntax get-syntax-static-infos
@@ -852,3 +853,24 @@
 
 (define/method (Syntax.is_original v)
   (syntax-original? (extract-ctx who v #:false-ok? #f)))
+
+(define (syntax-field-table s)
+  (cond
+    [(syntax-wrap? s)
+     (define ht (syntax-wrap-attribs s))
+     (for/hash ([(k v) (in-hash ht)])
+       (values k (lambda (s)
+                   (cond
+                     [(eq? v 'ambiguous)
+                      (raise-arguments-error*
+                       k
+                       rhombus-realm
+                       "field name is ambiguous")]
+                     [(eqv? 0 (cdr v))
+                      (car v)]
+                     [else
+                      (raise-arguments-error*
+                       k
+                       rhombus-realm
+                       "field is a repetition;\n use requires static mode")]))))]
+    [else #f]))

@@ -176,6 +176,16 @@ block:
     | '$(b :: Bar)': b.f.b
     ~matches '3'
 
+  check:
+    match '(1 2 3)'
+    | '$(b :: Bar)': dynamic(b).f.b
+    ~matches '3'
+
+  check:
+    match '(1 2 3)'
+    | '$(b :: Bar)': dynamic(b.f).a
+    ~throws "field is a repetition"
+
 block:
   syntax_class Foo:
     root_swap: a group
@@ -207,8 +217,18 @@ block:
     ~matches '3'
 
   check:
+    match '1 3'
+    | '$(f :: Foo)': dynamic(f).b
+    ~matches '3'
+
+  check:
     match '(1 3) (5 7)'
     | '($(f :: Foo)) ...': [(f).b, ...]
+    ~matches ['3', '7']
+
+  check:
+    match '(1 3) (5 7)'
+    | '($(f :: Foo)) ...': [dynamic(f).b, ...]
     ~matches ['3', '7']
 
   check:
@@ -508,7 +528,7 @@ check:
       field form: '~lang'
   match '(~lang, ~lang)'
   | '($(o :: Option), ...)': [o.form]
-  ~throws "field is a repetition"
+  ~throws "cannot use expression binding as a repetition"
 
 check:
   ~eval
@@ -517,7 +537,7 @@ check:
       field form: '~lang'
   match '(~lang, ~lang)'
   | '($(o :: Option), ...)': [o.form]
-  ~throws "field is a repetition"
+  ~throws "cannot use expression binding as a repetition"
 
 block:
   syntax_class NTerms
@@ -981,35 +1001,24 @@ block:
       matcher x
       ~matches '1'
 
-// field names are recognized symbolically
-// Is this the expected behavior?  I think it is.
-block:
+// field names are recognized symbolically, so  make
+// sure they're not ambigious
+check:
+  ~eval
   import rhombus/meta open
-  check:
-    expr.macro 'matcher $(ex :: Term)':
-      '«match '1 2'
-        | (pattern who | '$('$')x $('$')$ex'): who.x»'
-    matcher x
-    ~matches '2'
-  check:
-    expr.macro 'matcher $(ex :: Term)':
-      '«match '1 2'
-        | (pattern who | '$('$')x $('$')$ex'): who . $ex»'
-    matcher x
-    ~matches '2'
-  version_guard.at_least "8.10":
-    check:
-      expr.macro 'matcher $(ex :: Term)':
-        '«match '1 2'
-          | (pattern who | '$('$')$ex $('$')x'): who.x»'
-      matcher x
-      ~matches '2'
-    check:
-      expr.macro 'matcher $(ex :: Term)':
-        '«match '1 2'
-          | (pattern who | '$('$')$ex $('$')x'): who . $ex»'
-      matcher x
-      ~matches '2'
+  expr.macro 'matcher $(ex :: Term)':
+    '«match '1 2'
+      | (pattern who | '$('$')x $('$')$ex'): who.x»'
+  matcher x
+  ~throws "field name is ambiguous"
+
+check:
+  import rhombus/meta open
+  expr.macro 'matcher $(ex :: Term)':
+    '«match '1 2'
+      | (pattern who | '$('$')x $('$')$ex'): dynamic(who).x»'
+  matcher x
+  ~throws "field name is ambiguous"
 
 // check (not) `open`ing named `pattern`s
 check:
