@@ -5,7 +5,8 @@
          syntax-wrap-key
          syntax-wrap-attribs
          syntax-unwrap
-         syntax*?)
+         syntax*?
+         maybe-syntax-wrap)
 
 ;; Two possible implementations of wrapped syntax to hold syntax-class
 ;; fields:
@@ -65,3 +66,8 @@
 
   (define (syntax*? v)
     (syntax? v)))
+
+(define (maybe-syntax-wrap stx key attribs)
+  (cond
+    [(syntax*? stx) (syntax-wrap (syntax-unwrap stx) key attribs)]
+    [else stx]))

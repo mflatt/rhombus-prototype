@@ -182,5 +182,5 @@
      #'(define-syntax-class-syntax Parsed (make-syntax-class #':form
                                                              #:kind 'group
                                                              #:arity a
-                                                             #:fields #'((parsed #f parsed 0 (unpack-parsed* 'parsed-tag)))
+                                                             #:fields #'((parsed #f parsed 0 (unpack-parsed* 'parsed-tag) stx))
                                                              #:root-swap '(parsed . group)))]))

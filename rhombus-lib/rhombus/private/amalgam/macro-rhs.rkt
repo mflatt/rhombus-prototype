@@ -137,7 +137,7 @@
           [else
            #`(rhombus-body-expression #,rhs)]))
       #`[#,pattern
-         (let ([id id-ref] ... [#,self-id self] [left-id left] ...)
+         (let* ([id id-ref] ... [#,self-id self] [left-id left] ...)
            (define-static-info-syntax #,self-id #:getter get-syntax-static-infos)
            (define-static-info-syntax left-id #:getter get-syntax-static-infos)
            ...
@@ -495,7 +495,7 @@
                                                    (define-static-info-syntax #,all-id #:getter get-syntax-static-infos))
                                                 '())
                                          #,(wrap-extra
-                                            #`(let ([p-id id-ref] ...)
+                                            #`(let* ([p-id id-ref] ...)
                                                 (let-syntaxes ([(s-id ...) sid-ref] ...)
                                                   #,(wrap-for-tail
                                                      #`(rhombus-body-expression rhs)))))])]))
@@ -544,7 +544,7 @@
                                                        (define-static-info-syntax #,all-id #:getter get-syntax-static-infos))
                                                     '())
                                              #,(wrap-extra
-                                                #`(let ([p-id id-ref] ...)
+                                                #`(let* ([p-id id-ref] ...)
                                                     (let-syntaxes ([(s-id ...) sid-ref] ...)
                                                       #,body)))])))))
 
@@ -596,7 +596,7 @@
                          #`(#:with #,pattern (unpack-tail #,in-extra-id #f #f))))
                rev-withs)
        (lambda (x)
-         #`(let ([p-id id-ref] ...)
+         #`(let* ([p-id id-ref] ...)
              (let-syntaxes ([(s-id ...) sid-ref] ...)
                #,(wrap x))))))))
 

@@ -514,9 +514,13 @@
                     (for/list ([idr (in-list idrs)])
                       (syntax-parse idr
                         #:literals (pack-nothing*)
+                        #:datum-literals (maybe-syntax-wrap)
                         [(id (pack-nothing* _ _)) idr]
+                        [(id (maybe-syntax-wrap (pack-nothing* _ _) . _)) idr]
                         [(id (pack (_ stx) depth))
-                         #`(id (pack (syntax (stx (... ...))) #,(add1 (syntax-e #'depth))))])))
+                         #`(id (pack (syntax (stx (... ...))) #,(add1 (syntax-e #'depth))))]
+                        [(id ((~and msw maybe-syntax-wrap) (pack (_ stx) depth) . msw-tail))
+                         #`(id (msw (pack (syntax (stx (... ...))) #,(add1 (syntax-e #'depth))) . msw-tail))])))
                   ;; deepen-syntax-escape
                   (lambda (sidr)
                     (deepen-pattern-variable-bind sidr))
@@ -1102,6 +1106,8 @@
      (define (make-sequencers depth) (for/list ([i (in-range (syntax-e depth))]) #'in-list))
      (with-syntax ([(id-sequencers ...) (for/list ([id-ref (in-list (syntax->list #'id-refs))])
                                           (syntax-parse id-ref
+                                            #:datum-literals (maybe-syntax-wrap)
+                                            [(maybe-syntax-wrap (pack _ depth) . _) (make-sequencers #'depth)]
                                             [(pack _ depth) (make-sequencers #'depth)]))]
                    [((sid sid-sequencers) ...)
                     (for/list ([sids (in-list (syntax->list #'(sids ...)))]
@@ -1132,7 +1138,12 @@
              (define-values (match? tmp-id ...)
                (syntax-parse (repack arg-id)
                  #:disable-colon-notation
-                 [pattern (values #t id-ref ...)]
+                 [pattern
+                  ;; use `let*` to allow a syntax-class synatx-wrap construction
+                  ;; to refer to fields, which are placed earlier
+                  (let* ([id id-ref]
+                         ...)
+                    (values #t id ...))]
                  [_ (values #f 'id ...)]))
              (IF match?
                  success

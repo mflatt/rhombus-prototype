@@ -346,13 +346,20 @@
          (if swap-root-to
              (list
               (pattern-variable->list
-               (pattern-variable swap-root-to #f temp-id pack-depth unpack* (get-syntax-static-infos))))
+               (pattern-variable swap-root-to #f temp-id pack-depth unpack* 'stx)))
              null)
          (for/list ([var (in-list attribute-vars)]
                     #:unless (eq? swap-to-root (pattern-variable-sym var)))
            (pattern-variable->list var #:keep-id? #f))))
       (define root-statinfos
-        (get-syntax-class-static-infos (get-syntax-static-infos) (datum->syntax #f all-attribs)))
+        (if swap-root-to
+            'stx
+            (get-syntax-class-static-infos 'stx (datum->syntax #f all-attribs))))
+      (define swap-to-root-statinfos
+        (and swap-root-to
+             (get-syntax-class-static-infos
+              (normalize-pvar-statinfos (pattern-variable-statinfos swap-to-root-var))
+              (datum->syntax #f all-attribs))))
       #`(#,((if splice?
                 (lambda (p)
                   (with-syntax ([(tmp) (generate-temporaries '(tail))])
@@ -372,11 +379,28 @@
                 (if (eq? 'group (rhombus-syntax-class-kind rsc))
                     #`(~and (_ _ . _) #,instance-id)
                     instance-id)))
-         #,(cons #`[#,temp-id (#,pack* (syntax #,(if dotted-bind?
-                                                     #`(#,instance-id (... ...))
-                                                     instance-id))
-                               #,pack-depth)]
-                 attribute-bindings)
+         #,(let ([bindings (cons #`[#,temp-id (#,pack* (syntax #,(if dotted-bind?
+                                                                     #`(#,instance-id (... ...))
+                                                                     instance-id))
+                                               #,pack-depth)]
+                                 attribute-bindings)])
+             ;; Find root representative and wrap it to hold the other fields
+             (define root-index (if swap-root-to
+                                    (for/or ([var (in-list attribute-vars)]
+                                             [i (in-naturals 1)])
+                                      (and (eq? swap-to-root (pattern-variable-sym var)) i))
+                                    0))
+             (append
+              (let loop ([i 0] [bindings bindings])
+                (cond
+                  [(= i root-index) (cdr bindings)]
+                  [else (cons (car bindings) (loop (add1 i) (cdr bindings)))]))
+              (list
+               (syntax-parse (list-ref bindings root-index)
+                 [(id rhs) #`(id #,(build-wrap-syntax-for-attributes
+                                    #'rhs
+                                    (rhombus-syntax-class-key rsc)
+                                    (datum->syntax #f all-attribs)))]))))
          #,(append
             (if (identifier? form1)
                 (list (make-pattern-variable-bind #'id
@@ -390,8 +414,8 @@
                                                       (pattern-variable-depth swap-to-root-var)
                                                       pack-depth)
                                                   #:statinfos (if swap-to-root-var
-                                                                  (normalize-pvar-statinfos (pattern-variable-statinfos swap-to-root-var))
-                                                                  root-statinfos)
+                                                                  swap-to-root-statinfos
+                                                                  (normalize-pvar-statinfos root-statinfos))
                                                   #:attribs all-attribs
                                                   #:key (rhombus-syntax-class-key rsc)))
                  null)
@@ -410,7 +434,8 @@
                  (if swap-to-root
                      (pattern-variable->list (struct-copy pattern-variable swap-to-root-var
                                                           [sym (syntax-e #'id)]
-                                                          [id #'id]))
+                                                          [id #'id]
+                                                          [statinfos swap-to-root-statinfos]))
                      (pattern-variable->list
                       (pattern-variable #'id #'id temp-id pack-depth unpack* root-statinfos))))
                 null)

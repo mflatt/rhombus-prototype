@@ -26,7 +26,8 @@
                      deepen-pattern-variable-bind
                      extract-pattern-variable-bind-id-and-depth
                      normalize-pvar-statinfos
-                     get-syntax-class-static-infos))
+                     get-syntax-class-static-infos
+                     build-wrap-syntax-for-attributes))
 
 (define-for-syntax (make-pattern-variable-bind name-id temp-id unpack* depth
                                                #:statinfos [statinfos (get-syntax-static-infos)]
@@ -69,7 +70,8 @@
     [(null? (syntax-e attributes))
      statinfos]
     [else
-     (define dp/s (extract-dot-provider-ids (static-info-lookup statinfos #'#%dot-provider)))
+     (define dp/s (extract-dot-provider-ids (static-info-lookup (normalize-pvar-statinfos statinfos)
+                                                                #'#%dot-provider)))
      (define stx-dp-id (get-syntax-instances))
      (if (for/or ([id (in-list dp/s)])
            (free-identifier=? (in-dot-provider-space id)
@@ -118,18 +120,16 @@
       (syntax-parse stx
         [(_ . tail) (values (if (null? (syntax-e attributes))
                                 (wrap-static-info* temp-id (get-syntax-static-infos))
-                                (wrap-static-info* #`(if (syntax*? #,temp-id)
-                                                         (syntax-wrap
-                                                          (syntax-unwrap #,temp-id)
-                                                          (quote #,key)
-                                                          (hasheq
-                                                           #,@(apply
-                                                               append
-                                                               (for/list ([var (in-list (syntax->list attributes))])
-                                                                 (define attr (syntax-list->pattern-variable var))
+                                (wrap-static-info* #`(maybe-syntax-wrap
+                                                      (syntax-unwrap #,temp-id)
+                                                      (quote #,key)
+                                                      (hasheq
+                                                       #,@(apply
+                                                           append
+                                                           (for/list ([var (in-list (syntax->list attributes))])
+                                                             (define attr (syntax-list->pattern-variable var))
                                                                  (list #`(quote #,(pattern-variable-sym attr))
                                                                        (pattern-variable-val-id attr))))))
-                                                         #,temp-id)
                                                    statinfos))
                             #'tail)])))
   (cond
@@ -170,18 +170,16 @@
         [(null? attrs)
          #'elem]
         [else
-         #`(if (syntax*? elem)
-               (syntax-wrap
-                (syntax-unwrap elem)
-                (quote #,key)
-                (hasheq
-                 #,@(apply
-                     append
-                     (for/list ([var (in-list attrs)]
-                                [tmp (in-list attr-tmps)])
-                       (list #`(quote #,(car (syntax-e var)))
-                             tmp)))))
-               elem)])
+         #`(maybe-syntax-wrap
+            elem
+            (quote #,key)
+            (hasheq
+             #,@(apply
+                 append
+                 (for/list ([var (in-list attrs)]
+                            [tmp (in-list attr-tmps)])
+                   (list #`(quote #,(car (syntax-e var)))
+                         tmp)))))])
       (lambda () statinfos)
       #:repet-handler (lambda (stx next)
                         (syntax-parse stx
@@ -204,6 +202,21 @@
                                    #'tail)]
                           [_ (next)]))
       #:expr-handler expr-handler)]))
+
+(define-for-syntax (build-wrap-syntax-for-attributes base-stx key attributes)
+  (cond
+    [(and key (pair? (syntax-e attributes)))
+     ;; some patterns in "quasiquote.rkt" rely on the #`(maybe-syntax-wrap #,base-stx . _) shape
+     #`(maybe-syntax-wrap #,base-stx
+                          (quote #,key)
+                          (hasheq
+                           #,@(apply
+                               append
+                               (for/list ([var (in-list (syntax->list attributes))])
+                                 (define attr (syntax-list->pattern-variable var))
+                                 (list #`(quote #,(pattern-variable-sym attr))
+                                       (pattern-variable-val-id attr))))))]
+    [else base-stx]))
 
 (define-syntax pattern-variable-dot-provider
   (dot-provider
@@ -302,7 +315,7 @@
                                                            #'unpack-element*
                                                            #'unpack-term*)]
                                                [else #'unpack-element*])
-                                             (get-syntax-static-infos)))
+                                             'stx))
                           (for/list ([attr (in-list (syntax->list attrs))]
                                      #:do [(define pv (syntax-list->pattern-variable attr))]
                                      #:unless (eq? (car swap) (pattern-variable-sym pv)))

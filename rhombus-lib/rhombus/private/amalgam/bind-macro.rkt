@@ -230,9 +230,9 @@
                      [#,converted-info-pattern
                       (syntax-parse #'(group data)
                         [#,converted-data-pattern
-                         (let ([arg-id #'arg-id]
-                               [info-id info-id-ref] ...
-                               [data-id data-id-ref] ...)
+                         (let* ([arg-id #'arg-id]
+                                [info-id info-id-ref] ...
+                                [data-id data-id-ref] ...)
                            (let-syntaxes ([(info-sid ...) info-sid-ref]
                                           ...
                                           [(data-sid ...) data-sid-ref]
@@ -273,7 +273,7 @@
                   [(_ arg-id data IF success fail)
                    (syntax-parse #'(group data)
                      [#,converted-pattern
-                      (let ([id id-ref] ... [arg-id #'arg-id])
+                      (let* ([id id-ref] ... [arg-id #'arg-id])
                         (let-syntaxes ([(sid ...) sid-ref] ...)
                           (let ([IF-id #'if-bridge])
                             (let ([success-id #'(parsed #:rhombus/expr (maybe-definition success))]
@@ -500,7 +500,7 @@
                                        (unpack-evidence-tree #'evidence-tree)
                                        (list 'group #'data))
                      [#,converted-data-pattern
-                      (let ([data-id data-id-ref] ...)
+                      (let* ([data-id data-id-ref] ...)
                         (let-syntaxes ([(data-sid ...) data-sid-ref] ...)
                           (unwrap-block
                            (rhombus-body-at block-tag body ...))))])])))])])))
