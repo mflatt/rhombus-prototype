@@ -526,7 +526,8 @@
            ht))
      ;; check swap root
      (when swap-root
-       (unless (hash-ref filtered-ht (syntax-e (car swap-root)) #f)
+       (define var (hash-ref filtered-ht (syntax-e (car swap-root)) #f))
+       (unless var
          (raise-syntax-error #f
                              "field to swap as root not found"
                              stx
@@ -535,7 +536,12 @@
          (raise-syntax-error #f
                              "field for root already exists"
                              stx
-                             (cdr swap-root))))
+                             (cdr swap-root)))
+       (unless (= 0 (pattern-variable-depth var))
+         (raise-syntax-error #f
+                             "field for root cannot be a repetition"
+                             stx
+                             (car swap-root))))
      ;; convert back to list
      (hash-values filtered-ht #t)]))
 

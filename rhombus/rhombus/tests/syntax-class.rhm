@@ -1187,6 +1187,12 @@ check:
   | '$first $second'
   ~throws "field for root already exists"
 
+check:
+  ~eval
+  syntax_class C:
+    root_swap: first other
+  | '$first ... $second'
+  ~throws "field for root cannot be a repetition"
 
 check:
   syntax_class.together:
