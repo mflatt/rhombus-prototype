@@ -327,9 +327,10 @@
               (define str-id (and root-id target-id))
               (define index-str (hash-ref def-ht 'raw #f))
               (define sym-path (cons
-                                (if str-id
-                                    (syntax-e str-id)
-                                    null)
+                                (or (hash-ref def-ht 'def_key #f)
+                                    (if str-id
+                                        (syntax-e str-id)
+                                        null))
                                 (if (eq? immed-space-name 'grammar)
                                     (hash-ref immed-def-ht 'target)
                                     null)))
@@ -506,15 +507,20 @@
   (define str-id-e (syntax-e str-id))
   (cond
     [redef?
-     ((if meta? racketvarfont racketidfont)
-      (make-id-element id (shrubbery-syntax->string (if str-id-e str-id id)) #t
-                       #:space space
-                       #:suffix (if str-id-e
-                                    (list (if index-str-in
-                                              (string->symbol index-str-in)
-                                              (target-id-key-symbol str-id))
-                                          space)
-                                    space)))]
+     (define c
+       ((if meta? racketvarfont racketidfont)
+        (make-id-element id (shrubbery-syntax->string (if str-id-e str-id id)) #t
+                         #:space space
+                         #:suffix (if str-id-e
+                                      (list (if index-str-in
+                                                (string->symbol index-str-in)
+                                                (target-id-key-symbol str-id))
+                                            space)
+                                      space))))
+     (append
+      (if prefix-str
+          (element #f (list (racketidfont prefix-str) c))
+          c))]
     [else
      (define str (if (eq? immed-space 'grammar)
                      (symbol->immutable-string nonterm-sym)
