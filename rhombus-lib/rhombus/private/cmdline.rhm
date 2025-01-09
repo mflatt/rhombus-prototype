@@ -94,7 +94,7 @@ class EndText():
 fun make_builtin_flags(help) :~ List:
   [
     OnceEach([Flag({}, [], #false, help, ["--help", "-h"], "Show this information and exit, ignoring remaining arguments."),
-              FinalFlag({}, [], #false, fun (env): env, ["--"], "No argument after this flag is a flag.")])
+              FinalFlag({}, [], #false, fun (accum): accum, ["--"], "No argument after this flag is a flag.")])
   ]
 
 fun parse_command_line(
@@ -104,16 +104,16 @@ fun parse_command_line(
   ~flags: flags :: List.of(Content),
   ~add_builtin: add_builtin = #true,
   ~args: args :: Handler,
-  ~init: init_env :: Map = {}
+  ~init: init_accum :: Map = {}
 ) :~ Map:
-  let (init_env, long_flags :~ Map, short_flags :~ Map, once_keys):
+  let (init_accum, long_flags :~ Map, short_flags :~ Map, once_keys):
     gather_flags(if add_builtin
                  | make_builtin_flags(make_help(exe_who, args, flags, add_builtin)) ++ flags
                  | flags,
                  args,
-                 init_env,
+                 init_accum,
                  ~who: who)
-  fun finish(env, line :~ List):
+  fun finish(accum, line :~ List):
     cond
     | args.repeat_last:
         when line.length() < args.args.length() - 1
@@ -121,68 +121,68 @@ fun parse_command_line(
     | ~else:
         when line.length() != args.args.length()
         | throw_wrong_args(~who: to_string(exe_who), args, line, #false, #false)
-    args.handler(env, & line)
+    args.handler(accum, & line)
   parameterize { current_program: exe_who,
                  current_command_line: line }:
-    recur parse(env = init_env,
+    recur parse(accum = init_accum,
                 once = {},
                 line :~ List = line):
       match line
       | []:
-          finish(env, line)
+          finish(accum, line)
       | [first :~ String, rest, ...]:
           cond
           | first.length() > 1 && (first[0] == Char"-" || first[0] == Char"+"):
               if first.length() > 2 && first[0] == first[1]
               | // long flag
-                let (env, once, line, is_final):
-                  apply_flag(first, first, long_flags.get(first, #false), env, [rest, ...],
+                let (accum, once, line, is_final):
+                  apply_flag(first, first, long_flags.get(first, #false), accum, [rest, ...],
                              once_keys, once, #false,
                              ~who: to_string(exe_who))
                 if is_final
-                | finish(env, line)
-                | parse(env, once, line)
+                | finish(accum, line)
+                | parse(accum, once, line)
               | // short flag(s)
-                let (env, once, line, is_final):
-                  for values(env = env, once = once, line = [rest, ...], is_final = #false):
+                let (accum, once, line, is_final):
+                  for values(accum = accum, once = once, line = [rest, ...], is_final = #false):
                     each i: 1 .. first.length()
                     let flag = first[0] +& first[i]
-                    apply_flag(flag, first, short_flags.get(flag, #false), env, line,
+                    apply_flag(flag, first, short_flags.get(flag, #false), accum, line,
                                once_keys, once, is_final,
                                ~who: to_string(exe_who))
                 if is_final
-                | finish(env, line)
-                | parse(env, once, line)
+                | finish(accum, line)
+                | parse(accum, once, line)
           | ~else:
-              finish(env, line)
+              finish(accum, line)
 
-fun gather_flags(flags :~ List, args, init_env,
+fun gather_flags(flags :~ List, args, init_accum,
                  ~who: who):
   recur setup(c = flags.add(args),
-              env = init_env,
+              accum = init_accum,
               long_flags = {},
               short_flags = {},
               once_keys :~ Map = {},
               once_key = #false):
     match c
     | [c, ...]:
-        for values(env = env, long_flags = long_flags, short_flags = short_flags, once_keys = once_keys):
+        for values(accum = accum, long_flags = long_flags, short_flags = short_flags, once_keys = once_keys):
           each c: [c, ...]
-          setup(c, env, long_flags, short_flags, once_keys, once_key)
+          setup(c, accum, long_flags, short_flags, once_keys, once_key)
     | h :: Handler:
         let once_keys:
           cond
           | once_key == #'self: once_keys ++ { h: h }
           | once_key: once_keys ++ { h: once_key }
           | ~else: once_keys
-        let env:
-          for values(env :~ Map = env):
+        let accum:
+          for values(accum :~ Map = accum):
             each (key, val): h.defaults
-            if env.has_key(key)
+            if accum.has_key(key)
             | error(~who: who,
                     "duplicate default key",
                     error.val(~label: "key", key))
-            | env ++ { key : val }
+            | accum ++ { key : val }
         match c
         | f :: Flag:
             let (long_flags, short_flags):
@@ -199,19 +199,19 @@ fun gather_flags(flags :~ List, args, init_env,
                 if is_short
                 | values(long_flags, short_flags ++ { flag_str: f })
                 | values(long_flags ++ { flag_str: f }, short_flags)
-            values(env, long_flags, short_flags, once_keys)
+            values(accum, long_flags, short_flags, once_keys)
         | ~else:
-            values(env, long_flags, short_flags, once_keys)
+            values(accum, long_flags, short_flags, once_keys)
     | fs :: OnceEach:
-        for values(env = env, long_flags = long_flags, short_flags = short_flags, once_keys = once_keys):
+        for values(accum = accum, long_flags = long_flags, short_flags = short_flags, once_keys = once_keys):
           each c: fs.choices
-          setup(c, env, long_flags, short_flags, once_keys, #'self)
+          setup(c, accum, long_flags, short_flags, once_keys, #'self)
     | fs :: OnceAny:
-        setup(fs.choices, env, long_flags, short_flags, once_keys, Symbol.gen())
+        setup(fs.choices, accum, long_flags, short_flags, once_keys, Symbol.gen())
     | ~else:
-        values(env, long_flags, short_flags, once_keys)
+        values(accum, long_flags, short_flags, once_keys)
 
-fun apply_flag(flag_str, first, flag, env, line :~ List,
+fun apply_flag(flag_str, first, flag, accum, line :~ List,
                once_keys :~ Map, once :~ Map, is_final,
                ~who: exe_who):
   match flag
@@ -231,21 +231,21 @@ fun apply_flag(flag_str, first, flag, env, line :~ List,
               & make_within(flag_str, first))
       when line.length() < f.args.length() - (if f.repeat_last | 1 | 0)
       | throw_wrong_args(~who: exe_who, f, line, flag_str, first)
-      let (env, line :~ List):
+      let (accum, line :~ List):
         if f.repeat_last
-        | values(f.handler(env, & line), [])
+        | values(f.handler(accum, & line), [])
         | let n = f.args.length()
-          let env:
+          let accum:
             parameterize { current_flag_string: flag_str,
                            current_containing_flag_string: first }:
-              f.handler(env, & line.take(n))
-          values(env, line.drop(n))
+              f.handler(accum, & line.take(n))
+          values(accum, line.drop(n))
       let once:
         let key = once_keys.get(f, #false)
         if key
         | once ++ { key: flag_str }
         | once
-      values(env, once, line, is_final || f is_a FinalFlag)
+      values(accum, once, line, is_final || f is_a FinalFlag)
 
 fun format_args(args :~ Handler, prefix :~ String = "") :~ String:
   if args.args == []
@@ -287,7 +287,7 @@ fun split_end_text(flags :: List) :~ values(List, List):
       values(flags, [])
 
 fun make_help(exe_who, args, flags, add_builtin):
-  fun (env):
+  fun (accum):
     show_help(~program: exe_who,
               ~flags: flags :: List,
               ~args: args :: Handler,

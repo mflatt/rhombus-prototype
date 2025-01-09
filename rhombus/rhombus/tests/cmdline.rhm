@@ -1,6 +1,6 @@
 #lang rhombus/static
 import:
-  rhombus/command_line open
+  rhombus/cmdline open
 
 macro 'with_line $args: $body':
   'parameterize { current_command_line: $args }:
@@ -27,9 +27,16 @@ check:
   with_line ["ex", "why"]:
     parse:
       args x y:
-        ~map: config
-        config ++ { #'x: x, #'y: y}
+        ~accum: accum
+        accum ++ { #'x: x, #'y: y}
   ~is { #'x: "ex", #'y: "why" }
+
+check:
+  with_line ["ex", "why"]:
+    parse:
+      ~init { #'base: 7 }
+      args x y
+  ~is { #'args: ["ex", "why"], #'base: 7 }
 
 check:
   with_line ["ex"]:
@@ -106,3 +113,27 @@ check:
       once_any:
         flag "-m" (m :: Int)
   ~is { #'m: 99, #'n: 100 }
+
+check:
+  with_line []:
+    parse:
+      flag "-n":
+        ~init: { #'n: #false }
+  ~is { #'n: #false }
+
+check:
+  with_line ["-n"]:
+    parse:
+      flag "-n":
+        ~init: { #'n: #false }
+  ~is { #'n: #true }
+
+
+check:
+  with_line ["-n"]:
+    parse:
+      flag "-n":
+        ~init: { #'n: #false }
+        ~accum: accum
+        accum ++ { #'n: #'on }
+  ~is { #'n: #'on }

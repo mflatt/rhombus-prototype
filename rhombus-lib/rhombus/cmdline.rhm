@@ -1,7 +1,7 @@
 #lang rhombus/static/and_meta
 import:
-  "private/command_line.rhm" open
-  "private/command_line_meta.rhm" open
+  "private/cmdline.rhm" open
+  "private/cmdline_meta.rhm" open
 
 export:
   parse
@@ -9,10 +9,12 @@ export:
   flag
   once_each
   once_any
-  text
+  help
 
   Any
   Int
+  NonnegInt
+  PosInt
   Path
 
   current_command_line
@@ -26,13 +28,23 @@ flag_annot.def 'Int':
   flag_annot_meta.pack('fun (x, fail_k):
                           String.to_int(x) || fail_k("expected an integer")',
                        'Int')
+flag_annot.def 'NonnegInt':
+  flag_annot_meta.pack('fun (x, fail_k):
+                          let n = String.to_int(x)
+                          (n is_a NonegInt && n) || fail_k("expected a nonnegative integer")',
+                       'NonegInt')
+flag_annot.def 'PosInt':
+  flag_annot_meta.pack('fun (x, fail_k):
+                          let n = String.to_int(x)
+                          (n is_a PosInt && n)|| fail_k("expected a positive integer")',
+                       'PosInt')
 flag_annot.def 'Path':
   flag_annot_meta.pack('fun (x, fail_k):
                           if x is_a PathString
                           | Path(x)
                           | fail_k("expected a valid path")',
                        'Int')
-  
+
 meta:
   syntax_class Arg:
     fields: name
@@ -51,9 +63,9 @@ meta:
   | '~key: $key_body'
   | '~key $(key_body :: Sequence)'
 
-  syntax_class MapArg
-  | '~map: $(env :: Identifier)'
-  | '~map $(env :: Identifier)'
+  syntax_class AccumArg
+  | '~accum: $(accum :: Identifier)'
+  | '~accum $(accum :: Identifier)'
 
   syntax_class Init
   | '~init: $init_body'
@@ -63,7 +75,7 @@ meta:
   fun parse_handler(ctr,
                     [arg :~ Syntax.matched_of(Arg), ...], dots :~ Syntax.matched_of(MaybeDots),
                     key_body, get_default_key, ~always_arg_list = #false,
-                    env, env_clause,
+                    accum, accum_clause,
                     init_body,
                     [body, ...],
                     [extra, ...]):
@@ -74,33 +86,33 @@ meta:
             let (from, annot) = flag_annot_meta.unpack(k)
             [from, annot]
     let key:
-      if key_body || env_clause
+      if key_body || accum_clause
       | '(block: $key_body)'
       | get_default_key()
     '$ctr(
        block: $init_body,
        [$(arg.name.to_source_string()), ...],
        $([dots.seq, ...] != []),
-       fun ($env :~ Map,
+       fun ($accum :~ Map,
             $arg.name :: converting(fun (s :~ String) :~ $arg_annot:
                                       ($from_string)(s, make_fail($(arg.name.to_source_string()),
                                                                   s))),
             ...,
             $dots.seq, ...):
          $(cond
-           | env_clause:
+           | accum_clause:
                '$body
                 ...'
            | [body, ...] == []:
                match [arg, ..., dots.seq, ...]
                | [] when !always_arg_list:
-                   '$env ++ { $key: #true }'
+                   '$accum ++ { $key: #true }'
                | [arg] when !always_arg_list:
-                   '$env ++ { $key: $arg }'
+                   '$accum ++ { $key: $arg }'
                | ~else:
-                   '$env ++ { $key: [$arg.name, ..., $dots.seq, ...] }'
+                   '$accum ++ { $key: [$arg.name, ..., $dots.seq, ...] }'
            | ~else:
-               '$env ++ { $key: block: $body; ... }'),
+               '$accum ++ { $key: block: $body; ... }'),
        $extra,
        ...
      )'
@@ -111,7 +123,7 @@ expr.macro
       'Handler',
       [arg, ...], dots,
       #false, fun (): '#'args', ~always_arg_list: #true,
-      'env', #false,
+      'accum', #false,
       '{}',
       [],
       []
@@ -119,9 +131,9 @@ expr.macro
 | 'args $(arg :: Arg) ... $(dots :: MaybeDots):
      $(group_option_sequence
        | '$(_ :: Key: open)'
-       | '$(_ :: MapArg: open)':
-           field env_clause = #true
-           default env = 'env'
+       | '$(_ :: AccumArg: open)':
+           field accum_clause = #true
+           default accum = 'accum'
        | '$(_ :: Init: open)':
            default init_body = '{}')
      $body
@@ -130,7 +142,7 @@ expr.macro
       'Handler',
       [arg, ...], dots,
       key_body, fun (): '#'args',
-      env, env_clause,
+      accum, accum_clause,
       init_body,
       [body, ...],
       []
@@ -151,7 +163,7 @@ expr.macro
       'Flag',
       [arg, ...], dots,
       #false, fun (): flag_to_key(str),
-      'env', #false,
+      'accum', #false,
       '{}',
       [],      
       ['[$str]',
@@ -167,9 +179,9 @@ expr.macro
             | '~help: $help_text'
             | '~help $(help_text :: Sequence)')'
        | '$(_ :: Key: open)'
-       | '$(_ :: MapArg: open)':
-           field env_clause = #true
-           default env = 'env'
+       | '$(_ :: AccumArg: open)':
+           field accum_clause = #true
+           default accum = 'accum'
        | '$(_ :: Init: open)':
            default init_body = '{}'
        | '~final':
@@ -177,12 +189,11 @@ expr.macro
      $body
      ...':
     ~all_stx: stx
-    unless help_text | syntax_meta.error("missing a `~help` clause", stx)
     parse_handler(
       if final | 'FinalFlag' | 'Flag',
       [arg, ...], dots,
       key_body, fun (): flag_to_key(str),
-      env, env_clause,
+      accum, accum_clause,
       init_body,
       [body, ...],
       ['[$str, $alias_str, ..., ...]',
@@ -221,7 +232,7 @@ fun flatten(who, args :~ List, pred, desc):
                 error.text(~label: "allowed", desc))
   )
 
-expr.macro 'text:
+expr.macro 'help:
               $(group_option_sequence
                 | '~end':
                     field end = #true)
@@ -287,7 +298,7 @@ fun extract_args(who, elements :~ List):
                 "multiple args clauses provided")
         element
       | args
-  args || Handler({}, [], #false, fun (env): env)
+  args || Handler({}, [], #false, fun (accum): accum)
 
 fun extract_flags(who, elements :~ List):
   elements.filter(~skip: fun (v): v is_a Handler && !(v is_a Flag))
