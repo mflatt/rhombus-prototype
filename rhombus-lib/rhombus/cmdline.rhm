@@ -1,0 +1,388 @@
+#lang rhombus/static/and_meta
+import:
+  "private/cmdline.rhm" open
+  "private/cmdline_meta.rhm" open
+
+export:
+  parse
+  parser
+
+  args
+  flag
+  multi
+  once_each
+  once_any
+  help
+
+  Any
+  Int
+  NonnegInt
+  PosInt
+  Path
+  ModulePath
+
+  current_command_line
+  current_program
+  current_flag_string
+  current_containing_flag_string
+
+flag_annot.def 'Any':
+  flag_annot_meta.pack('fun (x, fail_k): x', 'String')
+flag_annot.def 'Int':
+  flag_annot_meta.pack('fun (x, fail_k):
+                          String.to_int(x) || fail_k("expected an integer")',
+                       'Int')
+flag_annot.def 'NonnegInt':
+  flag_annot_meta.pack('fun (x, fail_k):
+                          let n = String.to_int(x)
+                          (n is_a NonegInt && n) || fail_k("expected a nonnegative integer")',
+                       'NonegInt')
+flag_annot.def 'PosInt':
+  flag_annot_meta.pack('fun (x, fail_k):
+                          let n = String.to_int(x)
+                          (n is_a PosInt && n)|| fail_k("expected a positive integer")',
+                       'PosInt')
+flag_annot.def 'Path':
+  flag_annot_meta.pack('fun (x, fail_k):
+                          if x is_a PathString
+                          | Path(x)
+                          | fail_k("expected a valid path")',
+                       'Int')
+
+
+flag_annot.def 'ModulePath':
+  flag_annot_meta.pack('fun (x, fail_k): convert_module_path(x, fail_k)',
+                       'ModulePath')
+
+fun convert_module_path(x, fail_k):
+  let mp:
+    match String.split(x, "!")
+    | [base, submod, ...]:
+        cond
+        | all(submod.length() != 0, ...):
+            ModulePath.try('lib($base) $(List.append(['!', Symbol.from_string(submod)], ...))')
+        | ~else: #false
+    | ~else: #false
+  mp || fail_k("expected a module path")
+
+meta:
+  syntax_class Arg:
+    fields: name_str
+            id
+            kind
+  | '$(id :: Identifier)':
+      field name_str: to_string(id)
+      field kind: 'Any'
+  | '($(name :: Identifier) $(bound_as impo_meta.space: 'as') $(id :: Identifier))':
+      field name_str: to_string(name)
+      field kind: 'Any'
+  | '($(id :: Identifier) $(bound_as bind_meta.space: '::') $(kind :: Name))':
+      field name_str: to_string(id)
+  | '($(name :: Identifier) $(bound_as impo_meta.space: 'as') $(id :: Identifier) $(bound_as bind_meta.space: '::') $(kind :: Name))':
+      field name_str: to_string(name)
+
+  syntax_class MaybeDots
+  | '$(bound_as bind_meta.space: '...')':
+      field [seq, ...] = ['...']
+  | '':
+      field [seq, ...] = []
+
+  syntax_class Key
+  | '~key: $key_body'
+  | '~key $(key_body :: Sequence)'
+
+  syntax_class AccumArg
+  | '~accum: $(accum :: Identifier)'
+  | '~accum $(accum :: Identifier)'
+
+  syntax_class Init
+  | '~init: $init_body'
+  | '~init $(init_body :: Sequence)'
+
+syntax_parameter.bridge multi_mode:
+  #false
+    
+meta:
+  fun parse_handler(stx,
+                    ctr,
+                    [arg :~ Syntax.matched_of(Arg), ...], dots :~ Syntax.matched_of(MaybeDots),
+                    key_body, get_default_key, ~always_arg_list = #false,
+                    accum, accum_clause, ~multi_mode = #false,
+                    init_body,
+                    [body, ...],
+                    [extra, ...]):
+    when [arg, ...] == [] && [dots.seq, ...] != []
+    | syntax_meta.error("no arguments before ellipses", stx, dots)
+    let [[from_string, arg_annot], ...]:
+      for List (kind: [arg.kind, ...]):
+        match kind
+        | '$(k :: flag_annot_meta.Parsed)':
+            let (from, annot) = flag_annot_meta.unpack(k)
+            [from, annot]
+    let key:
+      cond
+      | accum_clause: #false
+      | key_body: 'key'
+      | ~else: get_default_key()
+    let e:
+      '$ctr(
+         block: $(init_body || (if multi_mode && !accum_clause
+                                | '{ $key: [] }'
+                                | '{}')),
+         [$(arg.name_str), ...],
+         $([dots.seq, ...] != []),
+         fun ($accum :~ Map,
+              $arg.id :: converting(fun (s :~ String) :~ $arg_annot:
+                                      ($from_string)(s, make_fail($arg.name_str,
+                                                                  s))),
+              ...,
+              $dots.seq, ...):
+           $(cond
+             | accum_clause:
+                 '$body
+                  ...'
+             | [body, ...] == []:
+                 fun build_set_key(val):
+                   if multi_mode
+                   | '$accum ++ { $key: (Map.get($accum, $key, []) :~ List) ++ [$val] }'
+                   | '$accum ++ { $key: $val }'
+                 match [arg.id, ..., dots.seq, ...]
+                 | [] when !always_arg_list:
+                     '$accum ++ { $key: #true }'
+                 | [arg] when !always_arg_list:
+                     build_set_key(arg)
+                 | ~else:
+                     build_set_key('[$arg.id, ..., $dots.seq, ...]')
+             | ~else:
+                 '$accum ++ { $key: block: $body; ... }'),
+         $extra,
+         ...
+       )'
+    cond
+    | !accum_clause && key_body:
+        'block:
+           def key: $key_body
+           $e'
+    | ~else:
+        e
+
+expr.macro
+| 'args $(arg :: Arg) ... $(dots :: MaybeDots) $()':
+    ~all_stx: stx
+    parse_handler(
+      stx,
+      'Handler',
+      [arg, ...], dots,
+      #false, fun (): '#'args', ~always_arg_list: #true,
+      'accum', #false,
+      '{}',
+      [],
+      []
+    )
+| 'args $(arg :: Arg) ... $(dots :: MaybeDots):
+     $(group_option_sequence
+       | '$(_ :: Key: open)'
+       | '$(_ :: AccumArg: open)':
+           field accum_clause = #true
+           default accum = 'accum'
+       | '$(_ :: Init: open)':
+           default init_body = '{}')
+     $body
+     ...':
+    ~all_stx: stx
+    parse_handler(
+      stx,
+      'Handler',
+      [arg, ...], dots,
+      key_body, fun (): '#'args',
+      accum, accum_clause,
+      init_body,
+      [body, ...],
+      []
+    )
+
+meta:
+  fun flag_to_key(str :~ Syntax):
+    let str :: String = str.unwrap()
+    let sym:
+      if str[0] == str[1]
+      | Symbol.from_string(str.substring(2, str.length()))
+      | Symbol.from_string(str.substring(1, str.length()))
+    '#'$sym'
+
+expr.macro
+| 'flag $(str :: String) $(arg :: Arg) ... $(dots :: MaybeDots) $()':
+    ~all_stx: stx   
+    parse_handler(
+      stx,
+      'Flag',
+      [arg, ...], dots,
+      #false, fun (): flag_to_key(str),
+      'accum', #false, ~multi_mode: syntax_parameter_meta.lookup('multi_mode'),
+      #false,
+      [],      
+      ['[$str]',
+       '#false']
+    )
+| 'flag $(str :: String) $(arg :: Arg) ... $(dots :: MaybeDots):
+     $(group_option_sequence
+       | '$(pattern
+            | '~alias: $(alias_str :: String) ...; ...'
+            | '~alias $(alias_one_str :: String) ...':
+                field [[alias_str, ...], ...] = [[alias_one_str, ...]])'
+       | '$(pattern
+            | '~help: $help_text'
+            | '~help $(help_text :: Sequence)')'
+       | '$(_ :: Key: open)'
+       | '$(_ :: AccumArg: open)':
+           field accum_clause = #true
+           default accum = 'accum'
+       | '$(_ :: Init: open)'
+       | '~multi':
+           field multi = #true
+       | '~final':
+           field final = #true)
+     $body
+     ...':
+    ~all_stx: stx
+    let multi_mode = multi || syntax_parameter_meta.lookup('multi_mode')
+    let e:
+      parse_handler(
+        stx,
+        if final | 'FinalFlag' | 'Flag',
+        [arg, ...], dots,
+        key_body, fun (): flag_to_key(str),
+        accum, accum_clause, ~multi_mode: multi_mode,
+        init_body,
+        [body, ...],
+        ['[$str, $alias_str, ..., ...]',
+         'block:
+            $help_text']
+      )
+    if multi_mode
+    | 'Multi([$e])'
+    | e
+
+expr.macro 'multi: $flag_or_list; ...':
+  ~op_stx: who
+  'block:
+     syntax_parameter.relet multi_mode: #true
+     build_multi(#'$who, [$flag_or_list, ...], [$(flag_or_list.srcloc()), ...])'
+
+fun build_multi(who, flag_or_lists, srclocs):  
+  Multi(flatten(who, flag_or_lists, srclocs,
+                fun (v): v is_a Flag || v is_a Multi,
+                "flag, multi flag set, or list of valid elements"))
+
+expr.macro 'once_each: $flag_or_list; ...':
+  ~op_stx: who
+  'build_once_each(#'$who, [$flag_or_list, ...], [$(flag_or_list.srcloc()), ...])'
+
+fun build_once_each(who, flag_or_lists, srclocs):  
+  OnceEach(flatten(who, flag_or_lists, srclocs,
+                   fun (v): v is_a Flag || v is_a OnceEach,
+                   "flag, once-each flag set, or list of valid elements"))
+
+expr.macro 'once_any: $flag; ...':
+  ~op_stx: who
+  'build_once_any(#'$who, [$flag, ...], [$(flag.srcloc()), ...])'
+
+fun build_once_any(who, flag_or_lists, srclocs):  
+  OnceAny(flatten(who, flag_or_lists, srclocs,
+                  fun (v): v is_a Flag || v is_a OnceAny,
+                  "flag, once-any flag set, or list of valid elements"))
+
+fun flatten(who, args :~ List, srclocs :~ List, pred, desc, keep_srcloc = #false):
+  List.append(
+    & for List (arg: args,
+                srcloc: srclocs):
+      cond
+      | arg is_a List:
+          let srclocs: for List (a: arg :~ List): srcloc
+          flatten(who, arg, srclocs, pred, desc, keep_srcloc)
+      | pred(arg): (if keep_srcloc | [[arg, srcloc]] | [arg])
+      | ~else:
+          error(~who: who,
+                "not a valid element",
+                ~exn: Exn.Fail.Annot.At,
+                ~srcloc: srcloc,
+                error.val(~label: "element", arg),
+                error.text(~label: "allowed", desc))
+  )
+
+expr.macro 'help:
+              $(group_option_sequence
+                | '~end':
+                    field end = #true)
+              $body
+              ...':
+  '$(if end | 'EndText' | 'Text')(block: $body; ...)'
+
+fun make_fail(arg_name, str):
+  fun (msg):
+    error(~who: to_string(current_program()),
+          ~exn: Exn.Fail.User,
+          msg,
+          & (if current_flag_string()
+             | [error.text(~label: "after flag", current_flag_string())]
+             | []),
+          error.text(~label: "for", "<" ++ arg_name ++ ">"),
+          error.text(~label: "given", str),
+          & (if current_flag_string() == current_containing_flag_string()
+             | []
+             | [error.text(~label: "within combined flag", current_containing_flag_string())]))
+
+meta:
+  fun parse_parser(who, stx):
+    match stx
+    | '$(_ :: Term):
+         $(group_option_sequence
+           | '$(_ :: Init: open)':
+               default init_body = '{}'
+           | '~no_builtin':
+               field no_builtin = #true)
+         $element
+         ...':
+        '(block:
+            let element_and_srclocs = flatten_for_parse(#'$who, [$element, ...], [$(element.srcloc()), ...])
+            Parser(~who: #'$who,
+                   ~args: extract_args(#'$who, element_and_srclocs),
+                   ~flags: extract_flags(#'$who, element_and_srclocs),
+                   ~init: $init_body,
+                   ~add_builtin: $(!no_builtin))) :~ Parser'
+
+expr.macro
+| 'parser $tail ...':
+    ~all_stx: stx
+    ~op_stx: who
+    parse_parser(who, stx)
+
+expr.macro
+| 'parse $tail ...':
+    ~all_stx: stx
+    ~op_stx: who
+    '($(parse_parser(who, stx))).parse()'
+
+fun flatten_for_parse(who, elements, srclocs):  
+  flatten(who, elements, srclocs,
+          fun (v): (v is_a Handler) || (v is_a Content),
+          "args handler, flag, flag set (either multi, once-any, or once-each), help text, or list of valid elements",
+          #true)
+
+fun extract_args(who, element_and_srclocs :~ List):
+  def args:
+    for values(args = #false) ([element, srcloc]: element_and_srclocs):
+      if element is_a Handler && !(element is_a Flag)
+      | when args
+        | error(~who: who,
+                ~exn: Exn.Fail.Annot.At,
+                ~srcloc: srcloc,
+                "multiple args handlers provided")
+        element
+      | args
+  args || Handler({}, [], #false, fun (accum): accum)
+
+fun extract_flags(who, element_and_srclocs :~ List):
+  for List ([element, srcloc]: element_and_srclocs):
+    skip_when element is_a Handler && !(element is_a Flag)
+    element

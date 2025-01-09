@@ -1,0 +1,23 @@
+#lang rhombus/static/and_meta
+
+export:  
+  flag_annot
+  meta:
+    flag_annot_meta
+
+space.transform flag_annot:
+  space_path rhombus/flag_annot
+  macro_definer def
+  meta_namespace flag_annot_meta:
+    description "argument annotation"
+    parse_syntax_class Parsed
+    export:
+      pack
+      unpack
+    parsed_packer raw_pack
+    parsed_unpacker raw_unpack
+    fun pack(from_int :: Syntax, annot :: Syntax):
+      raw_pack('($from_int, $annot)')
+    fun unpack(v):
+      let '($from_int, $annot)' = v
+      values(from_int, annot)
