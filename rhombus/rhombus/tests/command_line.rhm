@@ -1,0 +1,108 @@
+#lang rhombus/static
+import:
+  rhombus/command_line open
+
+macro 'with_line $args: $body':
+  'parameterize { current_command_line: $args }:
+     $body'
+
+check:
+  with_line []:
+    parse
+  ~is {}
+
+check:
+  with_line []:
+    parse:
+      args
+  ~is { #'args: [] }
+
+check:
+  with_line ["ex", "why"]:
+    parse:
+      args x y
+  ~is { #'args: ["ex", "why"] }
+
+check:
+  with_line ["ex", "why"]:
+    parse:
+      args x y:
+        ~map: config
+        config ++ { #'x: x, #'y: y}
+  ~is { #'x: "ex", #'y: "why" }
+
+check:
+  with_line ["ex"]:
+    parse:
+      args x y
+  ~throws "expected <x> <y> on the command line"
+
+check:
+  with_line ["100.0"]:
+    parse:
+      args (n :: Int)
+  ~throws "expected an integer"
+
+check:
+  with_line ["-n"]:
+    parse:
+      args (n :: Int)
+  ~throws "unrecognized flag -n"
+
+check:
+  with_line ["-n", "100"]:
+    parse:
+      flag "-n" (n :: Int)
+  ~is { #'n: 100 }
+
+check:
+  with_line ["-n", "100.0"]:
+    parse:
+      flag "-n" (n :: Int)
+  ~throws "expected an integer"
+
+check:
+  with_line ["-m", "99", "-n", "100"]:
+    parse:
+      flag "-n" (n :: Int)
+      flag "-m" (m :: Int)
+  ~is { #'m: 99, #'n: 100 }
+
+check:
+  with_line ["-m", "99", "-n", "100"]:
+    parse:
+      [flag "-n" (n :: Int),
+       flag "-m" (m :: Int)]
+  ~is { #'m: 99, #'n: 100 }
+
+check:
+  with_line ["-m", "99", "-n", "100"]:
+    parse:
+      [[flag "-n" (n :: Int)],
+       flag "-m" (m :: Int)]
+  ~is { #'m: 99, #'n: 100 }
+
+check:
+  with_line ["-m", "99", "-n", "100"]:
+    parse:
+      once_each:
+        flag "-n" (n :: Int)
+        flag "-m" (m :: Int)
+  ~is { #'m: 99, #'n: 100 }
+
+check:
+  with_line ["-m", "99", "-n", "100"]:
+    parse:
+      once_any:
+        flag "-n" (n :: Int)
+        flag "-m" (m :: Int)
+  ~throws "the -n flag cannot be used after -m"
+
+check:
+  with_line ["-m", "99", "-n", "100"]:
+    parse:
+      once_any:
+        flag "-n" (n :: Int)
+      once_any:
+        flag "-m" (m :: Int)
+  ~is { #'m: 99, #'n: 100 }

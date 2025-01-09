@@ -1,6 +1,7 @@
 #lang rhombus/static/and_meta
 import:
   "private/command_line.rhm" open
+  "private/command_line_meta.rhm" open
 
 export:
   parse
@@ -14,35 +15,24 @@ export:
   Int
   Path
 
-space.transform flag_annot:
-  space_path rhombus/flag_annot
-  macro_definer def
-  meta_namespace flag_annot_meta:
-    parse_syntax_class Parsed
-    export:
-      pack
-      unpack
-    parsed_packer raw_pack
-    parsed_unpacker raw_unpack
-    fun pack(from_int :: Syntax, annot :: Syntax):
-      raw_pack('($from_int, $annot)')
-    fun unpack(v):
-      let '($from_int, $annot)' = v
-      values(from_int, annot)
+  current_command_line
+  current_program
+  current_flag_string
+  current_containing_flag_string
 
 flag_annot.def 'Any':
   flag_annot_meta.pack('fun (x, fail_k): x', 'String')
 flag_annot.def 'Int':
   flag_annot_meta.pack('fun (x, fail_k):
-                          String.to_int(x) || fail_k("not an integer")',
+                          String.to_int(x) || fail_k("expected an integer")',
                        'Int')
 flag_annot.def 'Path':
   flag_annot_meta.pack('fun (x, fail_k):
                           if x is_a PathString
                           | Path(x)
-                          | fail_k("not a valid path")',
+                          | fail_k("expected a valid path")',
                        'Int')
-
+  
 meta:
   syntax_class Arg:
     fields: name
@@ -68,70 +58,11 @@ meta:
   syntax_class Init
   | '~init: $init_body'
   | '~init $(init_body :: Sequence)'
-
-expr.macro 'args $(arg :: Arg) ... $(dots :: MaybeDots):
-              $(group_option_sequence
-                | '$(_ :: Key: open)'
-                | '$(_ :: MapArg: open)':
-                    field env_clause = #true
-                    default env = 'env'
-                | '$(_ :: Init: open)':
-                    default init_body = '{}')
-              $body
-              ...':
-  parse_handler(
-    'Args',
-    [arg, ...], dots,
-    key_body, fun (): '#'args',
-    env, env_clause,
-    init_body,
-    [body, ...],
-    []
-  )
-
-expr.macro 'flag $(str :: String) $(arg :: Arg) ... $(dots :: MaybeDots):
-              $(group_option_sequence
-                | '$(pattern
-                     | '~aliases: $(alias_str :: String) ...; ...'
-                     | '~aliases $(alias_one_str :: String) ...':
-                         field [[alias_str, ...], ...] = [[alias_one_str, ...]])'
-                | '$(pattern
-                     | '~help: $help_text'
-                     | '~help $(help_text :: Sequence)')'
-                | '$(_ :: Key: open)'
-                | '$(_ :: MapArg: open)':
-                    field env_clause = #true
-                    default env = 'env'
-                | '$(_ :: Init: open)':
-                    default init_body = '{}'
-                | '~final':
-                    field final = #true)
-              $body
-              ...':
-  ~all_stx: stx
-  unless help_text | syntax_meta.error("missing a `~help` clause", stx)
-  parse_handler(
-    if final | 'FinalFlag' | 'Flag',
-    [arg, ...], dots,
-    key_body, fun ():
-                let str :: String = str.unwrap()
-                let sym:
-                  if str[0] == str[1]
-                  | Symbol.from_string(str.substring(2, str.length()))
-                  | Symbol.from_string(str.substring(1, str.length()))
-                '#'$sym',
-    env, env_clause,
-    init_body,
-    [body, ...],
-    ['[$str, $alias_str, ..., ...]',
-     'block:
-        $help_text']
-  )
-
+    
 meta:
   fun parse_handler(ctr,
                     [arg :~ Syntax.matched_of(Arg), ...], dots :~ Syntax.matched_of(MaybeDots),
-                    key_body, get_default_key,
+                    key_body, get_default_key, ~always_arg_list = #false,
                     env, env_clause,
                     init_body,
                     [body, ...],
@@ -162,9 +93,9 @@ meta:
                 ...'
            | [body, ...] == []:
                match [arg, ..., dots.seq, ...]
-               | []:                                             
+               | [] when !always_arg_list:
                    '$env ++ { $key: #true }'
-               | [arg]:
+               | [arg] when !always_arg_list:
                    '$env ++ { $key: $arg }'
                | ~else:
                    '$env ++ { $key: [$arg.name, ..., $dots.seq, ...] }'
@@ -174,23 +105,108 @@ meta:
        ...
      )'
 
+expr.macro
+| 'args $(arg :: Arg) ... $(dots :: MaybeDots) $()':
+    parse_handler(
+      'Handler',
+      [arg, ...], dots,
+      #false, fun (): '#'args', ~always_arg_list: #true,
+      'env', #false,
+      '{}',
+      [],
+      []
+    )
+| 'args $(arg :: Arg) ... $(dots :: MaybeDots):
+     $(group_option_sequence
+       | '$(_ :: Key: open)'
+       | '$(_ :: MapArg: open)':
+           field env_clause = #true
+           default env = 'env'
+       | '$(_ :: Init: open)':
+           default init_body = '{}')
+     $body
+     ...':
+    parse_handler(
+      'Handler',
+      [arg, ...], dots,
+      key_body, fun (): '#'args',
+      env, env_clause,
+      init_body,
+      [body, ...],
+      []
+    )
+
+meta:
+  fun flag_to_key(str :~ Syntax):
+    let str :: String = str.unwrap()
+    let sym:
+      if str[0] == str[1]
+      | Symbol.from_string(str.substring(2, str.length()))
+      | Symbol.from_string(str.substring(1, str.length()))
+    '#'$sym'
+
+expr.macro
+| 'flag $(str :: String) $(arg :: Arg) ... $(dots :: MaybeDots) $()':
+     parse_handler(
+      'Flag',
+      [arg, ...], dots,
+      #false, fun (): flag_to_key(str),
+      'env', #false,
+      '{}',
+      [],      
+      ['[$str]',
+       '#false']
+    )
+| 'flag $(str :: String) $(arg :: Arg) ... $(dots :: MaybeDots):
+     $(group_option_sequence
+       | '$(pattern
+            | '~aliases: $(alias_str :: String) ...; ...'
+            | '~aliases $(alias_one_str :: String) ...':
+                field [[alias_str, ...], ...] = [[alias_one_str, ...]])'
+       | '$(pattern
+            | '~help: $help_text'
+            | '~help $(help_text :: Sequence)')'
+       | '$(_ :: Key: open)'
+       | '$(_ :: MapArg: open)':
+           field env_clause = #true
+           default env = 'env'
+       | '$(_ :: Init: open)':
+           default init_body = '{}'
+       | '~final':
+           field final = #true)
+     $body
+     ...':
+    ~all_stx: stx
+    unless help_text | syntax_meta.error("missing a `~help` clause", stx)
+    parse_handler(
+      if final | 'FinalFlag' | 'Flag',
+      [arg, ...], dots,
+      key_body, fun (): flag_to_key(str),
+      env, env_clause,
+      init_body,
+      [body, ...],
+      ['[$str, $alias_str, ..., ...]',
+       'block:
+          $help_text']
+    )
+
 expr.macro 'once_each: $flag_or_list; ...':
   ~op_stx: who
   'build_once_each(#'$who, $flag_or_list, ...)'
 
 fun build_once_each(who, flag_or_list, ...):  
-  OnceEach(& flatten(who, [flag_or_list, ...],
-                     fun (v): v is_a Flag || v is_a OnceEach,
-                     "flag, once-each flag group, or list of valid elements"))
+  OnceEach(flatten(who, [flag_or_list, ...],
+                   fun (v): v is_a Flag || v is_a OnceEach,
+                   "flag, once-each flag group, or list of valid elements"))
 
 expr.macro 'once_any: $flag; ...':
   ~op_stx: who
   'build_once_any(#'$who, $flag, ...)'
 
 fun build_once_any(who, flag_or_list, ...):  
-  OnceAny(& flatten(who, [flag_or_list, ...],
-                    fun (v): v is_a Flag || v is_a OnceAny,
-                    "flag, once-any flag group, or list of valid elements"))
+  OnceAny(flatten(who, [flag_or_list, ...],
+                  fun (v): v is_a Flag || v is_a OnceAny,
+                  "flag, once-any flag group, or list of valid elements"))
 
 fun flatten(who, args :~ List, pred, desc):
   List.append(
@@ -217,37 +233,45 @@ fun make_fail(arg_name, str):
   fun (msg):
     error(~who: to_string(current_program()),
           ~exn: Exn.Fail.User,
-          msg,          
-          error.text(~label: "given", str),
+          msg,
+          & (if current_flag_string()
+             | [error.text(~label: "after flag", current_flag_string())]
+             | []),
           error.text(~label: "for", "<" ++ arg_name ++ ">"),
-          error.text(~label: "in flag", current_flag_string()),
+          error.text(~label: "given", str),
           & (if current_flag_string() == current_containing_flag_string()
              | []
              | [error.text(~label: "within combined flag", current_containing_flag_string())]))
 
-expr.macro 'parse:
-              $(group_option_sequence
-                | '$(pattern
-                     | '~program: $program'
-                     | '~program $(program :: Sequence)')':
-                    default program = 'current_program()'
-                | '$(pattern
-                     | '~line: $command_line'
-                     | '~line $(command_line :: Sequence)')':
-                    default command_line = 'current_command_line()'
-                | '$(_ :: Init: open)':
-                    default init_body = '{}')
-              $element
-              ...':
-  ~op_stx: who
-  'block:
-     let elements = flatten_for_parse(#'$who, [$element, ...])
-     parse_command_line(~who: #'$who,
-                        ~args: extract_args(#'$who, elements),
-                        ~flags: extract_flags(#'$who, elements),                        
-                        ~program: $program,
-                        ~line: $command_line,
-                        ~init: $init_body)'
+expr.macro
+| 'parse $()':
+    ~op_stx: who
+    'parse_command_line(~who: #'$who,
+                        ~args: extract_args(#'$who, []),
+                        ~flags: [])'
+| 'parse:
+     $(group_option_sequence
+       | '$(pattern
+            | '~program: $program'
+            | '~program $(program :: Sequence)')':
+           default program = 'current_program()'
+       | '$(pattern
+            | '~line: $command_line'
+            | '~line $(command_line :: Sequence)')':
+           default command_line = 'current_command_line()'
+       | '$(_ :: Init: open)':
+           default init_body = '{}')
+     $element
+     ...':
+    ~op_stx: who
+    'block:
+       let elements = flatten_for_parse(#'$who, [$element, ...])
+       parse_command_line(~who: #'$who,
+                          ~args: extract_args(#'$who, elements),
+                          ~flags: extract_flags(#'$who, elements),                        
+                          ~program: $program,
+                          ~line: $command_line,
+                          ~init: $init_body)'
 
 fun flatten_for_parse(who, elements):  
   flatten(who, elements,

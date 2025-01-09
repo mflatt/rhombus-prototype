@@ -61,7 +61,7 @@ class Flag(flag_strs :~ List.of(String),
                    repeat_last :~ Boolean,
                    handler :: (~any) -> Map,
                    flag_strs :: List.of(String),
-                   help :: String):
+                   help :: maybe(String)):
     ~who: who
     let self:
       super(defaults, args, repeat_last, handler)(flag_strs, help)
@@ -380,17 +380,18 @@ fun show_help(~program: exe_who :: String || Path = current_program,
             print(flag_str)
             print(format_args(f, " "))
           println("")
-          let help = f.help.split("\n")
-          for (h: help.drop_last(1)):
-            match mode
-            | #'multi || #'once_each: print("    ")
-            | ~else: print("|   ")
-            println(h)
-          match mode
-          | #'multi || #'once_each: print("    ")
-          | #'once_start || #'once_continue: print("|   ")
-          | #'once_end: print("\\   ")
-          println(help.last)
+          when f.help:
+          | let help = f!!.help.split("\n")
+            for (h: help.drop_last(1)):
+              match mode
+              | #'multi || #'once_each: print("    ")
+              | ~else: print("|   ")
+              println(h)
+              match mode
+              | #'multi || #'once_each: print("    ")
+              | #'once_start || #'once_continue: print("|   ")
+              | #'once_end: print("\\   ")
+              println(help.last)
       | t :: Text:
           println(t.text)
     let any_multi = (for any ([mode, flag]: mode_and_flags): mode == #'multi)
