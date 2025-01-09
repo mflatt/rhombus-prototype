@@ -1,0 +1,269 @@
+#lang rhombus/static/and_meta
+import:
+  "private/command_line.rhm" open
+
+export:
+  parse
+  args
+  flag
+  once_each
+  once_any
+  text
+
+  Any
+  Int
+  Path
+
+space.transform flag_annot:
+  space_path rhombus/flag_annot
+  macro_definer def
+  meta_namespace flag_annot_meta:
+    parse_syntax_class Parsed
+    export:
+      pack
+      unpack
+    parsed_packer raw_pack
+    parsed_unpacker raw_unpack
+    fun pack(from_int :: Syntax, annot :: Syntax):
+      raw_pack('($from_int, $annot)')
+    fun unpack(v):
+      let '($from_int, $annot)' = v
+      values(from_int, annot)
+
+flag_annot.def 'Any':
+  flag_annot_meta.pack('fun (x, fail_k): x', 'String')
+flag_annot.def 'Int':
+  flag_annot_meta.pack('fun (x, fail_k):
+                          String.to_int(x) || fail_k("not an integer")',
+                       'Int')
+flag_annot.def 'Path':
+  flag_annot_meta.pack('fun (x, fail_k):
+                          if x is_a PathString
+                          | Path(x)
+                          | fail_k("not a valid path")',
+                       'Int')
+
+meta:
+  syntax_class Arg:
+    fields: name
+            kind
+  | '$(name :: Identifier)':
+      field kind: 'Any'
+  | '($(name :: Identifier) :: $(kind :: Name))'
+
+  syntax_class MaybeDots
+  | '$('...')':
+      field [seq, ...] = '...'
+  | '':
+      field [seq, ...] = []
+
+  syntax_class Key
+  | '~key: $key_body'
+  | '~key $(key_body :: Sequence)'
+
+  syntax_class MapArg
+  | '~map: $(env :: Identifier)'
+  | '~map $(env :: Identifier)'
+
+  syntax_class Init
+  | '~init: $init_body'
+  | '~init $(init_body :: Sequence)'
+
+expr.macro 'args $(arg :: Arg) ... $(dots :: MaybeDots):
+              $(group_option_sequence
+                | '$(_ :: Key: open)'
+                | '$(_ :: MapArg: open)':
+                    field env_clause = #true
+                    default env = 'env'
+                | '$(_ :: Init: open)':
+                    default init_body = '{}')
+              $body
+              ...':
+  parse_handler(
+    'Args',
+    [arg, ...], dots,
+    key_body, fun (): '#'args',
+    env, env_clause,
+    init_body,
+    [body, ...],
+    []
+  )
+
+expr.macro 'flag $(str :: String) $(arg :: Arg) ... $(dots :: MaybeDots):
+              $(group_option_sequence
+                | '$(pattern
+                     | '~aliases: $(alias_str :: String) ...; ...'
+                     | '~aliases $(alias_one_str :: String) ...':
+                         field [[alias_str, ...], ...] = [[alias_one_str, ...]])'
+                | '$(pattern
+                     | '~help: $help_text'
+                     | '~help $(help_text :: Sequence)')'
+                | '$(_ :: Key: open)'
+                | '$(_ :: MapArg: open)':
+                    field env_clause = #true
+                    default env = 'env'
+                | '$(_ :: Init: open)':
+                    default init_body = '{}'
+                | '~final':
+                    field final = #true)
+              $body
+              ...':
+  ~all_stx: stx
+  unless help_text | syntax_meta.error("missing a `~help` clause", stx)
+  parse_handler(
+    if final | 'FinalFlag' | 'Flag',
+    [arg, ...], dots,
+    key_body, fun ():
+                let str :: String = str.unwrap()
+                let sym:
+                  if str[0] == str[1]
+                  | Symbol.from_string(str.substring(2, str.length()))
+                  | Symbol.from_string(str.substring(1, str.length()))
+                '#'$sym',
+    env, env_clause,
+    init_body,
+    [body, ...],
+    ['[$str, $alias_str, ..., ...]',
+     'block:
+        $help_text']
+  )
+
+meta:
+  fun parse_handler(ctr,
+                    [arg :~ Syntax.matched_of(Arg), ...], dots :~ Syntax.matched_of(MaybeDots),
+                    key_body, get_default_key,
+                    env, env_clause,
+                    init_body,
+                    [body, ...],
+                    [extra, ...]):
+    let [[from_string, arg_annot], ...]:
+      for List (kind: [arg.kind, ...]):
+        match kind
+        | '$(k :: flag_annot_meta.Parsed)':
+            let (from, annot) = flag_annot_meta.unpack(k)
+            [from, annot]
+    let key:
+      if key_body || env_clause
+      | '(block: $key_body)'
+      | get_default_key()
+    '$ctr(
+       block: $init_body,
+       [$(arg.name.to_source_string()), ...],
+       $([dots.seq, ...] != []),
+       fun ($env :~ Map,
+            $arg.name :: converting(fun (s :~ String) :~ $arg_annot:
+                                      ($from_string)(s, make_fail($(arg.name.to_source_string()),
+                                                                  s))),
+            ...,
+            $dots.seq, ...):
+         $(cond
+           | env_clause:
+               '$body
+                ...'
+           | [body, ...] == []:
+               match [arg, ..., dots.seq, ...]
+               | []:                                             
+                   '$env ++ { $key: #true }'
+               | [arg]:
+                   '$env ++ { $key: $arg }'
+               | ~else:
+                   '$env ++ { $key: [$arg.name, ..., $dots.seq, ...] }'
+           | ~else:
+               '$env ++ { $key: block: $body; ... }'),
+       $extra,
+       ...
+     )'
+
+expr.macro 'once_each: $flag_or_list; ...':
+  ~op_stx: who
+  'build_once_each(#'$who, $flag_or_list, ...)'
+
+fun build_once_each(who, flag_or_list, ...):  
+  OnceEach(& flatten(who, [flag_or_list, ...],
+                     fun (v): v is_a Flag || v is_a OnceEach,
+                     "flag, once-each flag group, or list of valid elements"))
+
+expr.macro 'once_any: $flag; ...':
+  ~op_stx: who
+  'build_once_any(#'$who, $flag, ...)'
+
+fun build_once_any(who, flag_or_list, ...):  
+  OnceAny(& flatten(who, [flag_or_list, ...],
+                    fun (v): v is_a Flag || v is_a OnceAny,
+                    "flag, once-any flag group, or list of valid elements"))
+
+fun flatten(who, args :~ List, pred, desc):
+  List.append(
+    & for List (arg: args):
+      cond
+      | arg is_a List: flatten(who, arg, pred, desc)
+      | pred(arg): [arg]
+      | ~else:
+          error(~who: who,
+                "not a valid element",
+                error.val(~label: "element", arg),
+                error.text(~label: "allowed", desc))
+  )
+
+expr.macro 'text:
+              $(group_option_sequence
+                | '~end':
+                    field end = #true)
+              $body
+              ...':
+  '$(if end | 'EndText' | 'Text')(block: $body; ...)'
+
+fun make_fail(arg_name, str):
+  fun (msg):
+    error(~who: to_string(current_program()),
+          ~exn: Exn.Fail.User,
+          msg,          
+          error.text(~label: "given", str),
+          error.text(~label: "for", "<" ++ arg_name ++ ">"),
+          error.text(~label: "in flag", current_flag_string()),
+          & (if current_flag_string() == current_containing_flag_string()
+             | []
+             | [error.text(~label: "within combined flag", current_containing_flag_string())]))
+
+expr.macro 'parse:
+              $(group_option_sequence
+                | '$(pattern
+                     | '~program: $program'
+                     | '~program $(program :: Sequence)')':
+                    default program = 'current_program()'
+                | '$(pattern
+                     | '~line: $command_line'
+                     | '~line $(command_line :: Sequence)')':
+                    default command_line = 'current_command_line()'
+                | '$(_ :: Init: open)':
+                    default init_body = '{}')
+              $element
+              ...':
+  ~op_stx: who
+  'block:
+     let elements = flatten_for_parse(#'$who, [$element, ...])
+     parse_command_line(~who: #'$who,
+                        ~args: extract_args(#'$who, elements),
+                        ~flags: extract_flags(#'$who, elements),                        
+                        ~program: $program,
+                        ~line: $command_line,
+                        ~init: $init_body)'
+
+fun flatten_for_parse(who, elements):  
+  flatten(who, elements,
+          fun (v): (v is_a Handler) || (v is_a Content),
+          "flag, once-any or once-each flag group, text description, or list of valid elements")
+
+fun extract_args(who, elements :~ List):
+  def args:
+    for values(args = #false) (element: elements):
+      if element is_a Handler && !(element is_a Flag)
+      | when args
+        | error(~who: who,
+                "multiple args clauses provided")
+        element
+      | args
+  args || Handler({}, [], #false, fun (env): env)
+
+fun extract_flags(who, elements :~ List):
+  elements.filter(~skip: fun (v): v is_a Handler && !(v is_a Flag))
