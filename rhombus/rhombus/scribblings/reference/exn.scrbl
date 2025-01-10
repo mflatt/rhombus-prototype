@@ -122,6 +122,8 @@
     extends Exn.Fail.Contract
   class Exn.Fail.Contract.Variable(id :: Symbol):
     extends Exn.Fail.Contract
+  class Exn.Fail.Annot.At(srclocs :: PairList.of(Srcloc)):
+    extends Exn.Fail.Contract
   class Exn.Fail.Syntax(exprs :: PairList.of(Syntax)):
     extends Exn.Fail
   class Exn.Fail.Syntax.Unbound():

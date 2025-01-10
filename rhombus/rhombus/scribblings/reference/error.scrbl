@@ -40,8 +40,9 @@
  When @rhombus(exn) is called by @rhombus(error), the first argument is
  a string message, and the second argument is
  @rhombus(Continuation.Marks.current()). If @rhombus(exn) accepts at
- least three arguments, then @rhombus(srcloc) is provided as the third
- argument. If @rhombus(exn) accepts four arguments, then the list of
+ least three arguments, then @rhombus(PairList[srcloc]) is provided as the third
+ argument if @rhombus(srcloc) is a @rhombus(Srcloc) or @rhombus(PairList[]) otherwise.
+ If @rhombus(exn) accepts four arguments, then the list of
  @rhombus(clause)s is provided as the fourth argument.
 
  Conventions for using @rhombus(error):
@@ -54,14 +55,14 @@
   has multiple sentences, separate then with @litchar{;} and stay in
   lowercase mode.}
 
-  @item{Normally, @rhombus(Exn.Fail.Annot, ~annot) should be used for
+  @item{Normally, @rhombus(Exn.Fail.Annot.At, ~annot) should be used for
   @rhombus(exn) (in place of @rhombus(Exn.Fail, ~annot)) if the exception
   represents an error that could have been prevented (without a race
   condition) by a preceding check.}
 
   @item{To throw an error that complains about a single
   argument--annotation mismatch (in the same way as @rhombus(::)), use
-  @rhombus(~exn: Exn.Fail.Annot), use @rhombus(error.annot_msg) to
+  @rhombus(~exn: Exn.Fail.Annot.At), use @rhombus(error.annot_msg) to
   construct @rhombus(message), and use @rhombus(error.annot) to and
   @rhombus(error.val) to constructs @rhombus(clause)s. Provide the same
   label string to @rhombus(error.annot_msg) and @rhombus(error.val) if it
