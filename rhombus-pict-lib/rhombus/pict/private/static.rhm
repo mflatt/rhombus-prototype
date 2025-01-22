@@ -93,6 +93,8 @@ enum LineWidth:
 
 enum HorizAlignment: left center right
 enum VertAlignment: top topline center baseline bottom
+enum VertTextAlignment: endline
+                        ~is_a VertAlignment
 enum EpochAlignment: early center stretch late
 enum DurationAlignment: sustain pad
 enum TimeAlignment: ~is_a Int; start sync insert end
@@ -107,7 +109,12 @@ def empty_instances = []
 
 annot.delayed_declare SnapshotPict
 
-class PictIdentity(mutable rep)
+class PictIdentity(mutable gen):
+  implements Printable
+  override describe(mode, recur):
+    PrintDesc.list("PictIdentity(",
+                   [recur(Equatable.identity_hash(this))],
+                   ")")
 
 fun genident():
   PictIdentity(#false)
@@ -252,7 +259,7 @@ class Pict():
     let (p, _) = _replace(fun (p): p,
                           fun (p): p,
                           fun (c): c,
-                          Map.by(===){ from : to })
+                          Map.by(===){ from.identity : to })
     p
 
   method configure(key, val) :~ Pict:
@@ -268,8 +275,8 @@ class Pict():
                                _children, _dependencies, _config,
                                _rebuild):
     cond
-    | subst.has_key(this):
-        values(subst[this], subst)
+    | identity in subst:
+        values(subst[identity], subst)
     | ~else:
         let new = pre_adjuster(this)
         cond
@@ -281,7 +288,8 @@ class Pict():
                     error.annot("Pict"),
                     error.val(~label: "function", pre_adjuster),
                     error.val(~label: "result", new))
-            values(new, subst ++ { this: new })
+            let new = Pict._identify_as(new, identity)
+            values(new, subst ++ { identity: new })
         | ~else:
             let (new, subst :~ Map):
               match  _dependencies || _children:
@@ -329,7 +337,16 @@ class Pict():
                     error.annot("Pict"),
                     error.val(~label: "function", adjuster),
                     error.val(~label: "result", new))
-            values(new, subst ++ { this: new })
+            let new = Pict._identify_as(new, identity)
+            values(new, subst ++ { identity: new })
+
+  abstract protected method _identify_as(identity)
+
+  method find_replacement(p :: Pict) :~ maybe(Pict):
+    if p.identity == identity
+    | this
+    | for any (c in children):
+        c.find_replacement(p)
 
 class StaticPict(private _handle,
                  private _identity,
@@ -507,6 +524,11 @@ class StaticPict(private _handle,
                 _children, _dependencies, _config,
                 _rebuild)
 
+  override method _identify_as(identity):
+    static_pict(_handle, this, [_instances, Pair(identity, _handle)], fun (p): p,
+                ~identity: identity,
+                ~dependencies: this)
+
 namespace StaticPict_public:
   export:
     rename:
@@ -518,8 +540,9 @@ annot.delayed_complete SnapshotPict: StaticPict
 fun static_pict(handle, children, instances, rebuild = #false,
                 ~dependencies: dependencies = #false,
                 ~config: config = #false,
-                ~metadata: metadata = {}) :~ StaticPict:
-  _StaticPict()(handle, genident(), children, dependencies, config, instances, rebuild, metadata)
+                ~metadata: metadata = {},
+                ~identity: identity = genident()) :~ StaticPict:
+  _StaticPict()(handle, identity, children, dependencies, config, instances, rebuild, metadata)
 
 def mutable do_convert = (fun (p): error("convert not ready"))
 fun convert(p :~ List.of(Pict), epoch, duration, combine, non_sustain_combine = combine,
@@ -544,6 +567,8 @@ class ContainerPict(private ps :~ List.of(Pict)):
   internal _ContainerPict
   constructor (ps, children, rebuild):
     super(children, rebuild)(ps)
+  override method _identify_as(identity):
+    this
 
 class NothingPict():
   ~name Pict
@@ -612,6 +637,8 @@ class NothingPict():
 
   override method _replace(pre_adjuster, adjuster, config_adjuster, subst): this
 
+  override method _identify_as(identity): this
+
 def nothing = NothingPict()
 
 fun remove_nothings(ps :~ List):
@@ -626,6 +653,7 @@ fun from_handle(p :: satisfying(#{pict?}),
   static_pict(p, [sub, ...], [sub._instances, ...], rebuild)
 
 fun static_instance([p :: Pict, ...], as_p :: _StaticPict,
+                    ~identity: identity = genident(),
                     ~dependencies: dependencies = #false,
                     ~config: config = #false,
                     ~rebuild: rebuild = fun (p): p):
@@ -633,6 +661,7 @@ fun static_instance([p :: Pict, ...], as_p :: _StaticPict,
   | as_p
   | let handle: rkt.inset(as_p.handle, 0) // fresh identity
     static_pict(handle, as_p, as_p._instances ++ [Pair(p.identity, handle), ...], rebuild,
+                ~identity: identity,
                 ~dependencies: dependencies,
                 ~config: config)
 
@@ -649,8 +678,43 @@ def default_font = draw.Font()
 
 // ------------------------------------------------------------
 
+fun rkt_set_pict_last(hand, last_hand):
+  rkt.#{pict}(rkt.#{pict-draw}(hand),
+              rkt.#{pict-width}(hand),
+              rkt.#{pict-height}(hand),
+              rkt.#{pict-ascent}(hand),
+              rkt.#{pict-descent}(hand),
+              rkt.#{pict-children}(hand),
+              rkt.#{pict-panbox}(hand),
+              last_hand)
+
+fun
+| handle_path(p1, p2 :: Pair):
+    Pair.cons(p1, p2)
+| handle_path(p1, p2):
+    PairList[p1, p2]
+
+fun 
+| rkt_last_append(sep, [h1, h2]):
+    let last_handle = rkt.#{pict-last}(h1)
+    if last_handle
+    | let (x, y) = rkt.#{rbl-find}(h1, last_handle)
+      let new_h = rkt.#{hbl-append}(sep - (rkt.#{pict-width}(h1) - x), h1, h2)
+      let new_h:
+        let delta = rkt.#{pict-width}(h1) - (x + rkt.#{pict-width}(h2))
+        if delta > 0
+        | rkt.#{inset}(new_h, 0, 0, delta, 0)
+        | new_h
+      let last_handle2 = rkt.#{pict-last}(h2)
+      if last_handle2
+      | rkt_set_pict_last(new_h, handle_path(h2, last_handle2))
+      | rkt_set_pict_last(new_h, h2)
+    | rkt.#{hbl-append}(sep, h1, h2)
+| rkt_last_append(sep, [h1, h2, h3, ...]):
+    rkt_last_append(sep, [rkt_last_append(sep, [h1, h2]), h3, ...])
+
 fun beside(~sep: sep ::Real = 0,
-           ~vert: vert :: VertAlignment = #'center,
+           ~vert: vert :: VertTextAlignment = #'center,
            ~order: order :: OverlayOrder = #'front,
            ~epoch: epoch :: EpochAlignment = #'center,
            ~duration: duration :: DurationAlignment = #'sustain,
@@ -670,6 +734,7 @@ fun beside(~sep: sep ::Real = 0,
             | #'topline: rkt.#{htl-append}(sep, p.handle, ...)
             | #'center: rkt.#{hc-append}(sep, p.handle, ...)
             | #'baseline: rkt.#{hbl-append}(sep, p.handle, ...)
+            | #'endline: rkt_last_append(sep, [p.handle, ...])
             | #'bottom: rkt.#{hb-append}(sep, p.handle, ...)
           | let [g, ...] = [rkt.launder(rkt.ghost(p.handle)), ...]
             let g_hand:
@@ -678,6 +743,7 @@ fun beside(~sep: sep ::Real = 0,
               | #'topline: rkt.#{htl-append}(sep, g, ...)
               | #'center: rkt.#{hc-append}(sep, g, ...)
               | #'baseline: rkt.#{hbl-append}(sep, g, ...)
+              | #'endline: rkt_last_append(sep, [g, ...])
               | #'bottom: rkt.#{hb-append}(sep, g, ...)
             for values(hand = g_hand) (p_hand: [p.handle, ...],
                                        g: [g, ...]):
@@ -688,7 +754,7 @@ fun beside(~sep: sep ::Real = 0,
 
 namespace beside:
   export:
-    top topline center baseline bottom
+    top topline center baseline endline bottom
   fun top(~sep: sep :: Real = 0, p :: Pict, ...) :~ Pict:
     beside(~sep: sep, ~vert: #'top, p, ...)
   fun topline(~sep: sep :: Real = 0, p :: Pict, ...) :~ Pict:
@@ -697,6 +763,8 @@ namespace beside:
     beside(~sep: sep, ~vert: #'center, p, ...)
   fun baseline(~sep: sep :: Real = 0, p :: Pict, ...) :~ Pict:
     beside(~sep: sep, ~vert: #'baseline, p, ...)
+  fun endline(~sep: sep :: Real = 0, p :: Pict, ...) :~ Pict:
+    beside(~sep: sep, ~vert: #'endline, p, ...)
   fun bottom(~sep: sep :: Real = 0, p :: Pict, ...) :~ Pict:
     beside(~sep: sep, ~vert: #'bottom, p, ...)
 
@@ -729,6 +797,12 @@ fun stack(~sep: sep :: Real = 0,
             for values(hand = g_hand) (p_hand: [p.handle, ...],
                                        g: [g, ...]):
               rkt.#{pin-under}(hand, g, rkt.#{lt-find}, p_hand)
+        let new_handle:
+          let last_p :~ _StaticPict = children.last
+          let last_handle = rkt.#{pict-last}(last_p.handle)
+          if last_handle
+          | rkt_set_pict_last(new_handle, handle_path(last_p.handle, last_handle))
+          | rkt_set_pict_last(new_handle, last_p.handle)
         static_pict(new_handle, children, all_instances,
                     fun (ps): retry(ps, dt, n))
     | ps:
@@ -1311,7 +1385,7 @@ fun dc(draw :: Function.of_arity(3) described_as (draw.DC, Real, Real) -> ~any,
 
 // ------------------------------------------------------------
 
-class Find(private q, private find, private t_find_or_dt, private is_animated):
+class Find(private q :~ Pict, private find, private t_find_or_dt, private is_animated):
   internal _Find
 
   constructor(q :: Pict,
@@ -1371,7 +1445,7 @@ class Find(private q, private find, private t_find_or_dt, private is_animated):
 
   method start_in(p :: Pict) :~ Int:
     fun loop (p :~ Pict, delta):
-      if p == q
+      if p.identity == q.identity
       | delta
       | for any (c: p.children,
                  start: (p :~ _Pict)._children_starts):
@@ -1455,8 +1529,9 @@ fun offset(proc, dx, dy, dx_w, dy_h):
         match q
         | q :: StaticPict:
             try:
-              let (x, y) = proc(p.handle, q.handle)
-              let (dx_w, dy_h) = size_shift(p.handle, q.handle)
+              let q_handle = find_instance(p, q) || q.handle
+              let (x, y) = proc(p.handle, q_handle)
+              let (dx_w, dy_h) = size_shift(p.handle, q_handle)
               values(x + dx + dx_w, y + dy + dy_h)
               ~catch x:
                 values(#false, #false)
